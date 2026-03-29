@@ -647,5 +647,193 @@ class AgentPlanningTests(unittest.TestCase):
         self.assertEqual(result.screenshots[1].label, "final_state")
 
 
+class WorkdayAgentTests(unittest.TestCase):
+    def test_workday_builds_expected_actions(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+        from apply_engine.portal_specs import WORKDAY_SELECTORS, WORKDAY_CUSTOM_SELECTORS
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/New-York/Engineer_JR-12345")
+        actions = agent.build_actions(request)
+
+        self.assertTrue(any(
+            a.action == "fill" and a.selector == WORKDAY_SELECTORS["first_name"] and a.value == "Test"
+            for a in actions
+        ))
+        self.assertTrue(any(
+            a.action == "fill" and a.selector == WORKDAY_SELECTORS["last_name"] and a.value == "User"
+            for a in actions
+        ))
+        self.assertTrue(any(a.action == "upload" for a in actions))
+        self.assertTrue(any(
+            a.action == "check" and a.selector == WORKDAY_SELECTORS["sponsorship_no"]
+            for a in actions
+        ))
+        self.assertTrue(any(
+            a.action == "fill" and a.selector == WORKDAY_CUSTOM_SELECTORS["school"]["fill_selector"]
+            for a in actions
+        ))
+
+    def test_workday_dry_run_returns_unsupported(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-999")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.portal, "workday")
+        self.assertEqual(result.status, "unsupported")
+        self.assertGreater(len(result.actions), 0)
+
+    def test_workday_apply_returns_applied_on_confirmation(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+
+        agent = WorkdayAgent()
+        request = ApplyRequest(
+            url="https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-1",
+            profile=make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-1").profile,
+            dry_run=False,
+        )
+
+        async def fake_runner(_: str, worker):
+            step = {"count": 0}
+
+            class FakeLocator:
+                def __init__(self, *, text: str = "", count: int = 1) -> None:
+                    self._text = text
+                    self._count = count
+
+                async def count(self) -> int:
+                    return self._count
+
+                async def inner_text(self) -> str:
+                    return self._text
+
+            class FakePage:
+                async def fill(self, selector: str, value: str) -> None:
+                    return None
+
+                async def set_input_files(self, selector: str, value: str) -> None:
+                    return None
+
+                async def select_option(self, selector: str, value: str) -> None:
+                    return None
+
+                async def check(self, selector: str) -> None:
+                    return None
+
+                async def click(self, selector: str) -> None:
+                    step["count"] += 1
+
+                async def wait_for_timeout(self, timeout: int) -> None:
+                    return None
+
+                async def screenshot(self, **_: object) -> bytes:
+                    return b"workday-screenshot"
+
+                @property
+                def url(self) -> str:
+                    # Return confirmation URL after first click
+                    if step["count"] >= 1:
+                        return "https://company.myworkdayjobs.com/en-US/careers/job/thankYou"
+                    return "https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-1"
+
+                def locator(self, selector: str) -> FakeLocator:
+                    if selector == "body":
+                        if step["count"] >= 1:
+                            return FakeLocator(text="Thank you for applying to this role.")
+                        return FakeLocator(text="My Information - Step 1")
+                    return FakeLocator(count=1)
+
+            return await worker(FakePage())
+
+        with patch("apply_engine.agents.workday.run_with_chromium", fake_runner):
+            result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.portal, "workday")
+        self.assertEqual(result.status, "applied")
+        self.assertIn("Thank you", result.confirmation_snippet)
+
+    def test_workday_apply_returns_requires_auth_on_login_wall(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+
+        agent = WorkdayAgent()
+        request = ApplyRequest(
+            url="https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-2",
+            profile=make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-2").profile,
+            dry_run=False,
+        )
+
+        async def fake_runner(_: str, worker):
+            class FakeLocator:
+                def __init__(self, *, text: str = "", count: int = 1) -> None:
+                    self._text = text
+                    self._count = count
+
+                async def count(self) -> int:
+                    return self._count
+
+                async def inner_text(self) -> str:
+                    return self._text
+
+            class FakePage:
+                async def fill(self, selector: str, value: str) -> None:
+                    return None
+
+                async def set_input_files(self, selector: str, value: str) -> None:
+                    return None
+
+                async def select_option(self, selector: str, value: str) -> None:
+                    return None
+
+                async def check(self, selector: str) -> None:
+                    return None
+
+                async def click(self, selector: str) -> None:
+                    return None
+
+                async def wait_for_timeout(self, timeout: int) -> None:
+                    return None
+
+                async def screenshot(self, **_: object) -> bytes:
+                    return b"workday-auth"
+
+                @property
+                def url(self) -> str:
+                    return "https://company.myworkdayjobs.com/login"
+
+                def locator(self, selector: str) -> FakeLocator:
+                    return FakeLocator(
+                        text="Sign in to continue your application. Log in or create an account.",
+                        count=1,
+                    )
+
+            return await worker(FakePage())
+
+        with patch("apply_engine.agents.workday.run_with_chromium", fake_runner):
+            result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.portal, "workday")
+        self.assertEqual(result.status, "requires_auth")
+
+    def test_workday_sponsorship_yes_when_required(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+        from apply_engine.portal_specs import WORKDAY_SELECTORS
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-3")
+        request.profile.sponsorship_required = True
+        actions = agent.build_actions(request)
+
+        self.assertTrue(any(
+            a.action == "check" and a.selector == WORKDAY_SELECTORS["sponsorship_yes"]
+            for a in actions
+        ))
+        self.assertFalse(any(
+            a.action == "check" and a.selector == WORKDAY_SELECTORS["sponsorship_no"]
+            for a in actions
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()

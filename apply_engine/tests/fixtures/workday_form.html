@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Workday Apply</title></head>
+<body>
+  <!-- Step 1: My Information -->
+  <div data-automation-id="legalNameSection">
+    <div data-automation-id="legalNameSection_firstName">
+      <label>First Name</label>
+      <input type="text" name="firstName" />
+    </div>
+    <div data-automation-id="legalNameSection_lastName">
+      <label>Last Name</label>
+      <input type="text" name="lastName" />
+    </div>
+  </div>
+
+  <div data-automation-id="email">
+    <label>Email</label>
+    <input type="email" name="email" />
+  </div>
+
+  <div data-automation-id="phone-number">
+    <label>Phone</label>
+    <input type="tel" name="phone" />
+  </div>
+
+  <!-- Resume upload -->
+  <div data-automation-id="resumeUpload">
+    <input data-automation-id="file-upload-input-ref" type="file" name="resume" />
+  </div>
+
+  <!-- Work authorization -->
+  <div data-automation-id="workAuthorizationStatus">
+    <div data-automation-id="combobox">
+      <select>
+        <option value="">Select...</option>
+        <option value="US Citizen">US Citizen</option>
+        <option value="Requires sponsorship">Requires sponsorship</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Sponsorship -->
+  <div data-automation-id="visaSponsorship">
+    <input type="radio" data-automation-id="Yes" name="sponsorship" value="Yes" />
+    <label>Yes</label>
+    <input type="radio" data-automation-id="No" name="sponsorship" value="No" />
+    <label>No</label>
+  </div>
+
+  <!-- Education fields -->
+  <div data-automation-id="school">
+    <label>School</label>
+    <input type="text" name="school" />
+  </div>
+
+  <div data-automation-id="degree">
+    <label>Degree</label>
+    <input type="text" data-automation-id="degree" name="degree" />
+    <div data-automation-id="combobox">
+      <select name="degreeSelect">
+        <option value="">Select degree...</option>
+        <option value="Bachelor of Science">Bachelor of Science</option>
+        <option value="Master of Science">Master of Science</option>
+      </select>
+    </div>
+  </div>
+
+  <div data-automation-id="dateReceived">
+    <label>Graduation Date</label>
+    <input type="text" name="graduationDate" />
+  </div>
+
+  <!-- Navigation -->
+  <div data-automation-id="bottom-navigation">
+    <button data-automation-id="bottom-navigation-next-btn" type="button">Next</button>
+  </div>
+</body>
+</html>

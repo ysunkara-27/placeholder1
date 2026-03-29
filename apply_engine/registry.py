@@ -4,12 +4,14 @@ from apply_engine.agents.detector import detect_portal
 from apply_engine.agents.greenhouse import GreenhouseAgent
 from apply_engine.agents.lever import LeverAgent
 from apply_engine.agents.vision import VisionAgent
+from apply_engine.agents.workday import WorkdayAgent
 from apply_engine.models import ApplyRequest, ApplyResult
 
 
 AGENTS = {
     "greenhouse": GreenhouseAgent(),
     "lever": LeverAgent(),
+    "workday": WorkdayAgent(),
     "vision": VisionAgent(),
 }
 
