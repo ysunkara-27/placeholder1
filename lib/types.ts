@@ -1,0 +1,146 @@
+// ─── Resume ──────────────────────────────────────────────────────────────────
+
+export interface Education {
+  school: string;
+  degree: string;
+  graduation: string;
+  gpa?: string;
+}
+
+export interface Experience {
+  company: string;
+  title: string;
+  dates: string;
+  bullets: string[];
+  tags: string[];
+}
+
+export type Industry =
+  | "SWE"
+  | "Finance"
+  | "Consulting"
+  | "PM"
+  | "Research"
+  | "Data"
+  | "Design"
+  | "Marketing"
+  | "Legal"
+  | "Healthcare"
+  | "Operations"
+  | "Sales";
+
+export type JobLevel = "internship" | "new_grad" | "part_time" | "co_op";
+
+export type NotificationPref = "sms" | "email";
+
+export interface UserPreferences {
+  industries: Industry[];
+  levels: JobLevel[];
+  locations: string[];
+  remote_ok: boolean;
+  salary_min: number;
+  salary_max: number;
+  sponsorship_required: boolean;
+  min_company_size: number | null;
+  excluded_companies: string[];
+  excluded_industries: string[];
+  notification: NotificationPref;
+  phone?: string;
+  email: string;
+}
+
+export interface ResumeProfile {
+  name: string;
+  email: string;
+  phone?: string;
+  education: Education[];
+  experience: Experience[];
+  skills: string[];
+  excess_pool: string[];
+  preferences: UserPreferences;
+}
+
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+
+export type OnboardingStep =
+  | "industries"
+  | "level"
+  | "locations"
+  | "notifications"
+  | "gray-areas"
+  | "resume";
+
+export interface OnboardingState {
+  step: OnboardingStep;
+  stepIndex: number;
+  data: Partial<UserPreferences>;
+}
+
+// ─── Gray Areas (Claude-suggested) ───────────────────────────────────────────
+
+export interface GrayAreaSuggestion {
+  salary_min: number;
+  salary_max: number;
+  salary_unit: "hourly" | "annual";
+  sponsorship_required: boolean;
+  min_company_size: number | null;
+  excluded_companies: string[];
+  excluded_industries: string[];
+  rationale: {
+    salary: string;
+    sponsorship: string;
+    company_size: string;
+  };
+}
+
+// ─── Resume Chat ─────────────────────────────────────────────────────────────
+
+export type ChatRole = "user" | "assistant";
+
+export interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  timestamp: Date;
+}
+
+export interface ParsedResumeChunk {
+  type: "experience" | "education" | "skill" | "bullet" | "summary";
+  raw: string;
+  structured?: Partial<Experience> | Partial<Education>;
+}
+
+// ─── Jobs (for later) ─────────────────────────────────────────────────────────
+
+export interface Job {
+  id: string;
+  company: string;
+  title: string;
+  level: JobLevel;
+  location: string;
+  remote: boolean;
+  industries: string[];
+  url: string;
+  application_url: string;
+  posted_at: string;
+  jd_summary?: string;
+  scraped_at: string;
+}
+
+export type AlertStatus =
+  | "pending"
+  | "confirmed"
+  | "skipped"
+  | "expired"
+  | "applied"
+  | "failed";
+
+export interface Alert {
+  id: string;
+  user_id: string;
+  job_id: string;
+  job: Job;
+  status: AlertStatus;
+  alerted_at: string;
+  replied_at?: string;
+}
