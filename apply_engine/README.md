@@ -14,23 +14,24 @@ This service is the low-cost autonomous apply runner.
 
 1. Create a Python virtual environment.
 2. Install dependencies from `requirements.txt`.
-3. Run detector tests first.
+3. Run detector/tests first.
 4. Add Playwright browsers.
 5. Start the FastAPI app.
 
 ## Commands
 
 ```bash
-python3 -m unittest discover apply_engine/tests -v
-python3 -m py_compile $(find apply_engine -name '*.py')
+./.venv/bin/python -m unittest discover apply_engine/tests -v
+./.venv/bin/python -m py_compile $(find apply_engine -name '*.py')
 ```
 
 If you install the runtime dependencies:
 
 ```bash
-pip install -r apply_engine/requirements.txt
-playwright install chromium
-uvicorn apply_engine.main:app --reload
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r apply_engine/requirements.txt
+./.venv/bin/playwright install chromium
+./.venv/bin/uvicorn apply_engine.main:app --reload
 ```
 
 ## Endpoints
@@ -40,3 +41,14 @@ uvicorn apply_engine.main:app --reload
 - `POST /apply`
 
 Use `/plan` first during development. It returns the detected portal and the exact action plan without attempting submission.
+
+## Batch job ingest
+
+The repo also includes a Python batcher for posting scraped jobs into the Next/Supabase ingest API:
+
+```bash
+./.venv/bin/python apply_engine/scripts/ingest_jobs.py \
+  --file path/to/jobs.json \
+  --base-url http://localhost:3000 \
+  --worker-secret "$APPLY_QUEUE_WORKER_SECRET"
+```

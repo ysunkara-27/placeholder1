@@ -143,7 +143,8 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
         }
 
         const draft = mapPersistedProfileToApplicantDraft(
-          mapProfileRowToPersistedProfile(profileRow)
+          mapProfileRowToPersistedProfile(profileRow),
+          profileRow.email ?? ""
         );
         setProfileJson(JSON.stringify(draft, null, 2));
       } catch (err) {

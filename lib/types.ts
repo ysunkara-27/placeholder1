@@ -181,3 +181,13 @@ export interface Alert {
   alerted_at: string;
   replied_at?: string;
 }
+
+// ─── EEO / Diversity data ─────────────────────────────────────────────────────
+
+export interface EEOData {
+  pronouns?: string;
+  gender?: string;
+  race_ethnicity?: string;
+  veteran_status?: string;
+  disability_status?: string;
+}

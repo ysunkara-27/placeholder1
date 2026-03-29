@@ -14,6 +14,21 @@ import {
   type ApplyRunRecord,
 } from "@/components/dashboard/apply-runs-list";
 import type { AnnotatedResume } from "@/lib/types";
+
+export interface AlertRecord {
+  id: string;
+  status: string;
+  alerted_at: string;
+  replied_at: string | null;
+  job: {
+    company: string;
+    title: string;
+    location: string;
+    level: string;
+    remote: boolean;
+    application_url: string;
+  } | null;
+}
 import { INDUSTRY_OPTIONS, LEVEL_OPTIONS } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -31,6 +46,7 @@ export default function DashboardPage() {
   const [resume, setResume] = useState<AnnotatedResume | null>(null);
   const [applications, setApplications] = useState<DashboardApplicationRecord[]>([]);
   const [applyRuns, setApplyRuns] = useState<ApplyRunRecord[]>([]);
+  const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -72,27 +88,35 @@ export default function DashboardPage() {
       setProfile(mapProfileRowToPersistedProfile(profileRow));
       setResume(extractResumeFromProfileRow(profileRow));
 
-      const runsResponse = await fetch("/api/apply/runs", { cache: "no-store" });
+      // Show the page immediately — runs/applications load in parallel below
+      if (active) setReady(true);
+
+      const [runsResponse, applicationsResponse, alertsResponse] = await Promise.all([
+        fetch("/api/apply/runs", { cache: "no-store" }),
+        fetch("/api/applications/recent", { cache: "no-store" }),
+        fetch("/api/alerts/recent", { cache: "no-store" }),
+      ]);
+
+      if (!active) return;
+
       if (runsResponse.ok) {
         const runsPayload = await runsResponse.json();
         setApplyRuns(runsPayload.runs ?? []);
       }
 
-      const applicationsResponse = await fetch("/api/applications/recent", {
-        cache: "no-store",
-      });
       if (applicationsResponse.ok) {
         const applicationsPayload = await applicationsResponse.json();
         setApplications(applicationsPayload.applications ?? []);
+      }
+
+      if (alertsResponse.ok) {
+        const alertsPayload = await alertsResponse.json();
+        setAlerts(alertsPayload.alerts ?? []);
       }
     } catch {
       router.replace("/onboarding");
       return;
     }
-
-      if (active) {
-        setReady(true);
-      }
     }
 
     void loadDashboard();
@@ -205,6 +229,19 @@ export default function DashboardPage() {
           failed={failedRuns}
         />
 
+        {/* Alerts */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Job alerts</h2>
+              <p className="mt-0.5 text-xs text-gray-400">
+                Matches your Twin found. Reply YES via SMS or click to apply.
+              </p>
+            </div>
+          </div>
+          <AlertsList alerts={alerts} />
+        </div>
+
         {/* Applications */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -289,6 +326,75 @@ function SettingRow({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="text-sm text-gray-800">{value}</p>
+    </div>
+  );
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  pending:   "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  skipped:   "bg-gray-100 text-gray-500 border-gray-200",
+  expired:   "bg-gray-100 text-gray-400 border-gray-200",
+  applied:   "bg-green-50 text-green-700 border-green-200",
+  failed:    "bg-red-50 text-red-600 border-red-200",
+};
+
+function AlertsList({ alerts }: { alerts: AlertRecord[] }) {
+  if (alerts.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white px-6 py-10 text-center space-y-2">
+        <div className="flex justify-center">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 text-lg">
+            📡
+          </span>
+        </div>
+        <p className="text-sm font-medium text-gray-700">Scanning job boards…</p>
+        <p className="text-xs text-gray-400">
+          Your Twin will alert you here the moment a match drops.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {alerts.map((alert) => (
+        <div
+          key={alert.id}
+          className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-center gap-4"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {alert.job?.title ?? "—"} @ {alert.job?.company ?? "—"}
+              </p>
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLES[alert.status] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}
+              >
+                {alert.status}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {alert.job?.location ?? ""}
+              {alert.job?.remote ? " · Remote" : ""}
+              {" · "}
+              {new Date(alert.alerted_at).toLocaleDateString("en-US", {
+                month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+              })}
+            </p>
+          </div>
+          {alert.job?.application_url && alert.status === "pending" && (
+            <a
+              href={alert.job.application_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
+              Apply →
+            </a>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

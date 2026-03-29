@@ -28,21 +28,24 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: call getUser() before any conditional logic so that the session
-  // is always refreshed — even on routes we're not protecting.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
+  const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
 
-  // Guard protected routes — redirect to onboarding if no active session
-  if (PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
+  if (isProtected) {
+    // getUser() makes a live call to the Supabase Auth API — only pay this cost
+    // on routes that actually need it. Public routes use getSession() (cookie only).
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       const onboarding = request.nextUrl.clone();
       onboarding.pathname = "/onboarding";
       return NextResponse.redirect(onboarding);
     }
+  } else {
+    // Refresh the session cookie without making a network call to Auth API.
+    await supabase.auth.getSession();
   }
 
   return response;

@@ -4,7 +4,8 @@ import { getApplyQueueEnv } from "@/lib/env";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-// Allow up to 5 minutes for queue drain — Vercel Pro max
+// Allow up to 5 minutes for queue drain if this endpoint is triggered by
+// an external scheduler against a deployment/runtime that supports it.
 export const maxDuration = 300;
 
 // Maximum applications to process per cron tick.
@@ -23,14 +24,13 @@ function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "");
 
-  // Vercel Cron sends Authorization: Bearer {CRON_SECRET} where CRON_SECRET
-  // is injected automatically. We reuse APPLY_QUEUE_WORKER_SECRET so a single
-  // env var covers both Vercel Cron and manual Railway triggers.
+  // Reuse APPLY_QUEUE_WORKER_SECRET for GitHub Actions, manual local triggers,
+  // and any future worker host so there is one scheduler secret.
   return token === workerSecret;
 }
 
 // POST /api/internal/cron/process-queue
-// Called every minute by Vercel Cron (configured in vercel.json).
+// Called by an external scheduler or worker host.
 // Drains up to MAX_PER_TICK queued applications per invocation.
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!isAuthorized(req)) {

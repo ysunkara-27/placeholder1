@@ -1,0 +1,62 @@
+name: Twin Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_seed_ingest:
+        description: "Run seed job ingest"
+        required: false
+        default: "true"
+      expire_alerts:
+        description: "Expire old pending alerts"
+        required: false
+        default: "true"
+  schedule:
+    - cron: "0 13,1 * * *"
+    - cron: "15 */6 * * *"
+
+jobs:
+  ingest-seed-jobs:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 13,1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_seed_ingest == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Install apply engine dependencies
+        run: ./.venv/bin/python -m pip install -r apply_engine/requirements.txt
+
+      - name: Ingest repo seed jobs
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          ./.venv/bin/python apply_engine/scripts/ingest_seed_jobs.py \
+            --base-url "$TWIN_APP_BASE_URL" \
+            --worker-secret "$APPLY_QUEUE_WORKER_SECRET"
+
+  expire-alerts:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '15 */6 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.expire_alerts == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Expire stale alerts
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+            "$TWIN_APP_BASE_URL/api/internal/cron/expire-alerts"

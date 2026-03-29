@@ -37,6 +37,8 @@ As of this update, the repo already has meaningful platform scaffolding.
 - On-demand materialization of seeded job URLs into real `jobs` rows
 - Real `applications` records used as the first queue primitive for apply execution
 - Queue-backed apply submission with stored request payloads, per-user manual processing, and secret-backed worker processing
+- Worker-authenticated `/api/jobs/ingest` endpoint with typed payload validation and a Python batch ingest script
+- Basic scoring-based matching and alert creation on ingest
 - Dashboard recent applications fed from DB-backed `applications` + `jobs`
 - Dashboard recent applications now reflect `queued`, `running`, `applied`, `requires_auth`, and `failed` states from DB truth
 - Apply runs now capture inline screenshots for filled, final, and failure states
@@ -58,8 +60,8 @@ As of this update, the repo already has meaningful platform scaffolding.
 
 ### Still Not Fully Real
 
-- No production job ingestion pipeline yet
-- No real matching engine yet
+- No broad-source always-on ingestion scheduler yet beyond repo-seed scheduled ingestion
+- No sufficiently hardened matching engine yet
 - No live alerting or inbound SMS reply loop yet
 - No always-on scheduler / retry / dead-letter pipeline yet
 - No Workday or Handshake real agent yet
@@ -107,7 +109,8 @@ Twin should let a student:
 - Runtime split:
   - Vercel for frontend/api routes by default
   - Supabase for auth and Postgres
-  - Railway for Python apply engine initially
+  - GitHub Actions for low-frequency scheduled ingestion/maintenance
+  - Railway for Python apply engine later if unattended Playwright execution becomes necessary
 
 ### Apply Engine
 
@@ -134,6 +137,7 @@ Twin should let a student:
 
 - Product/master plan: `docs/master-planning.md`
 - Claude research intake: `twinmegaresearch.md`
+- Claude scraper build spec: `docs/claude-internship-scraper-build-spec.md`
 - Lightweight legacy roadmap: `docs/platform-roadmap.md`
 - Apply engine implementation notes: `apply_engine/README.md`
 - Seed jobs: `data/job-seeds/live-openings-2026.json`
@@ -283,9 +287,9 @@ Deliverables:
 
 Open items:
 
-- seeded jobs are now persisted on demand through apply plan/submit routes
-- there is still no explicit import/sync job for seeds or future sources
-- no canonicalization/dedupe implementation yet
+- seeded jobs are persisted on demand and there is now a worker-authenticated ingest API for external batches
+- GitHub Actions now schedules repo-seed ingestion, but future external sources still need their own sync jobs
+- canonicalization/dedupe now exists for ingested `jobs.url`, but broader source normalization still needs expansion
 
 Exit criteria:
 
@@ -300,9 +304,74 @@ Required tests:
 - portal classification
 - import idempotency
 
+### Session Update: 2026-03-29
+
+- Workstream: Job intake and normalization
+- Feature batch: Supabase-backed jobs ingest API and Python batcher
+- Status before: jobs were only materialized on demand from local seeds and there was no typed external ingest path
+- Status after: Twin has a worker-authenticated `/api/jobs/ingest` endpoint with typed payload validation, DB-backed upsert/dedupe behavior, matching + alert fanout, and a repo-local Python batch script for concurrent ingestion
+- Files changed:
+  - `app/api/jobs/ingest/route.ts`
+  - `lib/job-ingest.ts`
+  - `lib/jobs.ts`
+  - `lib/portal.ts`
+  - `apply_engine/scripts/ingest_jobs.py`
+  - `apply_engine/tests/test_job_ingest_script.py`
+  - `apply_engine/requirements.txt`
+  - `package.json`
+  - `README.md`
+  - `apply_engine/README.md`
+  - `supabase/migrations/20260329233000_jobs_url_uniqueness.sql`
+  - `docs/master-planning.md`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `./.venv/bin/python -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+- Tests passed:
+  - 45 Python tests passed
+  - Python bytecode compile passed
+  - Next production build passed
+- Known gaps:
+  - no scheduled source sync yet
+  - no route-level integration test harness on the Next side yet
+  - standalone `npx tsc --noEmit` is still unreliable because this repo’s `tsconfig` depends on generated `.next/types`
+- Next recommended step:
+  - connect one real source export into the batcher, then move into scheduled ingest and alert operations
+
+### Session Update: 2026-03-29
+
+- Workstream: Operations and deployment
+- Feature batch: Low-cost deployment shape using Vercel, GitHub Actions, and local Playwright workers
+- Status before: the repo still assumed Vercel cron-style scheduling and did not include scheduler automation for job ingest
+- Status after: GitHub Actions now drives twice-daily repo-seed job ingestion and 6-hour alert expiry, the internal cron routes are documented as external-scheduler endpoints, and the README reflects the actual low-cost deployment model
+- Files changed:
+  - `.github/workflows/twin-operations.yml`
+  - `.gitignore`
+  - `README.md`
+  - `apply_engine/README.md`
+  - `apply_engine/scripts/ingest_seed_jobs.py`
+  - `apply_engine/tests/test_ingest_seed_jobs.py`
+  - `app/api/internal/cron/process-queue/route.ts`
+  - `app/api/internal/cron/expire-alerts/route.ts`
+  - `docs/master-planning.md`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `./.venv/bin/python -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+- Tests passed:
+  - 47 Python tests passed
+  - Python bytecode compile passed
+  - Next production build passed
+- Known gaps:
+  - queue processing is still manual/local unless a separate worker host is added
+  - repo-seed ingestion is operational, but real external source feeds still need to be connected
+  - standalone `npx tsc --noEmit` remains unreliable because this repo’s `tsconfig` includes generated `.next/types`
+- Next recommended step:
+  - connect one real source feed into the GitHub Actions ingest path, then harden scheduled alert and queue operations
+
 ### Phase 4: Matching Engine
 
-Status: `not started`
+Status: `partial`
 
 Objective:
 
@@ -314,6 +383,12 @@ Deliverables:
 - hard constraint filters
 - explainable match metadata
 - `alerts` creation for qualifying jobs
+
+Open items:
+
+- a basic scoring model exists in code, but match explanations are not persisted
+- ingest-time alert fanout exists, but there is no operator-facing match review surface
+- gray-area, sponsorship, and graduation-window handling need stronger coverage
 
 Matching dimensions:
 

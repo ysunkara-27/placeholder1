@@ -4,15 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { StepProfile } from "@/components/onboarding/step-profile";
+import { StepEducation } from "@/components/onboarding/step-education";
 import { StepPreferences } from "@/components/onboarding/step-preferences";
 import { StepResume } from "@/components/onboarding/step-resume";
-import { StepPhone } from "@/components/onboarding/step-phone";
+import { StepAutofill } from "@/components/onboarding/step-autofill";
 import { Button } from "@/components/ui/button";
 import type {
   Industry,
   JobLevel,
   GrayAreaSuggestion,
   AnnotatedResume,
+  EEOData,
 } from "@/lib/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -26,10 +28,11 @@ import { Check, ChevronRight, ChevronLeft } from "lucide-react";
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: "profile",     label: "Profile",     hint: "Who you are" },
+  { id: "personal",    label: "Personal",    hint: "About you" },
+  { id: "education",   label: "Education",   hint: "School & work auth" },
   { id: "preferences", label: "Preferences", hint: "What you want" },
   { id: "resume",      label: "Resume",      hint: "Your experience" },
-  { id: "phone",       label: "Twin",        hint: "Stay connected" },
+  { id: "autofill",    label: "Extras",      hint: "Optional autofill" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -37,45 +40,60 @@ type StepId = (typeof STEPS)[number]["id"];
 // ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
-  // Step 1
+  // Step 1: personal
   name: string;
-  email: string;
+  phone: string;
+  city: string;
+  state_region: string;
+  country: string;
+  linkedin_url: string;
+  website_url: string;
+  github_url: string;
+  // Step 2: education
   school: string;
+  major: string;
   degree: string;
-  graduation: string;
   gpa: string;
-  // Step 2
+  graduation: string;
+  authorized_to_work: boolean;
+  visa_type: string;
+  earliest_start_date: string;
+  // Step 3: preferences
   industries: Industry[];
   levels: JobLevel[];
   locations: string[];
   remote_ok: boolean;
   gray_areas: GrayAreaSuggestion | null;
-  // Step 3
+  // Step 4: resume
   annotatedResume: AnnotatedResume | null;
-  // Step 4
-  phone: string;
+  // Step 5: autofill (optional)
+  eeo: EEOData | null;
 }
 
 const INITIAL: FormState = {
-  name: "", email: "",
-  school: "", degree: "", graduation: "", gpa: "",
-  industries: [], levels: [],
-  locations: [], remote_ok: false, gray_areas: null,
+  name: "", phone: "", city: "", state_region: "", country: "United States",
+  linkedin_url: "", website_url: "", github_url: "",
+  school: "", major: "", degree: "", gpa: "", graduation: "",
+  authorized_to_work: true, visa_type: "", earliest_start_date: "",
+  industries: [], levels: [], locations: [], remote_ok: false, gray_areas: null,
   annotatedResume: null,
-  phone: "",
+  eeo: null,
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 function isStepValid(step: StepId, form: FormState): boolean {
   switch (step) {
-    case "profile":
+    case "personal":
+      return form.name.trim().length > 0;
+    case "education":
       return (
-        form.name.trim().length > 0 &&
-        form.email.includes("@") &&
         form.school.trim().length > 0 &&
+        form.major.trim().length > 0 &&
         form.degree.trim().length > 0 &&
-        form.graduation.trim().length > 0
+        form.graduation.trim().length > 0 &&
+        form.visa_type.length > 0 &&
+        form.earliest_start_date.trim().length > 0
       );
     case "preferences":
       return (
@@ -86,8 +104,8 @@ function isStepValid(step: StepId, form: FormState): boolean {
       );
     case "resume":
       return form.annotatedResume !== null;
-    case "phone":
-      return form.phone.length >= 10 || form.phone === "";
+    case "autofill":
+      return true; // all optional
     default:
       return true;
   }
@@ -100,73 +118,112 @@ export default function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
-  const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
-  const canAdvance = ready && !saving && isStepValid(currentStep.id, form);
+  const canAdvance = !saving && isStepValid(currentStep.id, form);
 
+  async function ensureOnboardingSession() {
+    const supabase = getSupabaseBrowserClient();
+    const sessionResult = await supabase.auth.getSession();
+
+    if (sessionResult.error) {
+      throw sessionResult.error;
+    }
+
+    if (sessionResult.data.session?.user.id) {
+      return sessionResult.data.session;
+    }
+
+    const anonymousResult = await supabase.auth.signInAnonymously();
+
+    if (anonymousResult.error) {
+      return null;
+    }
+
+    return anonymousResult.data.session ?? null;
+  }
+
+  // On mount: use an existing session if present, otherwise fall back to
+  // anonymous auth for the fastest onboarding path. If neither works,
+  // send the user to the explicit auth page.
   useEffect(() => {
     let active = true;
 
     async function bootstrap() {
       try {
         const supabase = getSupabaseBrowserClient();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const session = await ensureOnboardingSession();
 
-        let userId = session?.user.id;
-
-        if (!userId) {
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) throw error;
-          if (!data.user?.id) {
-            throw new Error("Supabase anonymous auth did not return a user.");
-          }
-          userId = data.user.id;
+        if (!session?.user.id) {
+          router.replace("/auth?error=session_required");
+          return;
         }
+
+        const googleName = session.user.user_metadata?.full_name as
+          | string
+          | undefined;
 
         const { data, error } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", userId)
+          .eq("id", session.user.id)
           .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        const profileRow = data as ProfileRow | null;
+        if (!active) return;
 
-        if (active && profileRow) {
+        if (data) {
+          const profileRow = data as ProfileRow;
+          const mapped = mapProfileRowToPersistedProfile(profileRow);
           setForm((current) => ({
             ...current,
-            ...mapProfileRowToPersistedProfile(profileRow),
+            name: mapped.name,
+            phone: mapped.phone,
+            city: mapped.city,
+            state_region: mapped.state_region,
+            country: mapped.country,
+            linkedin_url: mapped.linkedin_url,
+            website_url: mapped.website_url,
+            github_url: mapped.github_url,
+            school: mapped.school,
+            major: mapped.major,
+            degree: mapped.degree,
+            graduation: mapped.graduation,
+            gpa: mapped.gpa,
+            authorized_to_work: mapped.authorized_to_work,
+            visa_type: mapped.visa_type,
+            earliest_start_date: mapped.earliest_start_date,
+            industries: mapped.industries,
+            levels: mapped.levels,
+            locations: mapped.locations,
+            remote_ok: mapped.remote_ok,
+            gray_areas: mapped.gray_areas,
+            eeo: mapped.eeo,
             annotatedResume: extractResumeFromProfileRow(profileRow),
           }));
+        } else if (googleName) {
+          setForm((current) => ({ ...current, name: googleName }));
         }
       } catch (error) {
-        if (active) {
-          setAuthError(
-            error instanceof Error
-              ? error.message
-              : "Failed to connect onboarding to Supabase."
-          );
-        }
-      } finally {
-        if (active) {
-          setReady(true);
-        }
+        if (!active) return;
+
+        setAuthError(
+          error instanceof Error
+            ? `Unable to start onboarding: ${error.message}`
+            : "Unable to start onboarding."
+        );
       }
     }
 
     void bootstrap();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    return () => { active = false; };
+  }, [router]);
 
   function update(patch: Partial<FormState>) {
     setForm((f) => ({ ...f, ...patch }));
@@ -174,57 +231,45 @@ export default function OnboardingPage() {
 
   async function goNext() {
     if (!canAdvance) return;
-    if (isLast) {
-      setSaving(true);
-      setAuthError(null);
 
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session?.user.id) {
-          throw new Error("Missing Supabase session. Refresh and try again.");
-        }
-
-        const { annotatedResume, ...profile } = form;
-        const payload = mapProfileToUpsertInput({
-          userId: session.user.id,
-          profile,
-          resume: annotatedResume,
-        });
-
-        const { error } = await supabase.from("profiles").upsert(payload);
-
-        if (error) {
-          throw error;
-        }
-
-        // Link the anonymous session to the user's email so they can sign back
-        // in later. updateUser() sends a verification email; we navigate to the
-        // dashboard immediately and let them verify in the background.
-        // If the email is already linked (e.g. returning to onboarding) this
-        // is a no-op — we ignore the error and move on.
-        if (form.email) {
-          await supabase.auth.updateUser({ email: form.email });
-        }
-
-        router.push("/dashboard");
-      } catch (error) {
-        setAuthError(
-          error instanceof Error
-            ? error.message
-            : "Failed to save your profile."
-        );
-      } finally {
-        setSaving(false);
-      }
-
+    if (!isLast) {
+      setDirection(1);
+      setStepIndex((i) => i + 1);
       return;
     }
-    setDirection(1);
-    setStepIndex((i) => i + 1);
+
+    // Final step — save the profile
+    setSaving(true);
+    setAuthError(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const session = await ensureOnboardingSession();
+
+      if (!session?.user.id) {
+        router.replace("/auth?error=session_required");
+        return;
+      }
+
+      const { annotatedResume, ...profileFields } = form;
+      const payload = mapProfileToUpsertInput({
+        userId: session.user.id,
+        userEmail: session.user.email ?? "",
+        profile: profileFields,
+        resume: annotatedResume,
+      });
+
+      const { error } = await supabase.from("profiles").upsert(payload);
+      if (error) throw error;
+
+      router.push("/dashboard");
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Failed to save your profile."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   function goBack() {
@@ -241,7 +286,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
         <span className="text-lg font-semibold tracking-tight text-gray-900">
           Twin
@@ -249,20 +293,13 @@ export default function OnboardingPage() {
         <StepCircles steps={STEPS} currentIndex={stepIndex} />
       </header>
 
-      {/* Main */}
       <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
         <div className="w-full max-w-lg">
-          {!ready ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+          {authError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {authError}
             </div>
-          ) : (
-            <>
-              {authError && (
-                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {authError}
-                </div>
-              )}
+          )}
 
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -274,14 +311,29 @@ export default function OnboardingPage() {
               exit="exit"
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              {currentStep.id === "profile" && (
+              {currentStep.id === "personal" && (
                 <StepProfile
                   name={form.name}
-                  email={form.email}
+                  phone={form.phone}
+                  city={form.city}
+                  state_region={form.state_region}
+                  country={form.country}
+                  linkedin_url={form.linkedin_url}
+                  website_url={form.website_url}
+                  github_url={form.github_url}
+                  onChange={(patch) => update(patch)}
+                />
+              )}
+              {currentStep.id === "education" && (
+                <StepEducation
                   school={form.school}
+                  major={form.major}
                   degree={form.degree}
-                  graduation={form.graduation}
                   gpa={form.gpa}
+                  graduation={form.graduation}
+                  authorized_to_work={form.authorized_to_work}
+                  visa_type={form.visa_type}
+                  earliest_start_date={form.earliest_start_date}
                   onChange={(patch) => update(patch)}
                 />
               )}
@@ -301,27 +353,17 @@ export default function OnboardingPage() {
                   onChange={(annotatedResume) => update({ annotatedResume })}
                 />
               )}
-              {currentStep.id === "phone" && (
-                <StepPhone
-                  phone={form.phone}
-                  name={form.name}
-                  onChange={(phone) => update({ phone })}
-                  onSkip={() => {
-                    update({ phone: "" });
-                    void goNext();
-                  }}
+              {currentStep.id === "autofill" && (
+                <StepAutofill
+                  eeo={form.eeo}
+                  onChange={(eeo) => update({ eeo })}
                 />
               )}
             </motion.div>
           </AnimatePresence>
 
-          {/* Nav */}
           <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
-            <Button
-              variant="ghost"
-              onClick={goBack}
-              disabled={stepIndex === 0}
-            >
+            <Button variant="ghost" onClick={goBack} disabled={stepIndex === 0}>
               <ChevronLeft className="w-4 h-4" />
               Back
             </Button>
@@ -331,8 +373,6 @@ export default function OnboardingPage() {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-            </>
-          )}
         </div>
       </main>
     </div>

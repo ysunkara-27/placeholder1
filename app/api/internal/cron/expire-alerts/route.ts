@@ -17,7 +17,7 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 // POST /api/internal/cron/expire-alerts
-// Called hourly by Vercel Cron. Marks pending alerts expired when expires_at has passed.
+// Called by an external scheduler. Marks pending alerts expired when expires_at has passed.
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

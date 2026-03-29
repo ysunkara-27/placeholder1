@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:apply-engine": "python3 -m unittest discover apply_engine/tests -v"
+    "test:apply-engine": "./.venv/bin/python -m unittest discover apply_engine/tests -v"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

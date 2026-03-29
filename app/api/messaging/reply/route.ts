@@ -108,7 +108,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (job) {
       const persistedProfile = mapProfileRowToPersistedProfile(profile);
-      const applicantDraft = mapPersistedProfileToApplicantDraft(persistedProfile);
+      const applicantDraft = mapPersistedProfileToApplicantDraft(persistedProfile, profile.email ?? "");
 
       await queueApplication(supabase, {
         userId: profile.id,

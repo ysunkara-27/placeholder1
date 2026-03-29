@@ -166,14 +166,8 @@ export default function HomePage() {
             href="/onboarding"
             className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-7 py-3.5 text-sm font-semibold text-white hover:bg-gray-800 active:bg-gray-950 transition-colors"
           >
-            Start onboarding
+            Get started
             <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            href="/auth"
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Already have a Twin? Sign in →
           </Link>
         </div>
         <p className="mt-10 text-xs text-gray-400">© 2026 Twin</p>

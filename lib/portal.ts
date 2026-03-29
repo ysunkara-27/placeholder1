@@ -5,6 +5,18 @@ export type PortalKind =
   | "handshake"
   | "vision";
 
+export type JobPortalKind =
+  | "greenhouse"
+  | "lever"
+  | "workday"
+  | "handshake"
+  | "linkedin"
+  | "indeed"
+  | "icims"
+  | "smartrecruiters"
+  | "company_website"
+  | "other";
+
 export function detectPortalFromUrl(url: string): PortalKind {
   const normalized = url.toLowerCase();
 
@@ -37,4 +49,35 @@ export function detectPortalFromUrl(url: string): PortalKind {
   }
 
   return "vision";
+}
+
+export function detectJobPortalFromUrl(url: string): JobPortalKind {
+  const normalized = url.toLowerCase();
+  const applyEnginePortal = detectPortalFromUrl(normalized);
+
+  if (applyEnginePortal !== "vision") {
+    return applyEnginePortal;
+  }
+
+  if (normalized.includes("linkedin.com")) {
+    return "linkedin";
+  }
+
+  if (normalized.includes("indeed.com")) {
+    return "indeed";
+  }
+
+  if (normalized.includes("icims.com")) {
+    return "icims";
+  }
+
+  if (normalized.includes("smartrecruiters.com")) {
+    return "smartrecruiters";
+  }
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return "company_website";
+  }
+
+  return "other";
 }

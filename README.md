@@ -35,6 +35,9 @@ supabase/migrations/20260329120000_initial_platform.sql
 supabase/migrations/20260329143000_apply_runs.sql
 supabase/migrations/20260329180000_application_queue.sql
 supabase/migrations/20260329200000_status_applied.sql
+supabase/migrations/20260329220000_profile_portal_fields.sql
+supabase/migrations/20260329230000_jobs_portal_field.sql
+supabase/migrations/20260329233000_jobs_url_uniqueness.sql
 ```
 
 This creates the platform tables: `profiles`, `jobs`, `alerts`, `applications`, `apply_runs`.
@@ -48,9 +51,10 @@ Twin signs users in anonymously on onboarding load so their profile can be saved
 
 In a separate terminal:
 ```bash
-pip install -r apply_engine/requirements.txt
-playwright install chromium
-uvicorn apply_engine.main:app --reload
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r apply_engine/requirements.txt
+./.venv/bin/playwright install chromium
+./.venv/bin/uvicorn apply_engine.main:app --reload
 ```
 
 **5. Run**
@@ -69,6 +73,71 @@ For background worker processing later:
 - call `POST /api/internal/apply-queue/process`
 - send `Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET`
 - run that from Railway cron or another worker trigger
+
+**7. Batch job ingest**
+
+Use the Python batcher to send scraped jobs into the Supabase-backed ingest API:
+```bash
+./.venv/bin/python apply_engine/scripts/ingest_jobs.py \
+  --file path/to/jobs.json \
+  --base-url http://localhost:3000 \
+  --worker-secret "$APPLY_QUEUE_WORKER_SECRET"
+```
+
+The input file must be a JSON array of job objects. Minimum shape:
+```json
+[
+  {
+    "company": "Twin",
+    "title": "Software Engineering Intern",
+    "level": "internship",
+    "location": "New York, NY",
+    "url": "https://company.example/jobs/123",
+    "application_url": "https://company.example/jobs/123/apply"
+  }
+]
+```
+
+**8. Low-cost deployment shape**
+
+Use this stack:
+- `Supabase` for auth + database
+- `Vercel Hobby` for the Next app
+- `GitHub Actions` for scheduled job ingestion and alert maintenance
+- your local machine for Playwright-heavy queue processing until you decide to pay for a worker host
+
+**9. Deploy to Vercel**
+
+1. Push the repo to GitHub.
+2. Import the repo into Vercel.
+3. Add these Vercel environment variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `ANTHROPIC_API_KEY`
+   - `APPLY_ENGINE_BASE_URL`
+   - `APPLY_QUEUE_WORKER_SECRET`
+   - `SMS_PROVIDER`
+   - any provider-specific SMS secrets you use
+4. Deploy.
+5. Copy the deployed app URL, for example `https://your-app.vercel.app`.
+
+**10. Configure GitHub Actions secrets**
+
+In GitHub, go to `Settings -> Secrets and variables -> Actions` and add:
+- `TWIN_APP_BASE_URL`
+  - set this to your deployed app URL, for example `https://your-app.vercel.app`
+- `APPLY_QUEUE_WORKER_SECRET`
+  - set this to the same value used in Vercel
+
+The scheduled workflow lives at:
+`/.github/workflows/twin-operations.yml`
+
+It does two things:
+- ingests the repo seed jobs twice daily
+- expires stale pending alerts every 6 hours
+
+You can also run it manually from the GitHub Actions tab with `workflow_dispatch`.
 
 ---
 

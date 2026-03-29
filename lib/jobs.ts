@@ -73,6 +73,7 @@ function mapSeedJobToInsert(seed: SeedJobRecord): JobInsert {
     location: seed.location,
     remote: /remote/i.test(seed.location),
     industries: inferIndustries(seed.title, seed.notes),
+    portal: seed.portal,
     url: seed.source_url,
     application_url: seed.apply_url,
     jd_summary: seed.notes,
