@@ -201,6 +201,15 @@ export default function OnboardingPage() {
           throw error;
         }
 
+        // Link the anonymous session to the user's email so they can sign back
+        // in later. updateUser() sends a verification email; we navigate to the
+        // dashboard immediately and let them verify in the background.
+        // If the email is already linked (e.g. returning to onboarding) this
+        // is a no-op — we ignore the error and move on.
+        if (form.email) {
+          await supabase.auth.updateUser({ email: form.email });
+        }
+
         router.push("/dashboard");
       } catch (error) {
         setAuthError(

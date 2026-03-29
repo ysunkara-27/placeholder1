@@ -37,9 +37,12 @@ export default function HomePage() {
         <span className="text-lg font-semibold tracking-tight text-gray-900">
           Twin
         </span>
-        <span className="text-xs font-medium uppercase tracking-[0.22em] text-indigo-500">
-          Internship Agent
-        </span>
+        <Link
+          href="/auth"
+          className="text-sm text-gray-400 hover:text-gray-700 transition-colors"
+        >
+          Sign in
+        </Link>
       </header>
 
       <section className="flex flex-col items-center justify-center text-center px-6 pt-16 pb-24 flex-1">
@@ -158,13 +161,21 @@ export default function HomePage() {
         <p className="mt-2 text-gray-500">
           Profile memory, portal routing, deterministic apply agents.
         </p>
-        <Link
-          href="/onboarding"
-          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-7 py-3.5 text-sm font-semibold text-white hover:bg-gray-800 active:bg-gray-950 transition-colors"
-        >
-          Start onboarding
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Link
+            href="/onboarding"
+            className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-7 py-3.5 text-sm font-semibold text-white hover:bg-gray-800 active:bg-gray-950 transition-colors"
+          >
+            Start onboarding
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/auth"
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Already have a Twin? Sign in →
+          </Link>
+        </div>
         <p className="mt-10 text-xs text-gray-400">© 2026 Twin</p>
       </footer>
     </main>
