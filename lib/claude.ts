@@ -44,6 +44,61 @@ After processing input, always return structured JSON like:
 
 If the user is asking a question rather than providing experience, just answer conversationally.`;
 
+export const STRUCTURE_SYSTEM_PROMPT = `You are a resume parser. Your only job is to take raw resume text and output structured JSON.
+
+Return ONLY valid JSON — no markdown, no code blocks, no explanation. Just the raw JSON object.
+
+Schema (follow exactly):
+{
+  "name": string,
+  "email": string,
+  "phone": string,
+  "education": [
+    {
+      "school": string,
+      "degree": string,
+      "graduation": string,
+      "gpa": string
+    }
+  ],
+  "experience": [
+    {
+      "id": string,
+      "company": string,
+      "title": string,
+      "dates": string,
+      "bullets": [
+        {
+          "id": string,
+          "text": string,
+          "lock": "flexible"
+        }
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "id": string,
+      "name": string,
+      "lock": "flexible"
+    }
+  ],
+  "excess_pool": []
+}
+
+Rules:
+1. experience[].bullets[].lock is ALWAYS "flexible"
+2. skills[].lock is ALWAYS "flexible"
+3. excess_pool is ALWAYS an empty array []
+4. Generate a unique 6-character alphanumeric id for every experience entry, bullet, and skill
+5. Do NOT rewrite or improve bullet text — preserve it exactly as-is from the resume
+6. Split compound bullets (two achievements in one sentence) into separate bullet objects
+7. Normalize dates to "Mon YYYY – Mon YYYY" or "Mon YYYY – Present" format
+8. Extract ALL distinct skills mentioned anywhere in the resume into the skills array — deduplicated, one per object
+9. If a field is missing (e.g., no phone, no GPA), use an empty string "" — never use null for strings
+10. education[] entries have no id field and no lock field — they are always considered locked by the application
+11. Return the experience entries in reverse chronological order (most recent first)`;
+
 export const GRAY_AREAS_SYSTEM_PROMPT = `You are a compensation and job market expert helping college students set realistic expectations for their job search.
 
 Given a user's target industries, job levels, and preferred locations, generate reasonable suggestions for:

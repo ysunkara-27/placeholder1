@@ -3,29 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Progress } from "@/components/ui/progress";
+import { StepProfile } from "@/components/onboarding/step-profile";
+import { StepPreferences } from "@/components/onboarding/step-preferences";
+import { StepResume } from "@/components/onboarding/step-resume";
+import { StepPhone } from "@/components/onboarding/step-phone";
 import { Button } from "@/components/ui/button";
-import { StepIndustries } from "@/components/onboarding/step-industries";
-import { StepLevel } from "@/components/onboarding/step-level";
-import { StepLocations } from "@/components/onboarding/step-locations";
-import { StepNotifications } from "@/components/onboarding/step-notifications";
-import { StepGrayAreas } from "@/components/onboarding/step-gray-areas";
 import type {
   Industry,
   JobLevel,
-  NotificationPref,
   GrayAreaSuggestion,
+  AnnotatedResume,
 } from "@/lib/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft } from "lucide-react";
 
-// ─── Step config ──────────────────────────────────────────────────────────────
+// ─── Steps ────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: "industries", label: "Industries" },
-  { id: "level", label: "Role Type" },
-  { id: "locations", label: "Location" },
-  { id: "notifications", label: "Alerts" },
-  { id: "gray-areas", label: "Preferences" },
+  { id: "profile",     label: "Profile",     hint: "Who you are" },
+  { id: "preferences", label: "Preferences", hint: "What you want" },
+  { id: "resume",      label: "Resume",      hint: "Your experience" },
+  { id: "phone",       label: "Twin",        hint: "Stay connected" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -33,44 +30,57 @@ type StepId = (typeof STEPS)[number]["id"];
 // ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
+  // Step 1
+  name: string;
+  email: string;
+  school: string;
+  degree: string;
+  graduation: string;
+  gpa: string;
+  // Step 2
   industries: Industry[];
   levels: JobLevel[];
   locations: string[];
   remote_ok: boolean;
-  notification: NotificationPref;
-  phone: string;
-  email: string;
   gray_areas: GrayAreaSuggestion | null;
+  // Step 3
+  annotatedResume: AnnotatedResume | null;
+  // Step 4
+  phone: string;
 }
 
 const INITIAL: FormState = {
-  industries: [],
-  levels: [],
-  locations: [],
-  remote_ok: false,
-  notification: "email",
+  name: "", email: "",
+  school: "", degree: "", graduation: "", gpa: "",
+  industries: [], levels: [],
+  locations: [], remote_ok: false, gray_areas: null,
+  annotatedResume: null,
   phone: "",
-  email: "",
-  gray_areas: null,
 };
 
-// ─── Validation per step ──────────────────────────────────────────────────────
+// ─── Validation ───────────────────────────────────────────────────────────────
 
 function isStepValid(step: StepId, form: FormState): boolean {
   switch (step) {
-    case "industries":
-      return form.industries.length > 0;
-    case "level":
-      return form.levels.length > 0;
-    case "locations":
-      return form.locations.length > 0 || form.remote_ok;
-    case "notifications":
+    case "profile":
       return (
+        form.name.trim().length > 0 &&
         form.email.includes("@") &&
-        (form.notification === "email" || form.phone.length > 9)
+        form.school.trim().length > 0 &&
+        form.degree.trim().length > 0 &&
+        form.graduation.trim().length > 0
       );
-    case "gray-areas":
-      return form.gray_areas !== null;
+    case "preferences":
+      return (
+        form.industries.length > 0 &&
+        form.levels.length > 0 &&
+        (form.locations.length > 0 || form.remote_ok) &&
+        form.gray_areas !== null
+      );
+    case "resume":
+      return form.annotatedResume !== null;
+    case "phone":
+      return form.phone.length >= 10 || form.phone === "";
     default:
       return true;
   }
@@ -85,15 +95,23 @@ export default function OnboardingPage() {
   const [form, setForm] = useState<FormState>(INITIAL);
 
   const currentStep = STEPS[stepIndex];
-  const progress = ((stepIndex + 1) / STEPS.length) * 100;
+  const isLast = stepIndex === STEPS.length - 1;
   const canAdvance = isStepValid(currentStep.id, form);
+
+  function update(patch: Partial<FormState>) {
+    setForm((f) => ({ ...f, ...patch }));
+  }
 
   function goNext() {
     if (!canAdvance) return;
-    if (stepIndex === STEPS.length - 1) {
-      // Done — save to localStorage for now, route to resume builder
-      localStorage.setItem("autoapply_onboarding", JSON.stringify(form));
-      router.push("/resume");
+    if (isLast) {
+      // Persist and proceed to dashboard
+      const { annotatedResume, ...profile } = form;
+      localStorage.setItem("autoapply_profile_v2", JSON.stringify(profile));
+      if (annotatedResume) {
+        localStorage.setItem("autoapply_resume_v2", JSON.stringify(annotatedResume));
+      }
+      router.push("/dashboard");
       return;
     }
     setDirection(1);
@@ -106,68 +124,24 @@ export default function OnboardingPage() {
     setStepIndex((i) => i - 1);
   }
 
-  function update(patch: Partial<FormState>) {
-    setForm((f) => ({ ...f, ...patch }));
-  }
-
   const variants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? 40 : -40,
-      opacity: 0,
-    }),
+    enter: (dir: number) => ({ x: dir > 0 ? 48 : -48, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit: (dir: number) => ({
-      x: dir > 0 ? -40 : 40,
-      opacity: 0,
-    }),
+    exit: (dir: number) => ({ x: dir > 0 ? -48 : 48, opacity: 0 }),
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-        <span className="text-lg font-semibold text-gray-900 tracking-tight">
+      <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
+        <span className="text-lg font-semibold tracking-tight text-gray-900">
           AutoApply
         </span>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">
-            {stepIndex + 1} / {STEPS.length}
-          </span>
-          <div className="w-32">
-            <Progress value={progress} />
-          </div>
-        </div>
+        <StepCircles steps={STEPS} currentIndex={stepIndex} />
       </header>
 
-      {/* Step tabs */}
-      <div className="border-b border-gray-100 px-6">
-        <div className="flex gap-6 overflow-x-auto no-scrollbar">
-          {STEPS.map((step, i) => (
-            <button
-              key={step.id}
-              onClick={() => {
-                if (i < stepIndex) {
-                  setDirection(-1);
-                  setStepIndex(i);
-                }
-              }}
-              disabled={i > stepIndex}
-              className={`py-3 text-sm font-medium border-b-2 shrink-0 transition-colors ${
-                i === stepIndex
-                  ? "border-indigo-600 text-indigo-600"
-                  : i < stepIndex
-                  ? "border-transparent text-gray-400 hover:text-gray-600 cursor-pointer"
-                  : "border-transparent text-gray-300 cursor-default"
-              }`}
-            >
-              {step.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Main content */}
-      <main className="flex-1 flex items-start justify-center px-6 py-12">
+      {/* Main */}
+      <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -177,50 +151,50 @@ export default function OnboardingPage() {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              {currentStep.id === "industries" && (
-                <StepIndustries
-                  selected={form.industries}
-                  onChange={(industries) => update({ industries })}
-                />
-              )}
-              {currentStep.id === "level" && (
-                <StepLevel
-                  selected={form.levels}
-                  onChange={(levels) => update({ levels })}
-                />
-              )}
-              {currentStep.id === "locations" && (
-                <StepLocations
-                  locations={form.locations}
-                  remoteOk={form.remote_ok}
-                  onChange={(locations, remote_ok) =>
-                    update({ locations, remote_ok })
-                  }
-                />
-              )}
-              {currentStep.id === "notifications" && (
-                <StepNotifications
-                  notification={form.notification}
-                  phone={form.phone}
+              {currentStep.id === "profile" && (
+                <StepProfile
+                  name={form.name}
                   email={form.email}
-                  onChange={(fields) => update(fields)}
+                  school={form.school}
+                  degree={form.degree}
+                  graduation={form.graduation}
+                  gpa={form.gpa}
+                  onChange={(patch) => update(patch)}
                 />
               )}
-              {currentStep.id === "gray-areas" && (
-                <StepGrayAreas
+              {currentStep.id === "preferences" && (
+                <StepPreferences
                   industries={form.industries}
                   levels={form.levels}
                   locations={form.locations}
-                  value={form.gray_areas}
-                  onChange={(gray_areas) => update({ gray_areas })}
+                  remoteOk={form.remote_ok}
+                  grayAreas={form.gray_areas}
+                  onChange={(patch) => update(patch as Partial<FormState>)}
+                />
+              )}
+              {currentStep.id === "resume" && (
+                <StepResume
+                  value={form.annotatedResume}
+                  onChange={(annotatedResume) => update({ annotatedResume })}
+                />
+              )}
+              {currentStep.id === "phone" && (
+                <StepPhone
+                  phone={form.phone}
+                  name={form.name}
+                  onChange={(phone) => update({ phone })}
+                  onSkip={() => {
+                    update({ phone: "" });
+                    goNext();
+                  }}
                 />
               )}
             </motion.div>
           </AnimatePresence>
 
-          {/* Navigation */}
+          {/* Nav */}
           <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
             <Button
               variant="ghost"
@@ -232,12 +206,54 @@ export default function OnboardingPage() {
             </Button>
 
             <Button onClick={goNext} disabled={!canAdvance}>
-              {stepIndex === STEPS.length - 1 ? "Build my resume" : "Continue"}
+              {isLast ? "Launch my Twin" : "Continue"}
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// ─── Step circle progress indicator ──────────────────────────────────────────
+
+function StepCircles({
+  steps,
+  currentIndex,
+}: {
+  steps: typeof STEPS;
+  currentIndex: number;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {steps.map((step, i) => {
+        const done = i < currentIndex;
+        const active = i === currentIndex;
+        return (
+          <div key={step.id} className="flex items-center">
+            <div
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
+                done
+                  ? "bg-indigo-600 text-white"
+                  : active
+                  ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
+                  : "bg-gray-100 text-gray-400"
+              }`}
+              aria-label={`Step ${i + 1}: ${step.label}`}
+            >
+              {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className={`h-px w-6 transition-colors duration-300 ${
+                  done ? "bg-indigo-400" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

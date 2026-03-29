@@ -60,15 +60,52 @@ export interface ResumeProfile {
   preferences: UserPreferences;
 }
 
+// ─── Annotation (locked vs flexible resume sections) ─────────────────────────
+
+export type LockState = "locked" | "flexible";
+
+export interface AnnotatedBullet {
+  id: string;
+  text: string;
+  lock: LockState;
+}
+
+export interface AnnotatedSkill {
+  id: string;
+  name: string;
+  lock: LockState;
+}
+
+export interface AnnotatedExperience {
+  id: string;
+  company: string;
+  title: string;
+  dates: string;
+  bullets: AnnotatedBullet[];
+}
+
+export interface AnnotatedResume {
+  name: string;
+  email: string;
+  phone?: string;
+  education: Education[]; // always locked — no toggle
+  experience: AnnotatedExperience[];
+  skills: AnnotatedSkill[];
+  excess_pool: AnnotatedBullet[]; // always flexible — for ATS / cover letters
+}
+
+export interface PersonalInfo {
+  name: string;
+  email: string;
+  school: string;
+  degree: string;
+  graduation: string;
+  gpa: string;
+}
+
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 
-export type OnboardingStep =
-  | "industries"
-  | "level"
-  | "locations"
-  | "notifications"
-  | "gray-areas"
-  | "resume";
+export type OnboardingStep = "profile" | "preferences" | "resume" | "phone";
 
 export interface OnboardingState {
   step: OnboardingStep;
