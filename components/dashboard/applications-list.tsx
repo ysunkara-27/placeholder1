@@ -1,72 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import type { Alert } from "@/lib/types";
 import { formatPostedAt, cn } from "@/lib/utils";
 
+export interface DashboardApplicationRecord {
+  id: string;
+  status: string;
+  queue_status: string;
+  attempt_count: number;
+  created_at: string;
+  updated_at: string;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  confirmation_text: string | null;
+  last_error: string | null;
+  job: {
+    id: string;
+    company: string;
+    title: string;
+    location: string;
+    url: string;
+  };
+}
+
 interface Props {
-  alerts: Alert[];
+  applications: DashboardApplicationRecord[];
 }
 
 const STATUS_STYLES: Record<string, { dot: string; label: string; text: string }> = {
   applied:   { dot: "bg-green-500",  label: "Applied",  text: "text-green-700"  },
-  pending:   { dot: "bg-amber-400",  label: "Pending",  text: "text-amber-700"  },
-  confirmed: { dot: "bg-indigo-500", label: "Queued",   text: "text-indigo-700" },
+  queued:    { dot: "bg-amber-400",  label: "Queued",   text: "text-amber-700"  },
+  running:   { dot: "bg-blue-500",   label: "Running",  text: "text-blue-700"   },
+  requires_auth: { dot: "bg-indigo-500", label: "Auth needed", text: "text-indigo-700" },
   skipped:   { dot: "bg-gray-300",   label: "Skipped",  text: "text-gray-500"   },
   expired:   { dot: "bg-gray-200",   label: "Expired",  text: "text-gray-400"   },
   failed:    { dot: "bg-red-400",    label: "Failed",   text: "text-red-600"    },
-};
+} as const;
 
-export function ApplicationsList({ alerts }: Props) {
-  if (alerts.length === 0) {
+export function ApplicationsList({ applications }: Props) {
+  if (applications.length === 0) {
     return <EmptyState />;
   }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
       <div className="divide-y divide-gray-100">
-        {alerts.map((alert) => {
-          const style = STATUS_STYLES[alert.status] ?? STATUS_STYLES.pending;
+        {applications.map((application) => {
+          const style = STATUS_STYLES[application.status] ?? STATUS_STYLES.pending;
           return (
             <div
-              key={alert.id}
+              key={application.id}
               className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
             >
               {/* Company logo placeholder */}
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">
-                {alert.job.company.slice(0, 2).toUpperCase()}
+                {application.job.company.slice(0, 2).toUpperCase()}
               </div>
 
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {alert.job.title}
+                  {application.job.title}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {alert.job.company}
-                  {alert.job.location && ` · ${alert.job.location}`}
+                  {application.job.company}
+                  {application.job.location && ` · ${application.job.location}`}
                 </p>
+                {(application.confirmation_text || application.last_error) && (
+                  <p className="mt-1 text-xs text-gray-400 truncate">
+                    {application.confirmation_text ?? application.last_error}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs text-gray-400">
-                  {formatPostedAt(alert.alerted_at)}
+                  {formatPostedAt(application.updated_at)}
                 </span>
                 <span
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
                     style.text,
-                    alert.status === "applied" ? "bg-green-50" :
-                    alert.status === "pending" ? "bg-amber-50" :
-                    alert.status === "failed"  ? "bg-red-50" :
+                    application.status === "applied" ? "bg-green-50" :
+                    application.status === "queued" ? "bg-amber-50" :
+                    application.status === "running" ? "bg-blue-50" :
+                    application.status === "requires_auth" ? "bg-indigo-50" :
+                    application.status === "failed"  ? "bg-red-50" :
                     "bg-gray-100"
                   )}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
                   {style.label}
                 </span>
-                {alert.job.url && (
+                {(application.status === "queued" || application.status === "running") && (
+                  <span className="text-[11px] text-gray-400">
+                    Attempt {Math.max(application.attempt_count, 1)}
+                  </span>
+                )}
+                {application.job.url && (
                   <a
-                    href={alert.job.url}
+                    href={application.job.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-300 hover:text-gray-500 transition-colors text-xs"
@@ -101,11 +134,11 @@ function EmptyState() {
 
       <div className="space-y-1">
         <p className="text-sm font-semibold text-gray-900">
-          Your Twin is actively scanning
+          No applications yet
         </p>
         <p className="text-sm text-gray-400 max-w-xs">
-          Applications will appear here the moment your Twin finds and submits
-          a match. Check back soon.
+          Real submitted or blocked application attempts will appear here after
+          you run them through Twin.
         </p>
       </div>
 

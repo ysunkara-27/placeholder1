@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AutoApply — Apply once. Get hired faster.",
+  title: "Twin — Your application agent for internship season.",
   description:
     "Build your profile once. Get alerted when jobs drop. Apply with one reply.",
 };

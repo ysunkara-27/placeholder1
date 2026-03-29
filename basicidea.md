@@ -1,8 +1,8 @@
-# AutoApply — Full Product Spec
+# Twin — Full Product Spec
 > Build your profile once. Get alerted when jobs drop. Apply with one reply.
 ---
 ## Overview
-AutoApply is a web app for college students that monitors job boards continuously, alerts users the moment a matching job drops, and automatically submits applications via a web agent — all triggered by a single SMS reply or in-app tap.
+Twin is a web app for college students that monitors job boards continuously, alerts users the moment a matching job drops, and automatically submits applications via a web agent — all triggered by a single SMS reply or in-app tap.
 **Core insight:** One global Scout watches all job boards. Per-user Browsing agents spin up only when a specific user confirms they want to apply to a specific job. This keeps costs low and the system scalable.
 ---
 ## Architecture
@@ -155,7 +155,7 @@ Reply YES to auto-apply, NO to skip, or STOP to pause alerts.
 ```
 **Email format (Resend):**
 Subject: `New match: SWE Intern @ Stripe`
-Body includes job title, company, location, posted time, link, and a single CTA button: "Apply with AutoApply."
+Body includes job title, company, location, posted time, link, and a single CTA button: "Apply with Twin."
 **Reply handling:**
 | Reply | Action |
 |---|---|

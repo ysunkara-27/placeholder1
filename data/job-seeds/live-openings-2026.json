@@ -1,0 +1,57 @@
+[
+  {
+    "id": "gh-scaleai-swe-intern-summer-2026",
+    "portal": "greenhouse",
+    "company": "Scale AI",
+    "title": "Software Engineering Intern (Summer 2026)",
+    "location": "San Francisco, CA",
+    "apply_url": "https://job-boards.greenhouse.io/scaleai/jobs/4606014005",
+    "source_url": "https://job-boards.greenhouse.io/scaleai/jobs/4606014005",
+    "notes": "Greenhouse posting for a mainstream SWE internship flow.",
+    "retrieved_on": "2026-03-29"
+  },
+  {
+    "id": "gh-rendezvous-robotics-swe-intern-summer-2026",
+    "portal": "greenhouse",
+    "company": "Rendezvous Robotics",
+    "title": "Software Engineering Intern, Summer 2026",
+    "location": "Golden, CO",
+    "apply_url": "https://job-boards.greenhouse.io/rendezvousrobotics/jobs/4111372009",
+    "source_url": "https://job-boards.greenhouse.io/rendezvousrobotics/jobs/4111372009",
+    "notes": "Useful startup-style Greenhouse posting with more custom copy.",
+    "retrieved_on": "2026-03-29"
+  },
+  {
+    "id": "lever-solopulse-software-engineer-intern-coop-spring-summer-2026",
+    "portal": "lever",
+    "company": "SoloPulse",
+    "title": "Software Engineer Intern/Co-Op - Spring/Summer 2026",
+    "location": "Peachtree Corners, GA",
+    "apply_url": "https://jobs.lever.co/solopulseco/e430dd0f-8a73-46ec-8aea-739e1a5c1f9c",
+    "source_url": "https://jobs.lever.co/solopulseco/e430dd0f-8a73-46ec-8aea-739e1a5c1f9c",
+    "notes": "Lever posting with standard resume upload, contact details, and basic qualification sections.",
+    "retrieved_on": "2026-03-29"
+  },
+  {
+    "id": "lever-weride-2026-summer-software-engineer",
+    "portal": "lever",
+    "company": "WeRide",
+    "title": "2026 Summer Intern - Software Engineer",
+    "location": "San Jose, CA",
+    "apply_url": "https://jobs.lever.co/weride/8f84c602-8a79-43f6-b662-74a92ef761f5",
+    "source_url": "https://jobs.lever.co/weride/8f84c602-8a79-43f6-b662-74a92ef761f5",
+    "notes": "Lever fixture with internship-only copy and standard apply route.",
+    "retrieved_on": "2026-03-29"
+  },
+  {
+    "id": "lever-versana-tech-internship-summer-2026",
+    "portal": "lever",
+    "company": "Versana",
+    "title": "Tech Internship (Summer 2026)",
+    "location": "New York, NY",
+    "apply_url": "https://jobs.lever.co/Versana/f07c26bc-7359-44ba-b11e-8d1aaf97c001",
+    "source_url": "https://jobs.lever.co/Versana/f07c26bc-7359-44ba-b11e-8d1aaf97c001",
+    "notes": "Broader tech internship posting that still exercises the same Lever form structure.",
+    "retrieved_on": "2026-03-29"
+  }
+]

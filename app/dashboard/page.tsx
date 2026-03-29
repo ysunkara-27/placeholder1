@@ -3,59 +3,103 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { TwinStats } from "@/components/dashboard/twin-stats";
-import { ApplicationsList } from "@/components/dashboard/applications-list";
-import type { AnnotatedResume, GrayAreaSuggestion, Industry, JobLevel } from "@/lib/types";
+import {
+  ApplicationsList,
+  type DashboardApplicationRecord,
+} from "@/components/dashboard/applications-list";
+import {
+  ApplyRunsList,
+  type ApplyRunRecord,
+} from "@/components/dashboard/apply-runs-list";
+import type { AnnotatedResume } from "@/lib/types";
 import { INDUSTRY_OPTIONS, LEVEL_OPTIONS } from "@/lib/utils";
-
-// ─── Stored profile shape (what we wrote to localStorage) ────────────────────
-
-interface StoredProfile {
-  name: string;
-  email: string;
-  school: string;
-  degree: string;
-  graduation: string;
-  gpa: string;
-  industries: Industry[];
-  levels: JobLevel[];
-  locations: string[];
-  remote_ok: boolean;
-  gray_areas: GrayAreaSuggestion | null;
-  phone: string;
-}
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  extractResumeFromProfileRow,
+  mapProfileRowToPersistedProfile,
+  type ProfileRow,
+  type PersistedProfile,
+} from "@/lib/platform/profile";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<StoredProfile | null>(null);
+  const [profile, setProfile] = useState<PersistedProfile | null>(null);
   const [resume, setResume] = useState<AnnotatedResume | null>(null);
+  const [applications, setApplications] = useState<DashboardApplicationRecord[]>([]);
+  const [applyRuns, setApplyRuns] = useState<ApplyRunRecord[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadDashboard() {
     try {
-      const rawProfile = localStorage.getItem("autoapply_profile_v2");
-      const rawResume = localStorage.getItem("autoapply_resume_v2");
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (!rawProfile) {
+      if (!session?.user.id) {
         router.replace("/onboarding");
         return;
       }
 
-      const p: StoredProfile = JSON.parse(rawProfile);
-      if (!p.name) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      const profileRow = data as ProfileRow | null;
+
+      if (!profileRow?.onboarding_completed) {
         router.replace("/onboarding");
         return;
       }
 
-      setProfile(p);
-      if (rawResume) setResume(JSON.parse(rawResume));
+      if (!active) {
+        return;
+      }
+
+      setProfile(mapProfileRowToPersistedProfile(profileRow));
+      setResume(extractResumeFromProfileRow(profileRow));
+
+      const runsResponse = await fetch("/api/apply/runs", { cache: "no-store" });
+      if (runsResponse.ok) {
+        const runsPayload = await runsResponse.json();
+        setApplyRuns(runsPayload.runs ?? []);
+      }
+
+      const applicationsResponse = await fetch("/api/applications/recent", {
+        cache: "no-store",
+      });
+      if (applicationsResponse.ok) {
+        const applicationsPayload = await applicationsResponse.json();
+        setApplications(applicationsPayload.applications ?? []);
+      }
     } catch {
       router.replace("/onboarding");
       return;
     }
-    setReady(true);
+
+      if (active) {
+        setReady(true);
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   if (!ready || !profile) {
@@ -75,6 +119,16 @@ export default function DashboardPage() {
       0
     ) ?? 0;
   const flexibleBullets = totalBullets - lockedBullets;
+  const appliedRuns = applications.filter(
+    (application) => application.status === "applied"
+  ).length;
+  const queuedApplications = applications.filter(
+    (application) =>
+      application.status === "queued" || application.status === "running"
+  ).length;
+  const failedRuns = applications.filter(
+    (application) => application.status === "failed"
+  ).length;
 
   const industryLabels = profile.industries
     .map((v) => INDUSTRY_OPTIONS.find((o) => o.value === v)?.label ?? v)
@@ -95,7 +149,7 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <span className="text-lg font-semibold tracking-tight text-gray-900">
-            AutoApply
+            Twin
           </span>
           <div className="flex items-center gap-4">
             <Link
@@ -104,9 +158,7 @@ export default function DashboardPage() {
             >
               Edit profile
             </Link>
-            <button className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-              Sign out
-            </button>
+            <SignOutButton />
           </div>
         </div>
       </header>
@@ -115,12 +167,14 @@ export default function DashboardPage() {
         {/* Twin status */}
         <div className="space-y-3">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Your Twin is live{profile.name ? `, ${profile.name.split(" ")[0]}` : ""}.
+            Your Twin is configured{profile.name ? `, ${profile.name.split(" ")[0]}` : ""}.
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">
-              Monitoring 50+ boards
+              Profile ready
               {profile.industries.length > 0 && ` · ${profile.industries.length} industr${profile.industries.length === 1 ? "y" : "ies"}`}
+              {queuedApplications > 0 && ` · ${queuedApplications} queued`}
+              {appliedRuns > 0 && ` · ${appliedRuns} submitted`}
               {locationDisplay && ` · ${locationDisplay}`}
             </span>
           </div>
@@ -145,7 +199,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <TwinStats applied={0} pending={0} skipped={0} />
+        <TwinStats
+          applied={appliedRuns}
+          queued={queuedApplications}
+          failed={failedRuns}
+        />
 
         {/* Applications */}
         <div className="space-y-3">
@@ -154,7 +212,27 @@ export default function DashboardPage() {
               Recent applications
             </h2>
           </div>
-          <ApplicationsList alerts={[]} />
+          <ApplicationsList applications={applications} />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Recent apply runs
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Internal plan and submit attempts captured from the apply engine.
+              </p>
+            </div>
+            <Link
+              href="/apply-lab"
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+            >
+              Open lab →
+            </Link>
+          </div>
+          <ApplyRunsList runs={applyRuns} />
         </div>
 
         {/* Settings summary */}

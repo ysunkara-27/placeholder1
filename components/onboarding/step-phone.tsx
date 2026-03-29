@@ -18,7 +18,7 @@ export function StepPhone({ phone, name, onChange, onSkip }: Props) {
         </h1>
         <p className="text-gray-500">
           Get an SMS the moment a match drops. Reply YES and your Twin applies
-          instantly.
+          instantly. No phone number means email/app alerts later instead.
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export function StepPhone({ phone, name, onChange, onSkip }: Props) {
       </div>
 
       <p className="text-xs text-gray-400 text-center">
-        Standard messaging rates apply · Reply STOP anytime to pause alerts
+        Phone is optional · Standard messaging rates apply · Reply STOP anytime to pause alerts
       </p>
 
       {/* Skip */}

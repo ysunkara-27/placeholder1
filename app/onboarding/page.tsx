@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { StepProfile } from "@/components/onboarding/step-profile";
@@ -14,6 +14,13 @@ import type {
   GrayAreaSuggestion,
   AnnotatedResume,
 } from "@/lib/types";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  extractResumeFromProfileRow,
+  mapProfileRowToPersistedProfile,
+  mapProfileToUpsertInput,
+  type ProfileRow,
+} from "@/lib/platform/profile";
 import { Check, ChevronRight, ChevronLeft } from "lucide-react";
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
@@ -93,25 +100,118 @@ export default function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
-  const canAdvance = isStepValid(currentStep.id, form);
+  const canAdvance = ready && !saving && isStepValid(currentStep.id, form);
+
+  useEffect(() => {
+    let active = true;
+
+    async function bootstrap() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        let userId = session?.user.id;
+
+        if (!userId) {
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (error) throw error;
+          if (!data.user?.id) {
+            throw new Error("Supabase anonymous auth did not return a user.");
+          }
+          userId = data.user.id;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const profileRow = data as ProfileRow | null;
+
+        if (active && profileRow) {
+          setForm((current) => ({
+            ...current,
+            ...mapProfileRowToPersistedProfile(profileRow),
+            annotatedResume: extractResumeFromProfileRow(profileRow),
+          }));
+        }
+      } catch (error) {
+        if (active) {
+          setAuthError(
+            error instanceof Error
+              ? error.message
+              : "Failed to connect onboarding to Supabase."
+          );
+        }
+      } finally {
+        if (active) {
+          setReady(true);
+        }
+      }
+    }
+
+    void bootstrap();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function update(patch: Partial<FormState>) {
     setForm((f) => ({ ...f, ...patch }));
   }
 
-  function goNext() {
+  async function goNext() {
     if (!canAdvance) return;
     if (isLast) {
-      // Persist and proceed to dashboard
-      const { annotatedResume, ...profile } = form;
-      localStorage.setItem("autoapply_profile_v2", JSON.stringify(profile));
-      if (annotatedResume) {
-        localStorage.setItem("autoapply_resume_v2", JSON.stringify(annotatedResume));
+      setSaving(true);
+      setAuthError(null);
+
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.user.id) {
+          throw new Error("Missing Supabase session. Refresh and try again.");
+        }
+
+        const { annotatedResume, ...profile } = form;
+        const payload = mapProfileToUpsertInput({
+          userId: session.user.id,
+          profile,
+          resume: annotatedResume,
+        });
+
+        const { error } = await supabase.from("profiles").upsert(payload);
+
+        if (error) {
+          throw error;
+        }
+
+        router.push("/dashboard");
+      } catch (error) {
+        setAuthError(
+          error instanceof Error
+            ? error.message
+            : "Failed to save your profile."
+        );
+      } finally {
+        setSaving(false);
       }
-      router.push("/dashboard");
+
       return;
     }
     setDirection(1);
@@ -135,7 +235,7 @@ export default function OnboardingPage() {
       {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
         <span className="text-lg font-semibold tracking-tight text-gray-900">
-          AutoApply
+          Twin
         </span>
         <StepCircles steps={STEPS} currentIndex={stepIndex} />
       </header>
@@ -143,6 +243,18 @@ export default function OnboardingPage() {
       {/* Main */}
       <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
         <div className="w-full max-w-lg">
+          {!ready ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <>
+              {authError && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {authError}
+                </div>
+              )}
+
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={currentStep.id}
@@ -187,7 +299,7 @@ export default function OnboardingPage() {
                   onChange={(phone) => update({ phone })}
                   onSkip={() => {
                     update({ phone: "" });
-                    goNext();
+                    void goNext();
                   }}
                 />
               )}
@@ -205,11 +317,13 @@ export default function OnboardingPage() {
               Back
             </Button>
 
-            <Button onClick={goNext} disabled={!canAdvance}>
-              {isLast ? "Launch my Twin" : "Continue"}
+            <Button onClick={() => void goNext()} disabled={!canAdvance}>
+              {isLast ? (saving ? "Saving..." : "Finish setup") : "Continue"}
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
+            </>
+          )}
         </div>
       </main>
     </div>

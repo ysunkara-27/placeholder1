@@ -9,27 +9,27 @@ interface Stat {
 
 interface Props {
   applied: number;
-  pending: number;
-  skipped: number;
+  queued: number;
+  failed: number;
 }
 
-export function TwinStats({ applied, pending, skipped }: Props) {
+export function TwinStats({ applied, queued, failed }: Props) {
   const stats: Stat[] = [
     {
       label: "Applied",
       value: applied,
       description: "Submitted by your Twin",
-      active: true,
     },
     {
-      label: "Pending",
-      value: pending,
-      description: "Awaiting your reply",
+      label: "Queued",
+      value: queued,
+      description: "Waiting for execution or running now",
+      active: queued > 0,
     },
     {
-      label: "Skipped",
-      value: skipped,
-      description: "You passed on these",
+      label: "Failed",
+      value: failed,
+      description: "Need review before retrying",
     },
   ];
 
