@@ -992,6 +992,32 @@ Use this exact template at the end of a feature batch:
 - Next recommended step:
   - add always-on queue scheduler / cron trigger, then Phase 7 Workday agent
 
+### Session Update: 2026-03-29 (Phase 7 + Phase 9)
+
+- Workstream: Phase 7 (Portal Expansion) + Phase 9 (Safety, Observability, Operations)
+- Feature batch: Workday agent + always-on queue cron scheduler + alert expiry cron
+- Status before: Workday detected by URL but routed to VisionAgent (no real execution); queue required manual trigger or Railway cron call; alert expiry not enforced
+- Status after: Workday has a deterministic multi-step agent using data-automation-id selectors; queue drains automatically every minute via Vercel Cron; alerts expire automatically every hour
+- Files changed:
+  - `apply_engine/portal_specs.py` — WORKDAY_SELECTORS (data-automation-id based: first_name, last_name, email, phone, resume_upload, work_authorization, sponsorship_yes/no, next, submit) + WORKDAY_CUSTOM_SELECTORS (school, degree, graduation_date, gpa, onsite_preference, heard_about_us)
+  - `apply_engine/agents/workday.py` — WorkdayAgent: build_actions() fills step-1 fields, execute() multi-step loop advancing via bottom-navigation-next-btn, detects confirmation/auth-wall per step, captures screenshots at each navigation step
+  - `apply_engine/registry.py` — WorkdayAgent registered alongside Greenhouse/Lever/Vision
+  - `apply_engine/tests/fixtures/workday_form.html` — Workday-style HTML fixture with data-automation-id attributes
+  - `apply_engine/tests/test_agents.py` — 5 new Workday tests (build_actions, dry_run, applied_on_confirmation, requires_auth_on_login_wall, sponsorship_yes_when_required)
+  - `app/api/internal/cron/process-queue/route.ts` — drains up to 5 queued applications per cron tick (maxDuration=300s, bearer auth)
+  - `app/api/internal/cron/expire-alerts/route.ts` — expires pending alerts past expires_at
+  - `vercel.json` — Vercel Cron config: process-queue every minute, expire-alerts every hour
+- Tests run: `npm run test:apply-engine`, `python3 -m py_compile`, `npx tsc --noEmit`, `npm run build`
+- Tests passed: 42 Python tests passed, zero TypeScript errors, 22 Next.js routes
+- Known gaps:
+  - Workday forms often lazy-load fields — wait_for_load_state not yet used between steps (only wait_for_timeout)
+  - Workday Education section (step 2) requires clicking an "Add" button before fields appear — not yet handled
+  - No Handshake agent yet
+  - No replay tooling for failed runs
+  - CRON_SECRET not separately managed — uses APPLY_QUEUE_WORKER_SECRET for both cron and manual triggers
+- Next recommended step:
+  - Workday Education section step handling, then Handshake strategy decision, then job matching engine (Phase 4)
+
 ## Launch Gates
 
 Twin should not be treated as a launchable MVP until all of these are true:
