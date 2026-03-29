@@ -970,6 +970,28 @@ Use this exact template at the end of a feature batch:
 - Next recommended step:
   - add always-on queue scheduling and operational visibility, then build the messaging and approval loop
 
+### Session Update: 2026-03-28
+
+- Workstream: Phase 5 — Messaging and Approval Loop
+- Feature batch: Outbound SMS alerts + inbound YES/NO/STOP webhook
+- Status before: messaging provider abstraction scaffolded (getSmsProviderSelection), no actual send or receive
+- Status after: full outbound+inbound SMS loop implemented — sendSms dispatches via Plivo or Twilio REST API, inbound webhook parses replies, YES queues an application, STOP opts user out
+- Files changed:
+  - `lib/messaging/send.ts` — sendSms() with Plivo and Twilio HTTP calls, Basic auth, returns messageId
+  - `lib/messaging/reply.ts` — normalizeReplyText() (confirm/skip/stop/unknown), extractPhoneNumber() (E.164 normalization)
+  - `lib/alerts.ts` — createAlert, sendAlertSms, confirmAlert, skipAlert, expireAlertsForUser, findLatestPendingAlert, findProfileByPhone
+  - `app/api/messaging/send-alert/route.ts` — internal route (bearer auth) to send outbound alert SMS for alert_id
+  - `app/api/messaging/reply/route.ts` — Plivo/Twilio inbound webhook; YES → confirmAlert + queueApplication; NO → skipAlert; STOP → sms_opt_in=false + expireAlerts; Twilio returns TwiML, Plivo returns empty 200
+- Tests run: `npx tsc --noEmit`, `npm run build`
+- Tests passed: zero TypeScript errors, Next production build passed (20 routes)
+- Known gaps:
+  - no alert expiry cron — expires_at is set but nothing enforces it yet
+  - no job matching engine to create alerts automatically — alerts must be created manually for now
+  - Plivo webhook signature verification not yet implemented (trust IP allowlist in production)
+  - no START/re-subscribe handling after STOP
+- Next recommended step:
+  - add always-on queue scheduler / cron trigger, then Phase 7 Workday agent
+
 ## Launch Gates
 
 Twin should not be treated as a launchable MVP until all of these are true:
