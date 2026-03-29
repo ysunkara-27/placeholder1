@@ -7,20 +7,9 @@ export const runtime = "nodejs";
 type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"];
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
-function mapStatus(status: string) {
-  if (status === "submitted") {
-    return "applied";
-  }
-  if (status === "queued") {
-    return "queued";
-  }
-  if (status === "running") {
-    return "running";
-  }
-  if (status === "requires_auth") {
-    return "requires_auth";
-  }
-  return "failed";
+// Status is stored as-is in the DB: 'applied', 'queued', 'running', 'requires_auth', 'failed'
+function mapStatus(status: string): string {
+  return status;
 }
 
 export async function GET() {

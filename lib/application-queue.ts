@@ -77,7 +77,7 @@ function buildCompletionUpdate(
 
   if (result.status === "applied") {
     return {
-      status: "submitted",
+      status: "applied",
       confirmation_text: extractConfirmationText(result),
       last_error: null,
       applied_at: completedAt,
@@ -179,7 +179,7 @@ export async function queueApplication(
       };
     }
 
-    if (existing.data.status === "submitted") {
+    if (existing.data.status === "applied") {
       return {
         application: existing.data,
         disposition: "already_submitted",

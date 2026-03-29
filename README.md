@@ -29,17 +29,20 @@ Get your Anthropic key at [console.anthropic.com](https://console.anthropic.com)
 
 **3. Set up Supabase**
 
-Create a Supabase project, then run the SQL in:
-`supabase/migrations/20260329120000_initial_platform.sql`
-`supabase/migrations/20260329143000_apply_runs.sql`
-`supabase/migrations/20260329180000_application_queue.sql`
+Create a Supabase project, then run the SQL migrations in order:
+```
+supabase/migrations/20260329120000_initial_platform.sql
+supabase/migrations/20260329143000_apply_runs.sql
+supabase/migrations/20260329180000_application_queue.sql
+supabase/migrations/20260329200000_status_applied.sql
+```
 
-This creates the current platform tables:
-- `profiles`
-- `jobs`
-- `alerts`
-- `applications`
-- `apply_runs`
+This creates the platform tables: `profiles`, `jobs`, `alerts`, `applications`, `apply_runs`.
+
+**Enable Anonymous Auth** — in your Supabase dashboard go to:
+`Authentication → Providers → Anonymous` and toggle it on.
+
+Twin signs users in anonymously on onboarding load so their profile can be saved before they set a password. Without this, onboarding will fail with a 400 error.
 
 **4. Run the apply engine**
 
