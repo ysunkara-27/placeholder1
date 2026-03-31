@@ -69,12 +69,21 @@ This document is Twilio-first but compatible with provider abstraction (`plivo` 
   - provider send logic; Twilio uses `/Messages.json` with basic auth.
 - `app/api/messaging/reply/route.ts`
   - inbound SMS webhook; detects Twilio header and handles YES/NO/STOP.
+  - important: currently does not verify Twilio signatures server-side.
 - `lib/messaging/reply.ts`
   - token normalization and phone normalization helpers.
 - `app/api/internal/cron/expire-alerts/route.ts`
   - expires stale pending alerts.
 - `app/api/internal/cron/process-queue/route.ts`
   - drains queued applications.
+
+### Current System Truth (must stay aligned while implementing)
+
+- provider routing in `sendSms` is global (`SMS_PROVIDER` env), not per-profile.
+- `profiles.sms_provider` exists in schema but is not used for runtime send selection.
+- onboarding persistence currently defaults `sms_provider` to `plivo` when phone is present.
+- STOP behavior is implemented; START re-enable is not implemented yet.
+- queue drain route exists, but scheduler wiring for it must be explicitly configured.
 
 ---
 
@@ -156,6 +165,8 @@ Incoming parsing:
 
 - provider detect:
   - Twilio if `x-twilio-signature` header exists
+  - current behavior: header presence is detection only
+  - required production behavior: validate signature against auth token and webhook URL
 - fields:
   - `From`
   - `Body`
@@ -174,6 +185,7 @@ Behavior:
   - `profiles.sms_opt_in = false`
   - expire all pending alerts for user
   - return TwiML unsubscribe confirmation
+  - do not claim START support unless START handling is implemented
 - YES:
   - set alert status to `confirmed`
   - build applicant payload from profile
@@ -198,6 +210,72 @@ Result mapping:
 - `failed` -> `applications.status='failed'`
 
 Operationally this is independent of Twilio transport, but Twilio is what creates most queue demand through YES replies.
+
+---
+
+### 5) Phone Canonicalization Contract (critical integration rule)
+
+All phone handling must use one canonical format (E.164) across write/read/send boundaries.
+
+Required rules:
+
+- write path: normalize onboarding phone to E.164 before storing in `profiles.phone`
+- read path: inbound `From` values normalize to same canonical representation
+- send path: always send E.164 `To` values to Twilio
+- lookup path: `findProfileByPhone` must compare canonicalized forms
+
+Current risk if not enforced:
+
+- inbound replies fail to map to profiles
+- outbound sends fail or misroute for non-E.164 numbers
+
+---
+
+### 6) Provider Truth Model (Twilio-first vs abstraction)
+
+Target product stance:
+
+- Twilio-first production channel for SMS
+
+Current code stance:
+
+- provider selected globally by `SMS_PROVIDER`
+- defaults still point to Plivo in persistence/env examples
+
+Required alignment actions:
+
+1. set Twilio defaults for Twilio-first environments
+2. keep provider abstraction for fallback/testing
+3. clearly document whether per-profile provider routing is in or out of scope
+
+---
+
+### 7) Idempotency and Concurrency Rules
+
+Webhook providers may retry delivery. Queue workers may run concurrently.
+The system must be safe under both conditions.
+
+Required rules:
+
+- confirm/skip transitions should only apply when alert is `pending`
+- duplicate YES replies should not create duplicate queue work for same `(user_id, job_id)`
+- queue claim remains lock-safe via `for update skip locked`
+- internal cron/auth routes must reject unauthorized requests
+
+---
+
+### 8) Alert <-> Application Status Synchronization
+
+Current behavior:
+
+- YES updates `alerts.status` to `confirmed`
+- apply execution updates `applications.status`
+- `alerts.status` is not automatically mirrored to `applied/failed` in current queue completion path
+
+Decision required (document as policy):
+
+- either keep alerts as decision-log only (`pending/confirmed/skipped/expired`)
+- or mirror final execution outcome to `alerts.applied/failed` for unified lifecycle reporting
 
 ---
 
@@ -447,6 +525,11 @@ Required env:
 - `TWILIO_PHONE_NUMBER`
 - `APPLY_QUEUE_WORKER_SECRET` (for internal secured routes)
 
+Important alignment notes:
+
+- if Twilio-first is intended, set `SMS_PROVIDER=twilio` in all deployed environments
+- avoid mixed defaults between docs and code (`plivo` fallback should be deliberate, not accidental)
+
 Recommended Twilio Console setup:
 
 1. Buy/configure a US-capable number.
@@ -459,12 +542,13 @@ Recommended Twilio Console setup:
 
 ## Security and Compliance Requirements
 
-1. Validate Twilio signatures server-side (hard requirement for production).
+1. Validate Twilio signatures server-side (hard requirement for production; header detection alone is insufficient).
 2. Enforce idempotency at alert/action layer where possible.
 3. Never execute apply action for unknown sender.
 4. STOP must always disable future sends immediately (`sms_opt_in=false`).
 5. Keep secrets server-only; never expose Twilio auth token in client bundles.
 6. Maintain minimal PII in logs (mask phone and message content when possible).
+7. If STOP response text references START, START handling must exist and be tested.
 
 ---
 
@@ -486,6 +570,20 @@ Suggested alerting:
 - queue stuck (`queued` age over threshold)
 - abnormal unknown-reply percentage
 
+### Scheduler Coverage (operational integration checklist)
+
+Must have recurring execution for all four:
+
+1. job ingest trigger(s)
+2. alert expiry cron (`/api/internal/cron/expire-alerts`)
+3. queue drain cron (`/api/internal/cron/process-queue`)
+4. optional follow-up sender flow (if enabled for product tier)
+
+Current repo note:
+
+- workflow currently schedules ingest + expire-alerts
+- process-queue scheduling must be explicitly wired for continuous apply execution
+
 ---
 
 ## Failure Modes and Expected Behavior
@@ -501,6 +599,9 @@ Suggested alerting:
 4. Queue/apply fails after YES:
    - application transitions to `failed`
    - retain run/error context in `apply_runs` + `applications.last_error`
+5. Reply says START but START unsupported:
+   - treat as unknown until START command support is implemented
+   - avoid contradictory user copy in webhook responses
 
 ---
 
@@ -521,12 +622,15 @@ Suggested alerting:
 - unknown -> guidance response
 - unknown sender -> no-op
 - no pending alert -> no-op
+- Twilio signature invalid -> reject/ignore per policy
+- START behavior -> tested only when feature is implemented
 
 ### Data Integrity
 
 - unique `(user_id, job_id)` alert behavior
 - queue claim locking correctness
 - proper `applications.status` transitions
+- canonical E.164 phone format at write/read/send boundaries
 
 ### Security
 
@@ -538,11 +642,12 @@ Suggested alerting:
 ## Rollout Plan
 
 1. Stage environment with Twilio test number.
-2. Enable Twilio provider in env and run smoke tests.
+2. Enable Twilio provider in env and align provider defaults with Twilio-first policy.
 3. Start with internal users only (allowlist on profiles).
-4. Monitor unknown replies and token coverage.
-5. Add signature enforcement and retry policy before broad release.
-6. Launch paid tier SMS access gates and track COGS per apply.
+4. Enforce webhook signature validation before broad external traffic.
+5. Wire scheduler for queue drain and verify no queue backlog.
+6. Monitor unknown replies, command distribution, and send failure rates.
+7. Launch paid tier SMS access gates and track COGS per apply.
 
 ---
 
@@ -562,5 +667,6 @@ Suggested alerting:
 1. Never auto-apply from SMS unless explicit positive intent (`YES` class) or Turbo policy explicitly enabled by user.
 2. Preference-based matching is policy truth; resume-based features are ranking assists.
 3. STOP must be immediate and global for pending SMS alerts.
-4. Every transition must be reflected in Supabase statuses for recoverability and audit.
-5. Twilio is transport; backend state machine is source of truth.
+4. Canonical phone format must be consistent across storage, lookup, and provider sends.
+5. Every transition must be reflected in Supabase statuses for recoverability and audit.
+6. Twilio is transport; backend state machine is source of truth.
