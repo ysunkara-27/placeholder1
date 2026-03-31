@@ -75,18 +75,24 @@ PLIVO_AUTH_TOKEN=...
 PLIVO_PHONE_NUMBER=+1...
 ```
 
-### 3. Run the database migration (once, either person)
+### 3. Run the database migrations (once, either person)
 
-This adds the `resume_url` column and creates the resume Storage bucket in Supabase.
+Three migrations need to be applied in order:
 
 ```bash
 npx supabase db push
 ```
 
-If that fails, open the Supabase SQL editor and paste + run the entire contents of:  
-`supabase/migrations/20260331000000_resume_storage.sql`
+If that fails, open the Supabase SQL editor and paste + run each of these in order:
 
-**Verify:** Supabase dashboard → Table editor → `profiles` → `resume_url` column exists. Storage → `resumes` bucket listed.
+1. `supabase/migrations/20260331000000_resume_storage.sql` — adds `resume_url` column + resumes Storage bucket
+2. `supabase/migrations/20260331140000_prospective_lists.sql` — adds `prospective_lists` and `prospective_list_items` tables for the daily digest SMS flow
+3. `supabase/migrations/20260401090000_digest_fixed_times.sql` — adds per-user digest timing columns to `profiles`
+
+**Verify:**
+- `profiles` table has `resume_url`, `daily_digest_shortlist_time_local`, `daily_digest_cutoff_time_local`, `daily_digest_goal_submit_time_local` columns
+- `prospective_lists` and `prospective_list_items` tables exist
+- Storage → `resumes` bucket listed
 
 ---
 
@@ -458,15 +464,19 @@ GitHub → repo → Settings → Secrets → Actions:
 | `SUPABASE_SERVICE_ROLE_KEY` | service role key |
 | `GEMINI_API_KEY` | optional |
 
-Then: GitHub → Actions → Twin Operations → Run workflow → verify all three jobs pass.
+Then: GitHub → Actions → Twin Operations → Run workflow → verify all jobs pass.
 
-### Vercel cron for auto queue processing
+### Vercel cron for auto queue processing and SMS digests
 
-Vercel → Project → Settings → Crons:
+Vercel → Project → Settings → Crons (add all of these):
 ```
-Path: /api/internal/cron/process-queue
-Schedule: */5 * * * *
+Path: /api/internal/cron/process-queue           Schedule: */5 * * * *
+Path: /api/internal/cron/send-prospective-lists  Schedule: */5 * * * *
+Path: /api/internal/cron/finalize-prospective-lists  Schedule: */5 * * * *
+Path: /api/internal/cron/send-prospective-results    Schedule: */5 * * * *
 ```
+
+The prospective-lists crons power the daily digest flow: Twin builds a shortlist, texts it to the user, waits for replies (YES/SKIP n), then queues confirmed jobs and sends a results summary.
 
 ---
 
@@ -475,7 +485,7 @@ Schedule: */5 * * * *
 **Apply track:**
 - [ ] `npm run smoke` passes in under 10 seconds
 - [ ] `npm run build` and `npm run test:apply-engine` both pass
-- [ ] DB migration applied (`resume_url` column + `resumes` bucket in Supabase)
+- [ ] All 3 DB migrations applied (resume_storage, prospective_lists, digest_fixed_times)
 - [ ] At least one Greenhouse job → `applied` in a local direct queue run
 - [ ] SoloPulse Lever → `requires_auth` (captcha detected — this is correct)
 - [ ] Apply engine deployed to Railway, `/health` returns ok
@@ -487,6 +497,8 @@ Schedule: */5 * * * *
 - [ ] Replying NO marks the alert `skipped`
 - [ ] Replying STOP sets `sms_opt_in=false`
 - [ ] Follow-up answers get stored in `gray_areas.follow_up_answers`
+- [ ] Daily digest: `send-prospective-lists` cron fires and user receives a numbered shortlist SMS
+- [ ] Replying `SKIP 2` removes item from list; `APPLY ALL` / YES queues everything
 - [ ] Twilio webhook updated to production Vercel URL after deploy
 
 **Both:**
