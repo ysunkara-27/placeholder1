@@ -1,41 +1,100 @@
 # Twin MVP Runbook
 
-**Last updated:** 2026-03-31
-**Purpose:** Exact steps from zero to a live, deployed MVP — including local validation, database migration, and production deploy.
+**Last updated:** 2026-03-31  
+**Who this is for:** Anyone working on this project — apply engine, SMS, or both.
 
 ---
 
-## Part 1 — Local Validation (do this first, before deploying anything)
+## How the whole system works
 
-### Step 1.1 — Verify prerequisites
+Every application goes through five stages. Both tracks of this project plug into different stages.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. INGEST    Jobs scraped → stored in Supabase             │
+│       ↓                                                     │
+│  2. MATCH     Profile matched to jobs → alert row created   │
+│       ↓                                                     │
+│  3. SMS OUT   "Twin found a match: Scale AI Intern.         │  ← SMS track
+│               Reply YES to apply."                          │
+│       ↓                                                     │
+│  4. SMS IN    User replies YES → application queued         │  ← SMS track
+│       ↓                                                     │
+│  5. APPLY     Browser automation fills + submits the form   │  ← Apply track
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Apply track** (you): runs the browser automation engine. Handles stage 5.  
+**SMS track** (your collaborator): handles stages 3–4. Configures Twilio, tests the webhook, makes sure YES turns into a queued application.
+
+Both tracks read and write to the **same Supabase project**. You do not need to run both locally at once.
+
+---
+
+## Shared setup (everyone does this once)
+
+### 1. Clone and install
 
 ```bash
-node -v          # need 18+
-python3 --version  # need 3.11+
+git clone <repo>
+cd <repo>
+npm install
 ```
 
-Make sure `.env.local` exists in the repo root with all of these set:
+### 2. Get the `.env.local` file
+
+Ask the other person for a copy of `.env.local`. It lives in the repo root and is git-ignored.
+
+The **minimum required keys** for any contributor:
 
 ```
-ANTHROPIC_API_KEY=...
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 APPLY_QUEUE_WORKER_SECRET=...
+```
+
+**Apply track also needs:**
+```
+ANTHROPIC_API_KEY=...
 APPLY_ENGINE_BASE_URL=http://127.0.0.1:8000
+```
+
+**SMS track also needs (pick one provider):**
+```
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=+1...
+```
+or
+```
 SMS_PROVIDER=plivo
 PLIVO_AUTH_ID=...
 PLIVO_AUTH_TOKEN=...
 PLIVO_PHONE_NUMBER=+1...
 ```
 
-### Step 1.2 — Install Node dependencies
+### 3. Run the database migration (once, either person)
+
+This adds the `resume_url` column and creates the resume Storage bucket in Supabase.
 
 ```bash
-npm install
+npx supabase db push
 ```
 
-### Step 1.3 — Set up the Python virtual environment
+If that fails, open the Supabase SQL editor and paste + run the entire contents of:  
+`supabase/migrations/20260331000000_resume_storage.sql`
+
+**Verify:** Supabase dashboard → Table editor → `profiles` → `resume_url` column exists. Storage → `resumes` bucket listed.
+
+---
+
+## Apply track setup
+
+*Skip this section if you're only working on SMS.*
+
+### Install Python and browser automation
 
 ```bash
 python3 -m venv .venv
@@ -43,259 +102,325 @@ python3 -m venv .venv
 ./.venv/bin/playwright install chromium
 ```
 
-### Step 1.4 — Verify everything builds and tests pass
+### Verify everything works
 
 ```bash
-npm run build                    # should exit 0, 26 routes compiled
-npx tsc --noEmit                 # should produce no output
-npm run test:apply-engine        # should show 97+ passing tests
-python3 -m py_compile $(find apply_engine -name '*.py' | grep -v __pycache__)
-# should produce no output
+npm run build              # should complete with 0 errors
+npm run test:apply-engine  # should show 97+ passing
 ```
 
-If any of the above fail, stop and fix before continuing.
+### Start the apply engine
 
----
-
-## Part 2 — Run the Database Migration
-
-### Step 2.1 — Apply the resume storage migration
-
-This adds the `resume_url` column to `profiles` and creates the `resumes` Storage bucket.
-
-**Option A — Supabase CLI (recommended):**
-```bash
-npx supabase db push
-```
-
-**Option B — Supabase dashboard SQL editor:**
-
-Open your Supabase project → SQL editor → paste and run the entire contents of:
-```
-supabase/migrations/20260331000000_resume_storage.sql
-```
-
-### Step 2.2 — Verify migration
-
-In the Supabase dashboard:
-- Table editor → `profiles` → confirm `resume_url` column exists
-- Storage → confirm `resumes` bucket exists (private, 10MB limit)
-
----
-
-## Part 3 — Ingest Seed Jobs
-
-### Step 3.1 — Put your Vercel URL (or local dev URL) in the command
-
-You need the Twin app to be reachable. For local testing:
+Keep this running in a dedicated terminal whenever you're doing apply runs.
 
 ```bash
-# Terminal 1 — start the Next.js app in production mode
-npx next start -p 3001
-```
-
-### Step 3.2 — Run the seed ingest
-
-```bash
-./.venv/bin/python apply_engine/scripts/ingest_seed_jobs.py \
-  --base-url http://localhost:3001 \
-  --worker-secret YOUR_APPLY_QUEUE_WORKER_SECRET
-```
-
-This loads jobs from `data/job-seeds/live-openings-2026.json` into Supabase.
-
-For the vetted MVP test set (4 jobs, fully validated portals):
-
-```bash
-node scripts/queue-vetted-mvp.mjs
-```
-
-This queues one application per vetted job for the operator account.
-The vetted jobs are:
-- **Greenhouse:** Scale AI, Rendezvous Robotics
-- **Lever:** SoloPulse, WeRide
-
----
-
-## Part 4 — Local Live Run Validation
-
-### Step 4.1 — Start the apply engine
-
-```bash
-# Terminal 2 — keep this running
 ./.venv/bin/uvicorn apply_engine.main:app --host 127.0.0.1 --port 8000
 ```
 
-Confirm it is healthy:
-```bash
-curl http://127.0.0.1:8000/health
-# → {"status":"ok"}
-```
+You should see: `Application startup complete.`
 
-### Step 4.2 — Start the Next.js app (if not already running)
+### Quick sanity check (5 seconds, no browser opens)
 
 ```bash
-# Terminal 1 (or alongside Terminal 2)
-npx next start -p 3001
+npm run smoke
 ```
 
-> **Note:** Use `next start`, not `npm run dev`, for queue processing. The dev server hot-reloads and can interrupt running worker sessions.
-
-### Step 4.3 — Queue jobs for live testing
-
-```bash
-npm run queue:vetted:mvp
+Expected:
+```
+  [1/2] health check ... ok
+  [2/2] dry-run plan ... ok (5ms, 13 planned actions, portal=lever)
+  Smoke test passed.
 ```
 
-This queues all 4 vetted jobs. You can also queue individual jobs from `/apply-lab` in the browser.
-
-### Step 4.4 — Process the queue
-
-```bash
-npm run process:queue:direct
-```
-
-This:
-1. Checks that the apply engine is healthy at `http://127.0.0.1:8000`
-2. Auto-starts uvicorn locally if it isn't running
-3. Claims applications from Supabase directly (bypasses the Next.js HTTP layer)
-4. Calls the apply engine, stores results in `apply_runs`
-
-Watch the terminal output. For each application you'll see:
-```
-[Twin direct queue] <id>: portal=greenhouse timeout_ms=420000 attempt=1
-```
-
-Then one of:
-- `status=applied` → success
-- `status=requires_auth` → human verification needed (expected for SoloPulse/captcha)
-- `status=failed` → inspect the error in the dashboard
-
-### Step 4.5 — Inspect results
-
-Open `http://localhost:3001/dashboard` and check:
-- **Apply Runs** section shows the results
-- **Blockers Summary** shows any unresolved required questions
-- **Recovery Summary** shows if the engine had to retry
-
-For detailed error payloads:
-```bash
-npm run report:daily:followups
-cat reports/daily-followups-$(date +%Y-%m-%d).md
-```
-
-### Step 4.6 — Expected outcomes per portal
-
-| Portal | Company | Expected result |
-|--------|---------|-----------------|
-| Greenhouse | Scale AI | `applied` or narrow field blocker |
-| Greenhouse | Rendezvous Robotics | `applied` (ITAR now answered proactively) |
-| Lever | SoloPulse | `requires_auth` (hCaptcha — expected) |
-| Lever | WeRide | `applied` or `start_date`/`graduation` custom field blocker |
-
-If you see a new blocker, record the exact error from the dashboard and fix the selector/hint before moving on.
-
-### Step 4.7 — Requeue stale runs and retest
-
-```bash
-npm run queue:vetted:mvp   # requeues stale "running" rows too
-npm run process:queue:direct
-```
-
-Repeat until at least one Greenhouse job and one Lever job reach `applied`.
+If health check fails → the engine in the terminal above isn't running.  
+If dry-run plan fails → read the error. Usually a schema mismatch.
 
 ---
 
-## Part 5 — SMS Loop Validation (optional but recommended before deploy)
+## SMS track setup
 
-### Step 5.1 — Verify Plivo is configured
+*Skip this section if you're only working on the apply engine.*
 
-Check that these are set in `.env.local`:
+### What you're building
+
+You own the inbound/outbound SMS loop:
+- **Outbound:** When a job matches a user, an SMS goes out: *"Twin found a match: Scale AI Intern. Reply YES to apply."*
+- **Inbound:** When the user replies YES, the app queues the application. NO skips it. STOP opts them out.
+
+The code is already written. Your job is to wire Twilio to it and validate the loop end-to-end.
+
+### How the code works
+
+| File | What it does |
+|------|-------------|
+| `lib/alerts.ts` | Creates alert rows, formats the SMS message, sends outbound SMS |
+| `lib/messaging/send.ts` | Low-level send: calls Twilio or Plivo API |
+| `app/api/messaging/reply/route.ts` | Inbound webhook — receives YES/NO/STOP replies |
+| `app/api/messaging/send-alert/route.ts` | Internal endpoint that triggers sending a specific alert |
+| `lib/followups.ts` | Handles numbered follow-up answers (e.g. "1. Computer Science") |
+
+The reply route auto-detects the provider: if the request has `X-Twilio-Signature` header, it treats it as Twilio. Otherwise Plivo. No config needed — switching `SMS_PROVIDER` in `.env.local` changes which API sends outbound.
+
+### Start the app
+
+```bash
+npx next start -p 3001
 ```
-SMS_PROVIDER=plivo
-PLIVO_AUTH_ID=...
-PLIVO_AUTH_TOKEN=...
-PLIVO_PHONE_NUMBER=+1...  ← your Plivo sender number
+
+> Use `next start` not `npm run dev` for webhook testing — hot reloading can interrupt a request mid-flight.
+
+### Expose your local server for webhook testing (ngrok)
+
+Twilio needs a public URL to POST inbound messages to. ngrok creates a tunnel from the internet to your local machine.
+
+Install ngrok: https://ngrok.com/download
+
+```bash
+ngrok http 3001
 ```
 
-### Step 5.2 — Onboard a real user with your phone number
+Copy the HTTPS URL it gives you, e.g. `https://abc123.ngrok-free.app`
 
+### Configure Twilio webhook
+
+1. Go to [Twilio Console](https://console.twilio.com) → Phone Numbers → your number
+2. Under **Messaging** → **A message comes in**:
+   - Set to **Webhook**
+   - URL: `https://abc123.ngrok-free.app/api/messaging/reply`
+   - Method: **POST**
+3. Save
+
+### Test the outbound SMS
+
+First, onboard a test user with your real phone number:
 1. Go to `http://localhost:3001/onboarding`
-2. Complete all 5 steps including resume upload
-3. Use your real phone number in Step 1
+2. Complete all 5 steps — use your actual phone number in step 1
+3. Upload any PDF as the resume for now
 
-### Step 5.3 — Trigger an alert manually
+Then trigger an alert manually:
 
+```bash
+# Get your user ID from Supabase: Table editor → profiles → copy your id
+# Get a job ID: Table editor → jobs → copy any id
+
+curl -X POST http://localhost:3001/api/messaging/send-alert \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_APPLY_QUEUE_WORKER_SECRET" \
+  -d '{"alert_id": "ALERT_ID"}'
+```
+
+To get an alert_id: after the ingest step creates jobs, matching happens automatically — check the `alerts` table in Supabase for a new row.
+
+Or create one directly in Supabase SQL editor:
+```sql
+INSERT INTO alerts (user_id, job_id, status, alerted_at, expires_at)
+VALUES (
+  'YOUR_USER_ID',
+  'ANY_JOB_ID',
+  'pending',
+  now(),
+  now() + interval '24 hours'
+)
+RETURNING id;
+```
+
+Then send it:
 ```bash
 curl -X POST http://localhost:3001/api/messaging/send-alert \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_APPLY_QUEUE_WORKER_SECRET" \
-  -d '{"userId": "YOUR_USER_ID", "jobId": "YOUR_JOB_ID"}'
+  -d '{"alert_id": "THE_ID_FROM_ABOVE"}'
 ```
 
-Or let the matching run naturally once jobs are in the DB (matching fires inside the job ingest flow).
+You should receive an SMS on your phone.
 
-### Step 5.4 — Reply YES to the SMS
+### Test the inbound reply (reply YES)
 
-Text `YES` back to your Plivo number.
+Text `YES` back to your Twilio number.
 
-### Step 5.5 — Process the queue
+Check Supabase → `applications` table → a new row should appear with `status=queued`.
+
+Check Supabase → `alerts` table → your alert row should now have `status=accepted`.
+
+That's the SMS loop working end-to-end.
+
+### Test NO and STOP
+
+- Reply `NO` → `alerts` row gets `status=skipped`
+- Reply `STOP` → `profiles` row gets `sms_opt_in=false`, all pending alerts expired
+
+### Test follow-up answers
+
+If a previous apply run had unresolved required questions, the daily report will show them. The user gets an SMS listing them. They reply with numbered answers like:
+
+```
+1. Computer Science
+2. May 2026
+3. Yes
+```
+
+Text that to your Twilio number. Check Supabase → `profiles` → your row → `gray_areas.follow_up_answers` should now have those answers stored.
+
+### Common SMS errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| SMS never arrives | `sms_opt_in=false` on the profile, or no phone number stored | Complete onboarding with a phone number, check `profiles` row |
+| Twilio 400 on send | Wrong `TWILIO_PHONE_NUMBER` format | Must be E.164 format: `+15551234567` |
+| Reply does nothing | Webhook URL not set in Twilio console, or ngrok is expired | Restart ngrok, update webhook URL in Twilio console |
+| Reply does nothing | Request went to wrong URL (HTTP not HTTPS) | Twilio requires HTTPS — use the `https://` ngrok URL |
+| `alert_id required` on send-alert | Sending wrong body format | Body must be `{"alert_id": "..."}` not `{"userId": ...}` |
+| User gets SMS but YES doesn't queue | Profile not found by phone | Phone in profile must match exact E.164 format that Twilio sends as `From` |
+
+---
+
+## The daily apply run loop
+
+*This is the apply track's core loop. SMS person can skip to the next section.*
+
+Open three terminals and leave them running.
+
+**Terminal 1 — apply engine:**
+```bash
+./.venv/bin/uvicorn apply_engine.main:app --host 127.0.0.1 --port 8000
+```
+
+**Terminal 2 — Next.js app:**
+```bash
+npx next start -p 3001
+```
+
+**Terminal 3 — commands:**
 
 ```bash
+# 1. Sanity check (5 seconds)
+npm run smoke
+
+# 2. Queue the 4 vetted test jobs
+npm run queue:vetted:mvp
+
+# 3. Run one application at a time
+TWIN_MAX_RUNS=1 npm run process:queue:direct
+```
+
+You will see:
+```
+[Twin direct queue] <id>: portal=greenhouse timeout_ms=420000 attempt=1
+```
+
+Then silence for 2–7 minutes. The browser is running. Do not kill it.
+
+When done:
+```
+[Twin direct queue] run persisted: <run-id>  status=applied       ← success
+[Twin direct queue] run persisted: <run-id>  status=requires_auth ← captcha wall (expected for SoloPulse)
+[Twin direct queue] run persisted: <run-id>  status=failed        ← something broke
+```
+
+```bash
+# 4. Check what happened
+open http://localhost:3001/dashboard
+
+# 5. See blocked/unresolved questions in detail
+npm run report:daily:followups
+cat reports/daily-followups-$(date +%Y-%m-%d).md
+
+# 6. Repeat
+npm run queue:vetted:mvp
 npm run process:queue:direct
 ```
 
-The application for the job you said YES to should now process.
+### What each status means
+
+| Status | Meaning | Do this |
+|--------|---------|---------|
+| `applied` | Form submitted, confirmation captured | Nothing. Done. |
+| `requires_auth` | Captcha or login wall hit | Expected for SoloPulse. Manual apply needed. |
+| `failed` | Engine error | Check dashboard error detail, see blocker table below |
+| `queued` | Waiting in queue | Run `process:queue:direct` |
+| `running` | Browser is open right now | Wait. Don't requeue. |
+
+### What each blocker means
+
+| Blocked on | Plain English | Fix |
+|------------|--------------|-----|
+| `education` | School/major/graduation didn't match ATS dropdown | Fill all 4 fields fully in onboarding: school name, major, degree, graduation date |
+| `authorization` | ITAR or work eligibility question unanswered | Now answered proactively. If still failing, check `question_debug:` in the error for the exact wording |
+| `resume` | No resume file delivered to the engine | Complete onboarding resume step — PDF now uploads to Supabase Storage automatically |
+| `custom` | Required question the engine couldn't guess | Check the follow-up report for the exact question text, then add the answer to `gray_areas.follow_up_answers` in Supabase |
+| `contact` | Missing phone/LinkedIn | Fill in onboarding step 1 |
+
+### Dashboard panels at a glance
+
+| Panel | Green means | Not green means |
+|-------|------------|-----------------|
+| **Queue** | Nothing waiting | Applications are processing now |
+| **Approval** | No unread alerts | User has SMS matches waiting on a YES |
+| **Portal access** | No blockers | `orange` = captcha, `red` = engine error |
+| **Blockers Summary** | — | Which field keeps getting stuck across runs |
+| **Follow-ups** | — | Questions needing a human answer before next attempt |
+| **Recovery Summary** | — | When the engine had to retry a blocked field |
 
 ---
 
-## Part 6 — Deploy the Apply Engine
-
-> **Do this only after Part 4 is passing (at least one `applied` result per supported portal).**
-
-### Step 6.1 — Choose a host
-
-Recommended: **Railway** (simplest Dockerfile deploy with auto-SSL and health checks).
-
-Alternative: Fly.io, Google Cloud Run, Render.
-
-### Step 6.2 — Deploy to Railway
-
-1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
-2. Select this repository
-3. Railway will detect `apply_engine/railway.json` automatically
-4. Set the **Root Directory** to `apply_engine/` in the Railway service settings
-5. Add environment variables in the Railway dashboard:
-   ```
-   ANTHROPIC_API_KEY=...
-   PORT=8000
-   ```
-6. Deploy. Wait for the health check at `/health` to pass (typically 3–5 minutes — Playwright install takes time).
-7. Copy the public Railway URL (e.g. `https://twin-apply-engine.up.railway.app`)
-
-### Step 6.3 — Update APPLY_ENGINE_BASE_URL
-
-In Vercel (or your `.env.local` for local testing against the remote engine):
-```
-APPLY_ENGINE_BASE_URL=https://twin-apply-engine.up.railway.app
-```
-
-Redeploy Vercel (it will pick up the new env var automatically if set in Vercel dashboard).
-
-### Step 6.4 — Verify the remote engine is reachable
+## All commands in one place
 
 ```bash
-curl https://twin-apply-engine.up.railway.app/health
-# → {"status":"ok"}
+# Verify the engine is up (5 seconds, no browser)
+npm run smoke
+npm run smoke -- --portal greenhouse
+
+# Queue the vetted test jobs
+npm run queue:vetted:mvp
+
+# Process the queue (real browser, 2–7 min per job)
+npm run process:queue:direct
+TWIN_MAX_RUNS=1 npm run process:queue:direct   # one at a time
+
+# Check blocked runs
+npm run report:daily:followups
+cat reports/daily-followups-$(date +%Y-%m-%d).md
+
+# Send daily SMS follow-up batch to users with open questions
+npm run send:daily:followups
+
+# Ingest seed jobs into Supabase (run against local or deployed app)
+./.venv/bin/python apply_engine/scripts/ingest_seed_jobs.py \
+  --base-url http://localhost:3001 \
+  --worker-secret YOUR_WORKER_SECRET
+
+# Requeue a stuck application (paste into Supabase SQL editor)
+UPDATE applications
+SET status='queued', queued_at=now(), started_at=null, worker_id=null
+WHERE id='YOUR_APPLICATION_ID';
+
+# Manually trigger an outbound alert SMS
+curl -X POST http://localhost:3001/api/messaging/send-alert \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_WORKER_SECRET" \
+  -d '{"alert_id":"YOUR_ALERT_ID"}'
+
+# Expire old alerts
+curl -X POST http://localhost:3001/api/internal/cron/expire-alerts \
+  -H "Authorization: Bearer YOUR_WORKER_SECRET"
 ```
 
 ---
 
-## Part 7 — Deploy the Next.js App to Vercel
+## Deploy (do this only after local runs are working)
 
-### Step 7.1 — Set all environment variables in Vercel
+### Apply engine → Railway
 
-In the Vercel dashboard → Project → Settings → Environment Variables, add:
+1. [railway.app](https://railway.app) → New Project → Deploy from GitHub
+2. Set Root Directory: `apply_engine/`
+3. Add env var: `ANTHROPIC_API_KEY=...`
+4. Wait 3–5 minutes (Playwright installs during build)
+5. Verify: `curl https://your-engine.up.railway.app/health` → `{"status":"ok"}`
+6. Smoke test against remote: `APPLY_ENGINE_BASE_URL=https://your-engine.up.railway.app npm run smoke`
+
+### Next.js → Vercel
+
+Set all these in Vercel dashboard → Environment Variables:
 
 ```
 ANTHROPIC_API_KEY
@@ -303,172 +428,66 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 APPLY_QUEUE_WORKER_SECRET
-APPLY_ENGINE_BASE_URL        ← your Railway URL from Step 6.2
+APPLY_ENGINE_BASE_URL          ← Railway URL
 APPLY_ENGINE_TIMEOUT_MS=240000
 APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS=420000
-SMS_PROVIDER=plivo
-PLIVO_AUTH_ID
-PLIVO_AUTH_TOKEN
-PLIVO_PHONE_NUMBER
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER
 ```
-
-### Step 7.2 — Deploy
 
 ```bash
-git push origin main
+git push origin main   # Vercel auto-deploys
 ```
 
-Vercel auto-deploys on push. Watch the build log — it should match `npm run build` output (26 routes, 0 errors).
+### Update Twilio webhook to production URL
 
-### Step 7.3 — Smoke test production
+Twilio Console → your number → Messaging webhook:  
+`https://your-app.vercel.app/api/messaging/reply`
 
-1. Go to `https://your-app.vercel.app`
-2. Click the CTA → complete onboarding → upload your real resume PDF
-3. Check Supabase → `profiles` table → your row should have `resume_url` set
-4. Check Supabase → Storage → `resumes/{your-user-id}/resume.pdf` should exist
+### GitHub Actions → add secrets
 
----
-
-## Part 8 — Set Up Automated Crons
-
-### Step 8.1 — Add GitHub Actions secrets
-
-In GitHub → repo → Settings → Secrets → Actions, add:
+GitHub → repo → Settings → Secrets → Actions:
 
 | Secret | Value |
 |--------|-------|
 | `TWIN_APP_BASE_URL` | `https://your-app.vercel.app` |
-| `APPLY_QUEUE_WORKER_SECRET` | same as in `.env.local` |
-| `NEXT_PUBLIC_SUPABASE_URL` | your Supabase URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | your service role key |
-| `GEMINI_API_KEY` | optional — only needed for non-Greenhouse/Lever scraping |
+| `APPLY_QUEUE_WORKER_SECRET` | same as `.env.local` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | service role key |
+| `GEMINI_API_KEY` | optional |
 
-### Step 8.2 — Understand the cron schedule
+Then: GitHub → Actions → Twin Operations → Run workflow → verify all three jobs pass.
 
-The workflow at `.github/workflows/twin-operations.yml` runs three jobs:
+### Vercel cron for auto queue processing
 
-| Job | Schedule | What it does |
-|-----|----------|--------------|
-| `ingest-seed-jobs` | 1am + 1pm UTC daily | Loads `data/job-seeds/live-openings-2026.json` into Supabase |
-| `expire-alerts` | Every 6 hours (offset 15min) | Marks old pending alerts as expired |
-| `scrape-live-sources` | Every 4 hours | Scrapes Greenhouse + Lever boards from `scraper/career-page-links.json` |
-
-### Step 8.3 — Trigger a manual run to verify
-
-In GitHub → Actions → Twin Operations → Run workflow → check all three inputs → Run.
-
-Watch the logs. `ingest-seed-jobs` should show `X jobs ingested`. `scrape-live-sources` should show sources attempted/succeeded counts.
-
-### Step 8.4 — Set up Vercel cron for queue processing
-
-The queue needs to be drained continuously. The cron endpoint is `/api/internal/cron/process-queue`.
-
-In Vercel → Project → Settings → Crons, add:
-
+Vercel → Project → Settings → Crons:
 ```
 Path: /api/internal/cron/process-queue
-Schedule: */5 * * * *   (every 5 minutes)
+Schedule: */5 * * * *
 ```
-
-Or manually trigger it:
-```bash
-curl -X POST https://your-app.vercel.app/api/internal/cron/process-queue \
-  -H "Authorization: Bearer YOUR_APPLY_QUEUE_WORKER_SECRET"
-```
-
-> **Note:** The Vercel cron calls the Next.js route which calls the remote apply engine. Max execution time is 60s on Vercel hobby / 300s on pro. Set your plan accordingly. Greenhouse runs can take up to 420s — use the direct worker for those locally until you upgrade.
 
 ---
 
-## Part 9 — Daily Operations
+## MVP is live when
 
-### Check the daily follow-up report
+**Apply track:**
+- [ ] `npm run smoke` passes in under 10 seconds
+- [ ] `npm run build` and `npm run test:apply-engine` both pass
+- [ ] DB migration applied (`resume_url` column + `resumes` bucket in Supabase)
+- [ ] At least one Greenhouse job → `applied` in a local direct queue run
+- [ ] SoloPulse Lever → `requires_auth` (captcha detected — this is correct)
+- [ ] Apply engine deployed to Railway, `/health` returns ok
+- [ ] `APPLY_ENGINE_BASE_URL` in Vercel points to Railway URL
 
-```bash
-npm run report:daily:followups
-cat reports/daily-followups-$(date +%Y-%m-%d).md
-```
+**SMS track:**
+- [ ] Outbound SMS arrives on your phone when you trigger `send-alert`
+- [ ] Replying YES creates a row in `applications` with `status=queued`
+- [ ] Replying NO marks the alert `skipped`
+- [ ] Replying STOP sets `sms_opt_in=false`
+- [ ] Follow-up answers get stored in `gray_areas.follow_up_answers`
+- [ ] Twilio webhook updated to production Vercel URL after deploy
 
-This shows any applications that were blocked by unresolved required questions, along with the exact prompt text. Answer them by texting the user's Twin number or updating `profiles.gray_areas.follow_up_answers`.
-
-### Send the daily SMS follow-up batch
-
-```bash
-npm run send:daily:followups
-```
-
-Sends one SMS per user with open unresolved questions from yesterday's runs.
-
-### Manually requeue a specific application
-
-In the Supabase SQL editor:
-```sql
-update applications
-set status = 'queued',
-    queued_at = now(),
-    started_at = null,
-    worker_id = null,
-    last_error = 'Manual requeue'
-where id = 'YOUR_APPLICATION_ID';
-```
-
-Then run `npm run process:queue:direct` locally or wait for the next Vercel cron tick.
-
----
-
-## Troubleshooting
-
-### Apply engine returns 500 / connection refused
-
-```bash
-# Check it's running
-curl http://127.0.0.1:8000/health
-
-# Start it if not
-./.venv/bin/uvicorn apply_engine.main:app --host 127.0.0.1 --port 8000
-```
-
-### "No module named 'playwright'" or Chromium not found
-
-```bash
-./.venv/bin/pip install -r apply_engine/requirements.txt
-./.venv/bin/playwright install chromium
-```
-
-### Resume upload fails (storage bucket not found)
-
-Run the migration:
-```bash
-npx supabase db push
-# or paste supabase/migrations/20260331000000_resume_storage.sql into Supabase SQL editor
-```
-
-### ITAR question still blocking Greenhouse run
-
-The fix adds `"itar"` and `"u.s. person"` to proactive hint matching. If still failing:
-1. Check the run's `result_payload.error` in Supabase `apply_runs` for `question_debug:` output
-2. The debug shows `exists`, `selected`, `hidden` values for the combobox
-3. If `hidden` is empty after fill, the combobox commit is not sticking — re-run with the latest code
-
-### Supabase `ENOTFOUND` errors in local queue runs
-
-This is a DNS issue in sandboxed environments (e.g. Codex). Use `npm run process:queue:direct` which reads Supabase directly. Avoid running queue workers inside terminal-constrained shells.
-
-### GitHub Actions scrape job failing
-
-Check that the secrets are set (Step 8.1). The `GEMINI_API_KEY` is optional — the workflow uses `--skip-gemini` so only Greenhouse and Lever boards are scraped by default.
-
----
-
-## Checklist — MVP is live when:
-
-- [ ] `npm run build` passes (0 TS errors)
-- [ ] `npm run test:apply-engine` passes (97+ tests)
-- [ ] DB migration applied (`resume_url` column + `resumes` bucket exist)
-- [ ] At least one Greenhouse job reaches `status=applied` in a local direct run
-- [ ] At least one Lever job reaches `status=applied` or correctly `requires_auth`
-- [ ] A real user can complete onboarding and has `resume_url` set in their profile
-- [ ] Apply engine deployed and `/health` returns `{"status":"ok"}`
-- [ ] `APPLY_ENGINE_BASE_URL` set in Vercel to the deployed engine URL
-- [ ] GitHub Actions secrets set and `Twin Operations` workflow passes manually
-- [ ] Vercel cron `/api/internal/cron/process-queue` configured
+**Both:**
+- [ ] A real user completes onboarding, gets an SMS, replies YES, application runs, result visible in dashboard

@@ -12,7 +12,8 @@
     "process:queue:direct": "node scripts/process-queue-direct.mjs",
     "queue:vetted:mvp": "node scripts/queue-vetted-mvp.mjs",
     "report:daily:followups": "node scripts/generate-daily-followup-report.mjs",
-    "send:daily:followups": "node scripts/send-daily-followups.mjs"
+    "send:daily:followups": "node scripts/send-daily-followups.mjs",
+    "smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
