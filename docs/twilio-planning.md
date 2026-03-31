@@ -186,6 +186,45 @@ lib/
 
 ## End-to-End Flow Spec
 
+### 0) Daily Prospective Jobs List (curation layer before messaging + apply)
+
+This system introduces a **daily curated list** of jobs per user, called a *prospective list*.
+Messaging now happens **after** a prospective list is created (daily), not per-job in real time.
+
+Core idea:
+
+- discovery/ingest produces `jobs`
+- matching produces a ranked set of *candidates*
+- Twin selects top N candidates into a per-user daily list
+- user can opt out of specific numbered items by SMS before cutoff time
+- Twin applies only to the final confirmed list
+- Twin sends a results summary including any jobs blocked by missing/unclear answers
+
+This reduces entropy by batching decisions and creating an explicit approval window.
+
+#### Terminology
+
+- **candidate**: a job that matches user preferences with a score and explanation (not yet user-approved)
+- **prospective list**: the daily numbered list sent to the user for review
+- **final list**: prospective list minus user-skipped items at cutoff
+- **blocked application**: apply engine requires an answer Twin does not have (gray/unclear field)
+
+#### User-configurable cadence
+
+Each user has:
+
+- `daily_digest_enabled` (default true for SMS users)
+- `daily_digest_time_local` (e.g. `18:30`)
+- `daily_digest_timezone` (IANA, e.g. `America/New_York`)
+- `daily_review_window_minutes` (default 60; during this window user can reply with skips)
+
+Policy:
+
+- if window is 0 minutes, treat as Turbo auto mode (apply immediately after sending list)
+- otherwise, wait until cutoff before queueing applications
+
+---
+
 ### 1) Job Enters System
 
 Source: `POST /api/jobs/ingest` (secured with `APPLY_QUEUE_WORKER_SECRET`).
@@ -203,8 +242,14 @@ Then:
 2. select `profiles` where `onboarding_completed = true`
 3. run `matchJobToProfile(job, profile)`
 4. for matches:
-   - create `alerts` row (`status=pending`, `expires_at`)
-   - if SMS opt-in valid, send Twilio message
+   - do not immediately send per-job SMS in digest mode
+   - instead, create or update the user’s next prospective list batch
+   - record candidate scoring + provenance for explainability
+
+Digest-mode note:
+
+- The current repo has real-time alert rows (`alerts`) and per-job SMS sends.
+- With prospective lists, `alerts` becomes the digest-message lifecycle (one per list) and/or can be deprecated in favor of `prospective_lists` + `prospective_list_items` (see Data Model).
 
 ---
 
@@ -263,6 +308,20 @@ Action normalization:
 - stop tokens: `stop, unsubscribe, cancel, quit, end, stopall`
 - start tokens: `start, unstop, resume`
 
+Digest reply grammar (skip-by-number):
+
+- `SKIP 2` or `NO 2` => skip item #2 from the latest active prospective list
+- `SKIP 2,5,7` => skip multiple items
+- `SKIP ALL` => skip all items (no applies today)
+- `APPLY ALL` or `YES` => confirm applying to all remaining items immediately (before cutoff)
+- `HELP` => return usage help
+
+Parsing rules:
+
+- ignore punctuation; accept spaces and commas
+- numbers refer to the list item index in the digest SMS (1-based)
+- if numbers are out of range, respond with guidance and do not mutate state
+
 Behavior:
 
 - unknown sender -> no-op 200
@@ -285,6 +344,13 @@ Behavior:
 - unknown text:
   - TwiML prompt: "Reply YES to apply, NO to skip, or STOP to pause alerts."
 
+Digest behavior (authoritative):
+
+- replies are interpreted against the **latest active prospective list** in `status='sent'` and before cutoff
+- skip commands mutate `prospective_list_items.user_decision='skip'`
+- apply-all confirms immediately and queues applications for all non-skipped items
+- after cutoff, reply commands apply to the next day’s list (or return a “window closed” message)
+
 Idempotency contract:
 
 - confirm/skip transitions only execute when current alert status is `pending`.
@@ -293,7 +359,170 @@ Idempotency contract:
 
 ---
 
-### 4) Queue and Apply Execution
+### 4) Apply Queueing (from final prospective list)
+
+At cutoff (or on APPLY ALL), Twin queues applications for each item in the final list.
+
+Queue input:
+
+- `applications.request_payload` is built from:
+  - user profile (`profiles` fields + `resume_json`)
+  - job application URL (`jobs.application_url`)
+
+Queue rules:
+
+- one application per `(user_id, job_id)` active row
+- retries handled by queue processor; do not enqueue duplicates
+
+---
+
+### 5) Apply Execution + Blocking Gray/Unclear Areas
+
+Apply engine may require answers Twin does not have.
+This must surface as a **blocked** outcome, not a silent failure.
+
+Blocking policy:
+
+- if apply engine returns `requires_auth` => treated as blocked; include in results summary
+- if apply engine returns validation/required-field error because a custom answer is missing
+  - classify as `blocked_missing_answer`
+  - record required prompt(s) and field family in `applications.last_error` and `apply_runs.result_payload.summary`
+
+Result semantics:
+
+- `applied` = submitted successfully
+- `blocked` = requires auth or missing/unclear answer (not safe to guess)
+- `failed` = automation failure not attributable to missing user data
+
+Note: current DB `applications.status` supports `requires_auth` but not a distinct `blocked_missing_answer`. For robustness, either:
+
+- extend status vocabulary, or
+- encode blocked subtype in `applications.last_error` + structured metadata.
+
+---
+
+### 6) Results Summary SMS (final applied list + blocked list)
+
+After processing the day’s final list, send the user a summary:
+
+- which jobs were applied to successfully (with confirmation snippets where available)
+- which jobs were not applied and why:
+  - requires auth
+  - missing/unclear answer (include the exact question prompt(s))
+  - automation failure
+
+Template (example):
+
+```text
+Twin daily apply results:
+
+✅ Applied (3)
+1) Stripe — SWE Intern (NYC)
+2) Figma — Data Intern (Remote)
+3) Apple — PM Intern (Austin)
+
+⚠️ Blocked (2)
+4) Workday — SWE Intern (requires login)
+5) Jane Street — SWE Intern (needs answer: “Are you legally authorized to work in the US?”)
+
+Reply HELP for commands.
+```
+
+---
+
+### 6a) Prospective List SMS (daily digest) — exact copy and structure
+
+Outbound SMS body should be short, numbered, and command-hinting.
+
+Template:
+
+```text
+Twin daily matches:
+
+1) Stripe — SWE Intern — NYC
+2) Figma — Data Intern — Remote
+3) Apple — PM Intern — Austin
+
+Reply:
+- APPLY ALL to apply to all
+- SKIP 2 or SKIP 1,3 to skip
+- STOP to pause alerts
+```
+
+Length constraints:
+
+- Aim to keep within a single SMS when possible; if > 3–4 items, consider:
+  - limiting to top N and saying `+ X more in dashboard`, or
+  - sending multiple messages, but with the same numbering semantics.
+
+JSON representation (internal, not user-facing):
+
+```json
+{
+  "list_id": "uuid",
+  "user_id": "uuid",
+  "date": "2026-04-01",
+  "sent_at": "2026-04-01T18:30:00Z",
+  "cutoff_at": "2026-04-01T19:30:00Z",
+  "items": [
+    {
+      "index": 1,
+      "job_id": "uuid-job-1",
+      "company": "Stripe",
+      "title": "SWE Intern",
+      "location": "New York, NY",
+      "remote": false,
+      "portal": "greenhouse",
+      "match_score": 87,
+      "match_reasons": ["Industry match: SWE", "Location match: New York"],
+      "match_rejections": [],
+      "user_decision": "pending"
+    },
+    {
+      "index": 2,
+      "job_id": "uuid-job-2",
+      "company": "Figma",
+      "title": "Data Intern",
+      "location": "Remote",
+      "remote": true,
+      "portal": "lever",
+      "match_score": 82,
+      "match_reasons": ["Industry match: Data", "Remote role accepted"],
+      "match_rejections": [],
+      "user_decision": "pending"
+    }
+  ]
+}
+```
+
+Parsing helper expectations:
+
+- reply parser receives:
+  - the raw text
+  - the **active prospective list id**
+  - the mapping from index → `prospective_list_items.id`
+- it outputs:
+  - high-level action (`apply_all`, `skip_items`, `stop`, `start`, `help`)
+  - affected item indexes (for `skip_items`)
+
+Example parsed command:
+
+```json
+{
+  "action": "skip_items",
+  "item_indexes": [2, 3]
+}
+```
+
+The webhook handler then:
+
+- validates indexes against the active list
+- writes `user_decision='skip'` for those items
+- leaves others as `pending` until cutoff or APPLY ALL.
+
+---
+
+### 7) Queue and Apply Execution (existing runtime)
 
 Internal queue drain route claims queued applications and runs apply engine.
 
@@ -401,6 +630,13 @@ Persistence rule:
 - `phone` is stored in canonical E.164 format only.
 - `sms_provider` for Twilio-first deployments should default to `twilio`.
 
+Additional fields for digest:
+
+- `daily_digest_enabled` (boolean, default true for SMS-pref users)
+- `daily_digest_time_local` (string, `HH:MM`)
+- `daily_digest_timezone` (string, IANA)
+- `daily_review_window_minutes` (integer, default 60)
+
 ## `jobs`
 
 Key fields:
@@ -420,6 +656,11 @@ Key fields:
 - lifecycle times: `alerted_at`, `replied_at`, `expires_at`
 - metadata blob for provider ids and debug context
 
+In digest mode, `alerts` can either be:
+
+- one row per digest (recommended), or
+- superseded by `prospective_lists` as the primary digest lifecycle table.
+
 ## `applications`
 
 Key fields:
@@ -433,6 +674,38 @@ Key fields:
 
 Audit table for plan/submit runs with request/result payloads and summary metadata.
 
+## `prospective_lists` (new)
+
+Represents a single daily prospective list per user.
+
+Key fields:
+
+- `id` (uuid, primary key)
+- `user_id` (uuid, FK to `auth.users`)
+- `date` (date, local user date)
+- `status` (`pending | sent | finalized | applied`)
+- `sent_at` (timestamp)
+- `cutoff_at` (timestamp, review window end)
+- `created_at`, `updated_at`
+- optional linkage to `alerts.id` if reusing alerts as digest envelope
+
+## `prospective_list_items` (new)
+
+Represents one candidate job inside a prospective list.
+
+Key fields:
+
+- `id` (uuid, primary key)
+- `list_id` (uuid, FK to `prospective_lists`)
+- `job_id` (uuid, FK to `jobs`)
+- `rank` (integer, 1-based index used in SMS numbering)
+- `match_score` (numeric)
+- `match_reasons` (jsonb)
+- `match_rejections` (jsonb)
+- `user_decision` (`pending | skip | confirmed`)
+- `applied_application_id` (uuid, FK to `applications`, nullable)
+- `blocked_reason` (text or structured jsonb: `requires_auth`, `missing_answer`, etc.)
+- `created_at`, `updated_at`
 ---
 
 ## State Machines
