@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { PdfUploader } from "@/components/resume/pdf-uploader";
 import { ResumeAnnotator } from "@/components/resume/resume-annotator";
 import type { AnnotatedResume } from "@/lib/types";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 type Phase = "upload" | "structuring" | "annotate" | "error";
 
@@ -21,9 +21,11 @@ interface Props {
   onChange: (resume: AnnotatedResume) => void;
   onResumeUrl?: (url: string) => void;
   userId?: string;
+  coverLetter: string;
+  onCoverLetterChange: (v: string) => void;
 }
 
-export function StepResume({ value, onChange, onResumeUrl, userId }: Props) {
+export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, onCoverLetterChange }: Props) {
   const [phase, setPhase] = useState<Phase>(value ? "annotate" : "upload");
   const [structuringMsg, setStructuringMsg] = useState(STRUCTURING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
@@ -157,19 +159,16 @@ export function StepResume({ value, onChange, onResumeUrl, userId }: Props) {
 
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => setPhase("upload")}
+            onClick={() => { setPhase("upload"); setError(null); }}
             className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors"
           >
             Try a different PDF
           </button>
-          <a
-            href="/resume"
-            target="_blank"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
-          >
-            Type your experience instead
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <p className="text-sm text-gray-500">
+            If your PDF is image-based, try converting it to text first using{" "}
+            <span className="font-medium text-gray-700">Adobe Acrobat</span> or{" "}
+            <span className="font-medium text-gray-700">Smallpdf</span>, then re-upload.
+          </p>
         </div>
       </div>
     );
@@ -192,6 +191,26 @@ export function StepResume({ value, onChange, onResumeUrl, userId }: Props) {
         resume={value!}
         onChange={onChange}
       />
+
+      <div className="space-y-3 border-t border-gray-100 pt-6">
+        <div>
+          <label className="text-sm font-medium text-gray-700">
+            Cover letter template{" "}
+            <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Your Twin will use this as a base and tailor it for each application.
+            Leave blank to skip cover letters.
+          </p>
+        </div>
+        <textarea
+          value={coverLetter}
+          onChange={(e) => onCoverLetterChange(e.target.value)}
+          placeholder={"Dear Hiring Manager,\n\nI'm excited to apply for..."}
+          rows={6}
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors duration-150"
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { US_STATES } from "@/lib/constants/us-states";
+import { COUNTRIES } from "@/lib/constants/countries";
 
 interface Props {
   name: string;
@@ -22,6 +25,11 @@ interface Props {
     github_url: string;
   }>) => void;
 }
+
+const STATE_OPTIONS = US_STATES.map((s) => ({
+  label: `${s.name} (${s.abbr})`,
+  value: s.abbr,
+}));
 
 export function StepProfile({
   name, phone, city, state_region, country,
@@ -77,6 +85,17 @@ export function StepProfile({
           <p className="text-xs text-gray-400">SMS alerts · Reply YES to apply</p>
         </div>
 
+        <SearchableSelect
+          label="Country"
+          placeholder="Select country..."
+          value={country}
+          options={COUNTRIES}
+          onChange={(val) => {
+            onChange({ country: val, state_region: "" });
+          }}
+          allowFreeText
+        />
+
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="City"
@@ -85,22 +104,24 @@ export function StepProfile({
             onChange={(e) => onChange({ city: e.target.value })}
             autoComplete="address-level2"
           />
-          <Input
-            label="State / Region"
-            placeholder="CA"
-            value={state_region}
-            onChange={(e) => onChange({ state_region: e.target.value })}
-            autoComplete="address-level1"
-          />
+          {country === "United States" ? (
+            <SearchableSelect
+              label="State"
+              placeholder="Select state..."
+              value={state_region}
+              options={STATE_OPTIONS}
+              onChange={(val) => onChange({ state_region: val })}
+            />
+          ) : (
+            <Input
+              label="State / Region"
+              placeholder="State / Province / Region"
+              value={state_region}
+              onChange={(e) => onChange({ state_region: e.target.value })}
+              autoComplete="address-level1"
+            />
+          )}
         </div>
-
-        <Input
-          label="Country"
-          placeholder="United States"
-          value={country}
-          onChange={(e) => onChange({ country: e.target.value })}
-          autoComplete="country-name"
-        />
 
         {/* Divider */}
         <div className="relative flex items-center pt-2">

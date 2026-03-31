@@ -1,11 +1,14 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SCHOOLS } from "@/lib/constants/schools";
 import { cn } from "@/lib/utils";
 
 interface Props {
   school: string;
   major: string;
+  major2: string;
   degree: string;
   gpa: string;
   graduation: string;
@@ -15,6 +18,7 @@ interface Props {
   onChange: (patch: Partial<{
     school: string;
     major: string;
+    major2: string;
     degree: string;
     gpa: string;
     graduation: string;
@@ -37,7 +41,7 @@ const VISA_OPTIONS = [
 ] as const;
 
 export function StepEducation({
-  school, major, degree, gpa, graduation,
+  school, major, major2, degree, gpa, graduation,
   authorized_to_work, visa_type, earliest_start_date,
   onChange,
 }: Props) {
@@ -54,12 +58,13 @@ export function StepEducation({
 
       {/* Education section */}
       <div className="space-y-4">
-        <Input
+        <SearchableSelect
           label="University"
           placeholder="University of Virginia"
           value={school}
-          onChange={(e) => onChange({ school: e.target.value })}
-          autoComplete="organization"
+          options={SCHOOLS}
+          onChange={(val) => onChange({ school: val })}
+          allowFreeText
           required
         />
 
@@ -70,6 +75,20 @@ export function StepEducation({
           onChange={(e) => onChange({ major: e.target.value })}
           required
         />
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-700">
+            Second major / minor{" "}
+            <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            placeholder="Statistics, Economics, etc."
+            value={major2}
+            onChange={(e) => onChange({ major2: e.target.value })}
+            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+          />
+        </div>
 
         {/* Degree type pill grid */}
         <div className="flex flex-col gap-1.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { StepProfile } from "@/components/onboarding/step-profile";
@@ -52,6 +52,7 @@ interface FormState {
   // Step 2: education
   school: string;
   major: string;
+  major2: string;
   degree: string;
   gpa: string;
   graduation: string;
@@ -67,6 +68,7 @@ interface FormState {
   // Step 4: resume
   annotatedResume: AnnotatedResume | null;
   resumeUrl: string | null;
+  cover_letter_template: string;
   // Step 5: autofill (optional)
   eeo: EEOData | null;
 }
@@ -74,11 +76,12 @@ interface FormState {
 const INITIAL: FormState = {
   name: "", phone: "", city: "", state_region: "", country: "United States",
   linkedin_url: "", website_url: "", github_url: "",
-  school: "", major: "", degree: "", gpa: "", graduation: "",
+  school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
   authorized_to_work: true, visa_type: "", earliest_start_date: "",
   industries: [], levels: [], locations: [], remote_ok: false, gray_areas: null,
   annotatedResume: null,
   resumeUrl: null,
+  cover_letter_template: "",
   eeo: null,
 };
 
@@ -123,10 +126,22 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
   const canAdvance = !saving && isStepValid(currentStep.id, form);
+
+  // Save draft to localStorage on every form change (debounced)
+  useEffect(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem("twin_onboarding_draft", JSON.stringify(form));
+      } catch { /* storage full */ }
+    }, 800);
+    return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
+  }, [form]);
 
   async function ensureOnboardingSession() {
     const supabase = getSupabaseBrowserClient();
@@ -212,9 +227,32 @@ export default function OnboardingPage() {
             eeo: mapped.eeo,
             annotatedResume: extractResumeFromProfileRow(profileRow),
             resumeUrl: mapped.resume_url,
+            major2: mapped.major2,
+            cover_letter_template: mapped.cover_letter_template,
           }));
+
+          // Restore draft for fields not in Supabase yet
+          try {
+            const raw = localStorage.getItem("twin_onboarding_draft");
+            if (raw) {
+              const draft = JSON.parse(raw) as Partial<FormState>;
+              setForm((current) => ({
+                ...current,
+                major2: current.major2 || draft.major2 || "",
+                cover_letter_template: current.cover_letter_template || draft.cover_letter_template || "",
+              }));
+            }
+          } catch {/* ignore */}
         } else if (googleName) {
           setForm((current) => ({ ...current, name: googleName }));
+
+          try {
+            const raw = localStorage.getItem("twin_onboarding_draft");
+            if (raw) {
+              const draft = JSON.parse(raw) as Partial<FormState>;
+              setForm((current) => ({ ...current, ...draft }));
+            }
+          } catch {/* ignore */}
         }
       } catch (error) {
         if (!active) return;
@@ -261,13 +299,14 @@ export default function OnboardingPage() {
       const payload = mapProfileToUpsertInput({
         userId: session.user.id,
         userEmail: session.user.email ?? "",
-        profile: { ...profileFields, resume_url: form.resumeUrl },
+        profile: { ...profileFields, resume_url: form.resumeUrl, major2: form.major2, cover_letter_template: form.cover_letter_template },
         resume: annotatedResume,
       });
 
       const { error } = await supabase.from("profiles").upsert(payload);
       if (error) throw error;
 
+      localStorage.removeItem("twin_onboarding_draft");
       router.push("/dashboard");
     } catch (error) {
       setAuthError(
@@ -334,6 +373,7 @@ export default function OnboardingPage() {
                 <StepEducation
                   school={form.school}
                   major={form.major}
+                  major2={form.major2}
                   degree={form.degree}
                   gpa={form.gpa}
                   graduation={form.graduation}
@@ -359,6 +399,8 @@ export default function OnboardingPage() {
                   onChange={(annotatedResume) => update({ annotatedResume })}
                   onResumeUrl={(resumeUrl) => update({ resumeUrl })}
                   userId={sessionUserId ?? undefined}
+                  coverLetter={form.cover_letter_template}
+                  onCoverLetterChange={(cover_letter_template) => update({ cover_letter_template })}
                 />
               )}
               {currentStep.id === "autofill" && (

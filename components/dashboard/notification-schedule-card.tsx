@@ -57,6 +57,9 @@ export function NotificationScheduleCard({
           </p>
           <h3 className="mt-1 text-sm font-semibold text-gray-900">Daily timing</h3>
           <p className="mt-1 text-xs text-gray-500">
+            Twin texts you a shortlist each day → you review and reply → Twin applies after cutoff.
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">
             Timezone: {timezone || "UTC"}
           </p>
         </div>
@@ -65,7 +68,7 @@ export function NotificationScheduleCard({
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-700">
-            Shortlist SMS time
+            Shortlist SMS
           </label>
           <input
             type="time"
@@ -77,12 +80,12 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">Shortlist SMS</p>
+          <p className="text-[11px] text-gray-500">Twin texts you a ranked shortlist of today&apos;s matches at this time.</p>
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-700">
-            Last change time (cutoff)
+            Review cutoff
           </label>
           <input
             type="time"
@@ -94,12 +97,12 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">No more edits after this</p>
+          <p className="text-[11px] text-gray-500">After this time, your YES/SKIP replies are locked in. Twin starts applying immediately after.</p>
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-700">
-            Goal submit time
+            Done by
           </label>
           <input
             type="time"
@@ -111,7 +114,7 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">Target completion</p>
+          <p className="text-[11px] text-gray-500">Target time for all applications to be submitted. Twin works between cutoff and this time.</p>
         </div>
       </div>
 
@@ -129,9 +132,8 @@ export function NotificationScheduleCard({
       </div>
 
       <p className="text-[11px] text-gray-500">
-        Must be shortlist &lt; cutoff &lt; goal, with at least 60 minutes between cutoff and goal.
+        Shortlist must be sent before the review cutoff, and cutoff must be at least 60 minutes before the Done-by time.
       </p>
     </section>
   );
 }
-

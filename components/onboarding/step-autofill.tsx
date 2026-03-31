@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 interface EEOData {
   pronouns?: string;
   gender?: string;
@@ -11,6 +13,68 @@ interface EEOData {
 interface Props {
   eeo: EEOData | null;
   onChange: (eeo: EEOData | null) => void;
+}
+
+const GENDER_OPTIONS = [
+  "Man",
+  "Woman",
+  "Non-binary",
+  "Genderqueer / Non-conforming",
+  "Prefer not to say",
+];
+
+const RACE_OPTIONS = [
+  "Hispanic or Latino",
+  "American Indian or Alaska Native",
+  "Asian",
+  "Black or African American",
+  "Native Hawaiian or Pacific Islander",
+  "White",
+  "Two or more races",
+  "Prefer not to say",
+];
+
+const VETERAN_OPTIONS = [
+  "Not a veteran",
+  "Protected veteran",
+  "Recently separated veteran",
+  "Prefer not to say",
+];
+
+const DISABILITY_OPTIONS = [
+  "No disability",
+  "Yes, I have a disability",
+  "Prefer not to say",
+];
+
+function ChipGroup({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: string[];
+  selected: string;
+  onSelect: (val: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onSelect(selected === opt ? "" : opt)}
+          className={cn(
+            "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-150",
+            selected === opt
+              ? "border-indigo-600 bg-indigo-600 text-white"
+              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+          )}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function StepAutofill({ eeo, onChange }: Props) {
@@ -66,69 +130,41 @@ export function StepAutofill({ eeo, onChange }: Props) {
         {/* Gender identity */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Gender identity</label>
-          <select
-            value={val("gender")}
-            onChange={(e) => patch("gender", e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
-          >
-            <option value="">Prefer not to say</option>
-            <option value="Man">Man</option>
-            <option value="Woman">Woman</option>
-            <option value="Non-binary">Non-binary</option>
-            <option value="Genderqueer / Gender non-conforming">Genderqueer / Gender non-conforming</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
+          <ChipGroup
+            options={GENDER_OPTIONS}
+            selected={val("gender")}
+            onSelect={(v) => patch("gender", v)}
+          />
         </div>
 
         {/* Race / Ethnicity */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Race / Ethnicity</label>
-          <select
-            value={val("race_ethnicity")}
-            onChange={(e) => patch("race_ethnicity", e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
-          >
-            <option value="">Prefer not to say</option>
-            <option value="Hispanic or Latino">Hispanic or Latino</option>
-            <option value="American Indian or Alaska Native">American Indian or Alaska Native</option>
-            <option value="Asian">Asian</option>
-            <option value="Black or African American">Black or African American</option>
-            <option value="Native Hawaiian or Other Pacific Islander">Native Hawaiian or Other Pacific Islander</option>
-            <option value="White">White</option>
-            <option value="Two or more races">Two or more races</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
+          <ChipGroup
+            options={RACE_OPTIONS}
+            selected={val("race_ethnicity")}
+            onSelect={(v) => patch("race_ethnicity", v)}
+          />
         </div>
 
         {/* Veteran status */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Veteran status</label>
-          <select
-            value={val("veteran_status")}
-            onChange={(e) => patch("veteran_status", e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
-          >
-            <option value="">Prefer not to say</option>
-            <option value="I am not a veteran">I am not a veteran</option>
-            <option value="I am a protected veteran">I am a protected veteran</option>
-            <option value="I am a recently separated veteran">I am a recently separated veteran</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
+          <ChipGroup
+            options={VETERAN_OPTIONS}
+            selected={val("veteran_status")}
+            onSelect={(v) => patch("veteran_status", v)}
+          />
         </div>
 
         {/* Disability status */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Disability status</label>
-          <select
-            value={val("disability_status")}
-            onChange={(e) => patch("disability_status", e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
-          >
-            <option value="">Prefer not to say</option>
-            <option value="No, I do not have a disability">No, I do not have a disability</option>
-            <option value="Yes, I have a disability">Yes, I have a disability</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
+          <ChipGroup
+            options={DISABILITY_OPTIONS}
+            selected={val("disability_status")}
+            onSelect={(v) => patch("disability_status", v)}
+          />
         </div>
       </div>
     </div>

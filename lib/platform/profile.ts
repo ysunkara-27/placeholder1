@@ -25,6 +25,8 @@ export interface PersistedProfile {
   gray_areas: GrayAreaSuggestion | null;
   eeo: EEOData | null;
   resume_url: string | null;
+  major2: string;
+  cover_letter_template: string;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -55,6 +57,8 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     gray_areas: (row.gray_areas as GrayAreaSuggestion | null) ?? null,
     eeo: (row.eeo as EEOData | null) ?? null,
     resume_url: row.resume_url ?? null,
+    major2: (row as any).major2 ?? "",
+    cover_letter_template: (row as any).cover_letter_template ?? "",
   };
 }
 
@@ -66,7 +70,7 @@ export function mapProfileToUpsertInput(args: {
 }): Database["public"]["Tables"]["profiles"]["Insert"] {
   const { userId, userEmail, profile, resume } = args;
 
-  return {
+  return ({
     id: userId,
     full_name: profile.name,
     email: userEmail || null,
@@ -93,11 +97,13 @@ export function mapProfileToUpsertInput(args: {
     eeo: (profile.eeo ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["eeo"],
     resume_json: (resume ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["resume_json"],
     resume_url: profile.resume_url ?? null,
+    major2: (profile as any).major2 || null,
+    cover_letter_template: (profile as any).cover_letter_template || null,
     notification_pref: profile.phone ? "sms" : "email",
     sms_provider: profile.phone ? "plivo" : null,
     sms_opt_in: Boolean(profile.phone),
     onboarding_completed: Boolean(resume),
-  };
+  }) as Database["public"]["Tables"]["profiles"]["Insert"];
 }
 
 export function extractResumeFromProfileRow(row: ProfileRow) {
