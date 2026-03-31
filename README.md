@@ -38,9 +38,10 @@ supabase/migrations/20260329200000_status_applied.sql
 supabase/migrations/20260329220000_profile_portal_fields.sql
 supabase/migrations/20260329230000_jobs_portal_field.sql
 supabase/migrations/20260329233000_jobs_url_uniqueness.sql
+supabase/migrations/20260331140000_prospective_lists.sql
 ```
 
-This creates the platform tables: `profiles`, `jobs`, `alerts`, `applications`, `apply_runs`.
+This creates the platform tables: `profiles`, `jobs`, `alerts`, `applications`, `apply_runs`, plus the digest tables `prospective_lists` and `prospective_list_items`.
 
 **Enable Anonymous Auth** — in your Supabase dashboard go to:
 `Authentication → Providers → Anonymous` and toggle it on.
@@ -73,6 +74,75 @@ For background worker processing later:
 - call `POST /api/internal/apply-queue/process`
 - send `Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET`
 - run that from Railway cron or another worker trigger
+
+**6b. Daily Prospective Jobs List (Twilio digest mode)**
+
+This workflow is backed by two new tables: `prospective_lists` and `prospective_list_items`.
+It sends a single numbered “daily shortlist” SMS, lets you reply with `SKIP <n>` / `APPLY ALL`, and queues applications at cutoff.
+
+To enable digest mode for a user:
+
+1. Ensure the user has `phone` set (so `sms_opt_in` becomes `true` automatically via `mapProfileToUpsertInput`)
+2. Set the digest fields on their `profiles` row:
+
+```sql
+update public.profiles
+set
+  daily_digest_enabled = true,
+  daily_digest_time_local = '18:30',
+  daily_digest_timezone = 'UTC',
+  daily_review_window_minutes = 60
+where id = '<USER_ID>';
+```
+
+SMS commands supported while a list is active:
+- `APPLY ALL` (also accepts `YES`)
+- `SKIP ALL` (also accepts `NO`)
+- `SKIP 2` (also accepts a bare number like `2`)
+- `HELP`
+- `STOP` pauses SMS and cancels any active digest lists
+
+**Local testing**
+
+Run these internal cron endpoints manually (they are protected by `APPLY_QUEUE_WORKER_SECRET`):
+
+```bash
+# 1) Send the daily shortlist SMS (creates a prospective_list + items)
+curl --fail --show-error --silent \
+  -X POST \
+  -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+  "$TWIN_APP_BASE_URL/api/internal/cron/send-prospective-lists"
+
+# 2) Finalize at cutoff (pending -> confirmed, queues applications, sends "queued now, results soon")
+curl --fail --show-error --silent \
+  -X POST \
+  -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+  "$TWIN_APP_BASE_URL/api/internal/cron/finalize-prospective-lists"
+
+# 3) Send final resolved results after queued apps finish
+curl --fail --show-error --silent \
+  -X POST \
+  -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+  "$TWIN_APP_BASE_URL/api/internal/cron/send-prospective-results"
+```
+
+To simulate an inbound SMS reply webhook, hit:
+`POST /api/messaging/reply` with form fields:
+- `From`
+- `Body` (Twilio) or `Text` (Plivo)
+
+The webhook auto-detects “Twilio mode” if `x-twilio-signature` is present (signature verification is not enforced yet).
+Example (Twilio-shaped):
+
+```bash
+curl --fail --show-error --silent \
+  -X POST "$TWIN_APP_BASE_URL/api/messaging/reply" \
+  -H "x-twilio-signature: test" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "From=%2B12025550123" \
+  --data-urlencode "Body=SKIP%202" \
+  --data-urlencode "To=%2B19995550123"
+```
 
 **7. Batch job ingest**
 
@@ -136,6 +206,7 @@ The scheduled workflow lives at:
 It does two things:
 - ingests the repo seed jobs twice daily
 - expires stale pending alerts every 6 hours
+- drives the daily prospective-list (digest) flow by sending the numbered shortlist, finalizing at cutoff (queueing applications), and sending final outcomes after applications finish
 
 You can also run it manually from the GitHub Actions tab with `workflow_dispatch`.
 

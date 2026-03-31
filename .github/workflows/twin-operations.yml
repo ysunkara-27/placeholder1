@@ -11,6 +11,18 @@ on:
         description: "Expire old pending alerts"
         required: false
         default: "true"
+      send_prospective_lists:
+        description: "Send daily prospective (digest) lists"
+        required: false
+        default: "true"
+      finalize_prospective_lists:
+        description: "Finalize prospective lists at cutoff"
+        required: false
+        default: "true"
+      send_prospective_results:
+        description: "Send prospective results after applications finish"
+        required: false
+        default: "true"
       run_live_scrape:
         description: "Run live source scrape and ingest"
         required: false
@@ -19,6 +31,7 @@ on:
     - cron: "0 13,1 * * *"
     - cron: "15 */6 * * *"
     - cron: "0 */4 * * *"
+    - cron: "*/5 * * * *"
 
 jobs:
   ingest-seed-jobs:
@@ -100,3 +113,51 @@ jobs:
             --worker-secret "$TWIN_WORKER_SECRET" \
             --concurrency 20 \
             --skip-gemini
+
+  send-prospective-lists:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.send_prospective_lists == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Expire prospective lists (send shortlist)
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+            "$TWIN_APP_BASE_URL/api/internal/cron/send-prospective-lists"
+
+  finalize-prospective-lists:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.finalize_prospective_lists == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finalize prospective lists at cutoff
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+            "$TWIN_APP_BASE_URL/api/internal/cron/finalize-prospective-lists"
+
+  send-prospective-results:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.send_prospective_results == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send finalized prospective results
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+            "$TWIN_APP_BASE_URL/api/internal/cron/send-prospective-results"

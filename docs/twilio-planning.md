@@ -76,8 +76,12 @@ Product policy for launch:
 - `app/api/messaging/reply/route.ts`
   - inbound SMS webhook; detects Twilio header and handles YES/NO/STOP.
   - important: currently does not verify Twilio signatures server-side.
+- `lib/followups.ts`
+  - daily follow-up message generation and follow-up answer persistence (used on `unknown` replies)
 - `lib/messaging/reply.ts`
   - token normalization and phone normalization helpers.
+- `app/api/internal/followups/send-daily/route.ts`
+  - internal endpoint to send the daily follow-up SMS batch (derived from `apply_runs`)
 - `app/api/internal/cron/expire-alerts/route.ts`
   - expires stale pending alerts.
 - `app/api/internal/cron/process-queue/route.ts`
@@ -94,8 +98,8 @@ Product policy for launch:
 Target-state decisions (this spec):
 
 - Twilio is default production provider (`SMS_PROVIDER=twilio` in deployed envs).
-- START is an implemented command, not just aspirational copy.
-- terminal application outcomes mirror into `alerts.status` for unified reporting.
+- START parsing must exist before it is referenced in any user-facing SMS copy (or the copy must be removed/changed until START parsing is implemented).
+- terminal application outcomes may mirror into `alerts.status` for unified reporting (optional target; current code does not mirror `applications` outcomes back into `alerts` automatically).
 
 ---
 
@@ -191,6 +195,11 @@ lib/
 This system introduces a **daily curated list** of jobs per user, called a *prospective list*.
 Messaging now happens **after** a prospective list is created (daily), not per-job in real time.
 
+MVP extension note:
+
+- This prospective-list/digest loop is **not implemented by the current SQL migrations** in this repo yet.
+- Treat this section as an implementation plan for the next iteration.
+
 Core idea:
 
 - discovery/ingest produces `jobs`
@@ -242,8 +251,10 @@ Then:
 2. select `profiles` where `onboarding_completed = true`
 3. run `matchJobToProfile(job, profile)`
 4. for matches:
-   - do not immediately send per-job SMS in digest mode
-   - instead, create or update the user’s next prospective list batch
+   - create `alerts` rows for matched jobs
+   - current code sends an SMS per alert when `profiles.sms_opt_in=true` (via `lib/alerts.ts`)
+   - prospective daily digest / prospective-list batching is an MVP extension (not current code)
+     - it would replace per-job SMS with a single numbered list SMS per day
    - record candidate scoring + provenance for explainability
 
 Digest-mode note:
@@ -306,21 +317,20 @@ Action normalization:
 - confirm tokens: `yes, y, yep, yeah, yup, sure, ok, okay, apply, go`
 - skip tokens: `no, n, nope, skip, pass, next, not interested`
 - stop tokens: `stop, unsubscribe, cancel, quit, end, stopall`
-- start tokens: `start, unstop, resume`
+- current action set (implemented):
+  - confirm -> `confirm`
+  - skip    -> `skip`
+  - stop    -> `stop`
+  - anything else -> `unknown`
+- `START` / `unstop` / `resume` are not parsed today; treat these as `unknown`
 
-Digest reply grammar (skip-by-number):
-
-- `SKIP 2` or `NO 2` => skip item #2 from the latest active prospective list
-- `SKIP 2,5,7` => skip multiple items
-- `SKIP ALL` => skip all items (no applies today)
-- `APPLY ALL` or `YES` => confirm applying to all remaining items immediately (before cutoff)
-- `HELP` => return usage help
+Planned prospective-list commands (skip-by-number / apply-all) are described later
+under the “prospective list” extension. They are not supported by the current inbound parser.
 
 Parsing rules:
 
-- ignore punctuation; accept spaces and commas
-- numbers refer to the list item index in the digest SMS (1-based)
-- if numbers are out of range, respond with guidance and do not mutate state
+- normalize message text: trim, lowercase, strip trailing punctuation (.,!, or ?), then match aliases
+- map to one of: `confirm | skip | stop | unknown`
 
 Behavior:
 
@@ -330,26 +340,37 @@ Behavior:
   - `profiles.sms_opt_in = false`
   - expire all pending alerts for user
   - return TwiML unsubscribe confirmation
-- START:
-  - `profiles.sms_opt_in = true`
-  - return TwiML re-subscribe confirmation
+- note: TwiML copy includes “Reply START to re-enable”, but START is not parsed by the current inbound handler.
 - YES:
-  - set alert status to `confirmed`
-  - build applicant payload from profile
-  - queue application row (`applications.status='queued'`)
-  - return TwiML confirmation
+  - set alert status to `confirmed` (latest pending alert)
+  - fetch the job by `alerts.job_id`
+  - build applicant payload from the profile (uses `profiles.resume_url` as `resume_pdf_path`)
+  - queue application row (`applications.status='queued'`) with:
+    - `requestPayload.url = job.application_url`
+    - `requestPayload.profile = applicantDraft`
+    - `requestPayload.runtime_hints.historical_blocked_families = []`
+  - return TwiML confirmation ("Got it! Your Twin is on it.")
 - NO:
   - set alert status to `skipped`
   - return TwiML acknowledgment
 - unknown text:
   - TwiML prompt: "Reply YES to apply, NO to skip, or STOP to pause alerts."
 
-Digest behavior (authoritative):
+Unknown reply behavior (implemented integration):
 
-- replies are interpreted against the **latest active prospective list** in `status='sent'` and before cutoff
-- skip commands mutate `prospective_list_items.user_decision='skip'`
-- apply-all confirms immediately and queues applications for all non-skipped items
-- after cutoff, reply commands apply to the next day’s list (or return a “window closed” message)
+- if there are “daily follow-up” items for this user, `unknown` replies are parsed as follow-up answers (in order)
+- Twin stores answers into `profiles.gray_areas.follow_up_answers`
+- later, those stored answers are injected into the apply engine via `custom_answers`
+
+Daily follow-up sender details (implemented):
+
+- Daily follow-up SMS are generated from `apply_runs` where `follow_up_required=true` and `follow_up_items` contains unresolved required prompts.
+- The batch sender is `POST /api/internal/followups/send-daily` (called by `scripts/send-daily-followups.mjs` / scheduler).
+- The SMS prompt requests answers in order, like: `Reply with answers in order, like: 1) ... 2) ...`
+- `parseFollowupReplyAnswers()` accepts either:
+  - numbered lines (`1) ... 2) ...`), or
+  - newline-separated answers, or
+  - a single text blob (treated as one answer)
 
 Idempotency contract:
 
@@ -359,14 +380,15 @@ Idempotency contract:
 
 ---
 
-### 4) Apply Queueing (from final prospective list)
+### 4) Apply Queueing (from final prospective list) — planned extension
 
 At cutoff (or on APPLY ALL), Twin queues applications for each item in the final list.
 
 Queue input:
 
 - `applications.request_payload` is built from:
-  - user profile (`profiles` fields + `resume_json`)
+  - user profile (`profiles` fields + `resume_url`).
+  - `profiles.gray_areas.follow_up_answers` (when present) are injected into `custom_answers`.
   - job application URL (`jobs.application_url`)
 
 Queue rules:
@@ -376,7 +398,7 @@ Queue rules:
 
 ---
 
-### 5) Apply Execution + Blocking Gray/Unclear Areas
+### 5) Apply Execution + Blocking Gray/Unclear Areas — planned extension
 
 Apply engine may require answers Twin does not have.
 This must surface as a **blocked** outcome, not a silent failure.
@@ -384,32 +406,49 @@ This must surface as a **blocked** outcome, not a silent failure.
 Blocking policy:
 
 - if apply engine returns `requires_auth` => treated as blocked; include in results summary
-- if apply engine returns validation/required-field error because a custom answer is missing
-  - classify as `blocked_missing_answer`
-  - record required prompt(s) and field family in `applications.last_error` and `apply_runs.result_payload.summary`
+- if apply engine cannot proceed because it has **unresolved required prompts** (validation/required-field block)
+  - Twin must not guess the answer
+  - `apply_runs` records:
+    - `follow_up_required=true`
+    - `follow_up_items=[...]` (the ordered question prompts)
+    - `blocked_field_family` / `missing_profile_fields` for operator triage
+  - Operationally in current code:
+    - `applications.status` becomes `failed` (unless it was `applied` or `requires_auth`)
+    - daily follow-up SMS is sent asking for answers, driven by `apply_runs`
+    - inbound `unknown` replies can provide those answers in order
+    - stored follow-up answers are injected into later apply attempts as `custom_answers`
 
 Result semantics:
 
 - `applied` = submitted successfully
-- `blocked` = requires auth or missing/unclear answer (not safe to guess)
+- `blocked` = requires auth OR follow-up-required unresolved prompts (not safe to guess)
 - `failed` = automation failure not attributable to missing user data
 
-Note: current DB `applications.status` supports `requires_auth` but not a distinct `blocked_missing_answer`. For robustness, either:
-
-- extend status vocabulary, or
-- encode blocked subtype in `applications.last_error` + structured metadata.
+Note: in current DB, follow-up-required blocks manifest as `applications.status='failed'` but are fully explainable via `apply_runs` + daily follow-up artifacts.
 
 ---
 
-### 6) Results Summary SMS (final applied list + blocked list)
+### 6) Results Summary SMS (final applied list + blocked list) — planned extension
 
-After processing the day’s final list, send the user a summary:
+At the cutoff moment (immediately after finalizing the prospective list and queueing applications),
+send the user a **“queued now, results soon”** SMS summary:
 
 - which jobs were applied to successfully (with confirmation snippets where available)
 - which jobs were not applied and why:
-  - requires auth
-  - missing/unclear answer (include the exact question prompt(s))
-  - automation failure
+  - requires auth (from `applications.status='requires_auth'`)
+  - follow-up required / missing answer prompts (from `apply_runs`):
+    - `apply_runs.result_payload.summary.follow_up_required=true`
+    - `apply_runs.result_payload.summary.follow_up_items=[...]` (ordered question prompts)
+    - `apply_runs.result_payload.summary.blocked_field_family` (triage bucket for operators)
+  - automation failure (from `apply_runs` error_kind / summary stage + last error context)
+
+Important timing rule (option 1):
+
+- This cutoff SMS is sent right after the queue is filled, not after all outcomes are known.
+- Therefore the “applied vs blocked” breakdown is best-effort at cutoff:
+  - `requires_auth` and follow-up required prompts are typically known only after the apply engine runs.
+  - In practice, the **daily follow-up subsystem** delivers missing/unclear question prompts as soon as they are discovered.
+- A separate “final outcomes” sender (future cron/worker) can send the fully resolved “applied/blocked” final list when outcomes become available.
 
 Template (example):
 
@@ -423,16 +462,21 @@ Twin daily apply results:
 
 ⚠️ Blocked (2)
 4) Workday — SWE Intern (requires login)
-5) Jane Street — SWE Intern (needs answer: “Are you legally authorized to work in the US?”)
+5) Jane Street — SWE Intern (needs follow-up answers: “<follow_up_item_1>”, “<follow_up_item_2>”)
 
 Reply HELP for commands.
 ```
 
 ---
 
-### 6a) Prospective List SMS (daily digest) — exact copy and structure
+### 6a) Prospective List SMS (daily digest) — exact copy and structure — planned extension
 
 Outbound SMS body should be short, numbered, and command-hinting.
+
+Planned extension note:
+
+- Current inbound reply handler only parses YES/NO/STOP (confirm/skip/stop/unknown).
+- Skip-by-number (`SKIP 2`, `SKIP 1,3`) and `APPLY ALL` parsing must be implemented in the inbound webhook before this message format can be treated as authoritative.
 
 Template:
 
@@ -601,12 +645,15 @@ Current behavior:
 - apply execution updates `applications.status`
 - `alerts.status` is not automatically mirrored to `applied/failed` in current queue completion path
 
-Policy (implemented requirement):
+Policy (current behavior + target):
 
-- `alerts` remains the user decision record and also mirrors terminal execution outcomes.
-- on application terminal success: set `alerts.status='applied'`.
-- on application terminal failure: set `alerts.status='failed'`.
-- `applications` remains source of detailed execution state and diagnostics.
+- Current code: `alerts` is the user decision record (`pending | confirmed | skipped | expired`).
+- Current code: application execution updates `applications.status` (`queued | running | requires_auth | applied | failed`).
+- Current code does NOT automatically mirror application terminal outcomes back into `alerts` as `applied/failed`.
+- Target (optional, future): mirror terminal execution outcomes back into `alerts` for unified reporting.
+  - if you do this, define which terminal states map to which `alerts.status` values and add a deterministic migration.
+
+In all cases, `applications` remains the source of detailed execution state and diagnostics.
 
 ---
 
@@ -623,14 +670,18 @@ Key fields:
 - `sms_opt_in` (boolean)
 - preference fields used in matching:
   - `industries[]`, `levels[]`, `locations[]`, `remote_ok`, `gray_areas`
-- `resume_json`, contact fields, work auth fields
+- `resume_json` (if stored as JSON resume bullets)
+- `resume_url` (signed URL to the uploaded PDF resume for apply execution)
+- `resume_url` is produced by `POST /api/resume/upload` and backed by Supabase Storage bucket `resumes` (object path `${userId}/resume.pdf`), with a long-lived signed URL (1 year)
+- follow-up answers stored under `profiles.gray_areas.follow_up_answers` (map of normalized prompt -> answer) and `profiles.gray_areas.last_follow_up_response_at`
+- contact fields, work auth fields
 
 Persistence rule:
 
 - `phone` is stored in canonical E.164 format only.
 - `sms_provider` for Twilio-first deployments should default to `twilio`.
 
-Additional fields for digest:
+Planned extension fields for daily digest/prospective list (requires DB migration):
 
 - `daily_digest_enabled` (boolean, default true for SMS-pref users)
 - `daily_digest_time_local` (string, `HH:MM`)
@@ -678,6 +729,8 @@ Audit table for plan/submit runs with request/result payloads and summary metada
 
 Represents a single daily prospective list per user.
 
+Note: this is an MVP extension. It is not created in the current SQL migrations in this repo yet.
+
 Key fields:
 
 - `id` (uuid, primary key)
@@ -692,6 +745,8 @@ Key fields:
 ## `prospective_list_items` (new)
 
 Represents one candidate job inside a prospective list.
+
+Note: this is an MVP extension. It is not created in the current SQL migrations in this repo yet.
 
 Key fields:
 
@@ -719,8 +774,8 @@ pending
   -> expired   (timeout cron or STOP sweep)
 
 confirmed
-  -> applied   (application success; mirrored from applications)
-  -> failed    (application failure; mirrored from applications)
+  -> applied   (optional mirror of application terminal success; current code does not set this automatically)
+  -> failed    (optional mirror of application terminal failure; current code does not set this automatically)
 ```
 
 ### SMS Subscription State Machine
@@ -728,11 +783,10 @@ confirmed
 ```text
 sms_opt_in=true
   -> false (STOP)
-sms_opt_in=false
-  -> true  (START)
 ```
+Note: `START` re-enable is not parsed by the current inbound reply handler.
 
----
+Planned enhancement: add parsing for `START`/`RESUME` to set `sms_opt_in=true`.
 
 ## Data Sourcing and Matching Comments (Required Product Constraints)
 
@@ -884,7 +938,7 @@ async function sendAlertSms(
     "country": "United States",
     "linkedin": "https://linkedin.com/in/yash",
     "website": "",
-    "resume_pdf_path": "/tmp/resume.pdf",
+    "resume_pdf_path": "<signed_resume_url>",
     "sponsorship_required": false,
     "work_authorization": "Authorized to work in the United States",
     "location_preference": "New York",
@@ -893,6 +947,9 @@ async function sendAlertSms(
       "school": "University of Virginia",
       "major": "Computer Science"
     }
+  },
+  "runtime_hints": {
+    "historical_blocked_families": []
   }
 }
 ```
@@ -1033,7 +1090,7 @@ Required launch state:
 - unique `(user_id, job_id)` alert behavior
 - queue claim locking correctness
 - proper `applications.status` transitions
-- `alerts` terminal mirror (`applied/failed`) consistency with `applications`
+- optional: `alerts` terminal mirror (`applied/failed`) consistency with `applications` (not implemented in current code)
 - canonical E.164 phone format at write/read/send boundaries
 
 ### Security
@@ -1057,7 +1114,6 @@ Release gate (must pass):
 
 - signature verification enabled
 - E.164 canonicalization deployed and backfilled
-- START support implemented (or START references removed everywhere)
 - queue scheduler live with healthy latency metrics
 
 ---

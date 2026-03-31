@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  applyProspectiveListCommand,
+  findActiveProspectiveList,
+  formatProspectiveListHelpSms,
+  getProspectiveListItems,
+  getSupabaseAdminClientUntyped,
+  parseProspectiveListReply,
+} from "@/lib/prospective-lists";
+import {
   normalizeReplyText,
   extractPhoneNumber,
   parseFollowupReplyAnswers,
@@ -74,6 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const action = normalizeReplyText(rawText);
 
   const supabase = getSupabaseAdminClient();
+  const untypedSupabase = getSupabaseAdminClientUntyped();
 
   const profile = await findProfileByPhone(supabase, fromPhone).catch(() => null);
 
@@ -90,12 +99,88 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await expireAlertsForUser(supabase, profile.id).catch(() => null);
 
+    // Digest mode: cancel any active prospective lists so cutoff doesn't queue anything.
+    const { data: activeLists } = await untypedSupabase
+      .from("prospective_lists")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("status", "sent");
+
+    const listIds = (activeLists ?? []).map((l: any) => l.id as string);
+    if (listIds.length > 0) {
+      await untypedSupabase
+        .from("prospective_list_items")
+        .update({ user_decision: "skip" })
+        .in("list_id", listIds);
+
+      await untypedSupabase
+        .from("prospective_lists")
+        .update({ status: "finalized" })
+        .in("id", listIds);
+    }
+
     if (provider === "twilio") {
       return twiml(
         "<Message>You've been unsubscribed from Twin alerts. Reply START to re-enable.</Message>"
       );
     }
     return emptyOk();
+  }
+
+  // Digest/prospective list mode: handle SKIP/APPLY/HELP commands when a list is active.
+  const activeList = await findActiveProspectiveList(
+    untypedSupabase,
+    profile.id,
+    new Date().toISOString()
+  ).catch(() => null);
+
+  if (activeList) {
+    const items = await getProspectiveListItems(untypedSupabase, activeList.id).catch(
+      () => []
+    );
+
+    const parsed = parseProspectiveListReply(rawText);
+    const command = parsed.command;
+
+    if (command?.kind === "help") {
+      if (provider === "twilio") {
+        return twiml(`<Message>${formatProspectiveListHelpSms().replace(/</g, "&lt;")}</Message>`);
+      }
+      return emptyOk();
+    }
+
+    if (command?.kind === "apply_all") {
+      await applyProspectiveListCommand(untypedSupabase, activeList.id, command);
+      if (provider === "twilio") {
+        return twiml("<Message>Got it! We'll apply your selected list at cutoff.</Message>");
+      }
+      return emptyOk();
+    }
+
+    if (command?.kind === "skip_all") {
+      await applyProspectiveListCommand(untypedSupabase, activeList.id, command);
+      if (provider === "twilio") {
+        return twiml("<Message>Okay — we'll skip everything on your list today.</Message>");
+      }
+      return emptyOk();
+    }
+
+    if (command?.kind === "skip_indices") {
+      const maxRank = items.length;
+      const cleaned = command.indices.filter((n) => n >= 1 && n <= maxRank);
+      if (cleaned.length > 0) {
+        await applyProspectiveListCommand(untypedSupabase, activeList.id, {
+          kind: "skip_indices",
+          indices: cleaned,
+        });
+        if (provider === "twilio") {
+          return twiml("<Message>Saved. We'll apply the rest at cutoff.</Message>");
+        }
+        return emptyOk();
+      }
+    }
+
+    // If we had an active list but didn't recognize the command, fall through to follow-up handling.
   }
 
   if (action === "unknown") {

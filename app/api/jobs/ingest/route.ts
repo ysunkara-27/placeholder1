@@ -75,6 +75,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       let alertId: string;
 
+      const dailyDigestEnabled = Boolean((profile as any).daily_digest_enabled);
+      if (dailyDigestEnabled) {
+        // Digest mode: don't send per-job alerts; the daily shortlist cron builds
+        // prospective lists directly from matching jobs.
+        results.push({
+          userId: profile.id,
+          score: match.score,
+          matched: true,
+          alerted: false,
+          smsSent: false,
+          reasons: match.reasons,
+          rejections: [],
+        });
+        continue;
+      }
+
       try {
         const alert = await createAlert(supabase, profile.id, upsertedJob.id);
         alertId = alert.id;

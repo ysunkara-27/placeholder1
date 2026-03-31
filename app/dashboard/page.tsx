@@ -8,6 +8,8 @@ import { BlockersSummary } from "@/components/dashboard/blockers-summary";
 import { FollowupsSummary } from "@/components/dashboard/followups-summary";
 import { RecoverySummary } from "@/components/dashboard/recovery-summary";
 import { TwinStats } from "@/components/dashboard/twin-stats";
+import { FollowupAnswersEditor } from "@/components/dashboard/followup-answers-editor";
+import { NotificationScheduleCard } from "@/components/dashboard/notification-schedule-card";
 import {
   ApplicationsList,
   type DashboardApplicationRecord,
@@ -532,18 +534,41 @@ export default function DashboardPage() {
           <RecoverySummary recoveries={topRecoveryPatterns} />
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">
-                Pending follow-ups
-              </h2>
-              <p className="mt-1 text-xs text-gray-400">
-                Required application questions Twin still needs a user answer for before submit.
-              </p>
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Pending follow-ups
+                </h2>
+                <p className="mt-1 text-xs text-gray-400">
+                  Required application questions Twin still needs a user answer for before submit.
+                </p>
+              </div>
             </div>
+            <FollowupsSummary runs={applyRuns} />
           </div>
-          <FollowupsSummary runs={applyRuns} />
+
+        <NotificationScheduleCard
+          shortlistTimeLocal={
+            (profile as any).daily_digest_shortlist_time_local ??
+            (profile as any).daily_digest_time_local ??
+            "18:00"
+          }
+          cutoffTimeLocal={
+            (profile as any).daily_digest_cutoff_time_local ?? "19:00"
+          }
+          goalSubmitTimeLocal={
+            (profile as any).daily_digest_goal_submit_time_local ?? "21:00"
+          }
+          timezone={(profile as any).daily_digest_timezone ?? "UTC"}
+        />
+
+          <FollowupAnswersEditor
+            initialAnswers={
+              (profile.gray_areas?.follow_up_answers as Record<string, string> | undefined) ?? {}
+            }
+          />
         </div>
 
         {/* Alerts */}
