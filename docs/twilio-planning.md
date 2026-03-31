@@ -27,6 +27,12 @@ This document is Twilio-first but compatible with provider abstraction (`plivo` 
 4. Keep behavior predictable and safe with strict parsing and explicit status transitions.
 5. Maintain compliance basics (STOP opt-out handling and no unintended auto-apply).
 
+Product policy for launch:
+
+- SMS is the primary real-time decision channel for paid tiers; email/app are fallback channels.
+- Only explicit positive intent tokens trigger apply queueing.
+- Webhook authenticity, phone canonicalization, and queue scheduling are launch-blocking requirements.
+
 ---
 
 ## Core Architecture
@@ -85,6 +91,12 @@ This document is Twilio-first but compatible with provider abstraction (`plivo` 
 - STOP behavior is implemented; START re-enable is not implemented yet.
 - queue drain route exists, but scheduler wiring for it must be explicitly configured.
 
+Target-state decisions (this spec):
+
+- Twilio is default production provider (`SMS_PROVIDER=twilio` in deployed envs).
+- START is an implemented command, not just aspirational copy.
+- terminal application outcomes mirror into `alerts.status` for unified reporting.
+
 ---
 
 ## Twilio Scope and Non-Goals
@@ -103,6 +115,72 @@ This document is Twilio-first but compatible with provider abstraction (`plivo` 
 - advanced segmentation UI
 - deep deliverability analytics dashboards
 - custom Twilio Studio flows (backend-driven flow is preferred)
+
+---
+
+## Frontend directory system (components, views, CSS)
+
+Twin is a **Next.js 15 App Router** app. There is **no separate `views/` folder** — **route-level screens live under `app/`** as `page.tsx` files. Reusable UI lives under **`components/`**. Shared logic lives under **`lib/`**.
+
+### Conventions (authoritative)
+
+| Concern | Where it goes | Notes |
+|--------|----------------|-------|
+| **Route / “view” (full page)** | `app/<segment>/page.tsx` | e.g. `app/dashboard/page.tsx`, `app/onboarding/page.tsx`. These compose components and call APIs. |
+| **Layouts (shared chrome)** | `app/layout.tsx`, optional nested `app/<segment>/layout.tsx` | Root layout imports global CSS. |
+| **Global CSS** | `app/globals.css` | Tailwind directives + any app-wide base styles. **Prefer Tailwind utilities** in components over ad-hoc global CSS. |
+| **Feature UI components** | `components/<feature>/` | Group by domain: `onboarding/`, `dashboard/`, `apply/`, `resume/`, `auth/`. |
+| **Primitive UI** | `components/ui/` | Buttons, inputs, badges — reusable across features. |
+| **Twilio / SMS-specific UI** | **Recommended:** `components/messaging/` | Does not exist yet; add here for SMS prefs, alert previews, delivery status, STOP/START copy. Avoid scattering SMS-only UI across unrelated folders. |
+| **API routes (backend)** | `app/api/**/route.ts` | Includes `app/api/messaging/reply/route.ts`, `send-alert`, etc. Not React components. |
+| **Shared non-UI code** | `lib/` | e.g. `lib/messaging/*`, `lib/alerts.ts`, `lib/env.ts`. |
+| **Tailwind config** | `tailwind.config.ts` | Theme, content paths, plugins. |
+| **PostCSS** | `postcss.config.mjs` | Required for Tailwind pipeline. |
+
+### Current repo layout (relevant to messaging / Twilio work)
+
+```text
+app/
+  layout.tsx              # Root layout; imports globals.css
+  globals.css             # Global styles + Tailwind layers
+  page.tsx                # Landing
+  dashboard/page.tsx      # Dashboard “view”
+  onboarding/page.tsx     # Onboarding flow (phone, notifications, etc.)
+  apply-lab/page.tsx
+  auth/page.tsx
+  api/
+    messaging/
+      reply/route.ts      # Twilio/Plivo inbound webhook
+      send-alert/route.ts # Internal outbound trigger
+    jobs/ingest/route.ts
+    internal/cron/...
+
+components/
+  onboarding/             # step-phone, step-notifications, …
+  dashboard/                # lists, stats (applications, alerts surface here)
+  apply/
+  ui/                       # shared primitives
+  auth/
+
+lib/
+  messaging/              # send, reply parsing, provider selection
+  alerts.ts
+  ...
+```
+
+### Where to add new files for Twilio-related product UI
+
+1. **New page** (e.g. `/settings/notifications` or `/alerts`): add `app/<route>/page.tsx` and optionally `app/<route>/layout.tsx`.
+2. **New reusable block** (SMS preview card, opt-in toggle, message template preview): add under `components/messaging/` (create folder) or extend `components/onboarding/` if it is strictly onboarding-step UI.
+3. **Styles**: use **Tailwind classes in the component**; only add to `app/globals.css` for true globals (fonts, CSS variables, resets). For feature-scoped one-offs, prefer Tailwind + `clsx`/`cn` patterns already used in the codebase.
+4. **Do not** introduce a parallel `views/` or `css/` tree at repo root unless the project explicitly migrates — it would diverge from existing Next.js conventions.
+
+### Summary
+
+- **Views** = `app/**/page.tsx`
+- **Components** = `components/**`
+- **Global CSS** = `app/globals.css` + Tailwind (`tailwind.config.ts`, `postcss.config.mjs`)
+- **Twilio messaging UI** = standardize on `components/messaging/` (when you add it) + existing `components/onboarding/` for phone/SMS prefs
 
 ---
 
@@ -155,6 +233,13 @@ On success:
 - set `alerts.response_channel = 'sms'`
 - store provider message identifier in `alerts.metadata.message_id`
 
+Delivery contract:
+
+- `To` must be canonical E.164.
+- transient provider failures retry with backoff: `30s -> 2m -> 10m` (max 3 attempts).
+- non-retryable failures (`invalid number`, `opted out`) do not retry.
+- fallback policy: if SMS fails and user has email, send one email fallback and record reason in metadata.
+
 ---
 
 ### 3) Inbound Reply Webhook
@@ -166,7 +251,7 @@ Incoming parsing:
 - provider detect:
   - Twilio if `x-twilio-signature` header exists
   - current behavior: header presence is detection only
-  - required production behavior: validate signature against auth token and webhook URL
+  - required production behavior: validate signature against auth token and webhook URL (invalid signature => no state mutation)
 - fields:
   - `From`
   - `Body`
@@ -176,6 +261,7 @@ Action normalization:
 - confirm tokens: `yes, y, yep, yeah, yup, sure, ok, okay, apply, go`
 - skip tokens: `no, n, nope, skip, pass, next, not interested`
 - stop tokens: `stop, unsubscribe, cancel, quit, end, stopall`
+- start tokens: `start, unstop, resume`
 
 Behavior:
 
@@ -185,7 +271,9 @@ Behavior:
   - `profiles.sms_opt_in = false`
   - expire all pending alerts for user
   - return TwiML unsubscribe confirmation
-  - do not claim START support unless START handling is implemented
+- START:
+  - `profiles.sms_opt_in = true`
+  - return TwiML re-subscribe confirmation
 - YES:
   - set alert status to `confirmed`
   - build applicant payload from profile
@@ -196,6 +284,12 @@ Behavior:
   - return TwiML acknowledgment
 - unknown text:
   - TwiML prompt: "Reply YES to apply, NO to skip, or STOP to pause alerts."
+
+Idempotency contract:
+
+- confirm/skip transitions only execute when current alert status is `pending`.
+- duplicate YES webhook deliveries for same pending alert must not create duplicate application queue records.
+- unknown sender or no pending alert remains no-op (no writes).
 
 ---
 
@@ -224,6 +318,12 @@ Required rules:
 - send path: always send E.164 `To` values to Twilio
 - lookup path: `findProfileByPhone` must compare canonicalized forms
 
+Canonical representation for launch:
+
+- US-only scope: `+1XXXXXXXXXX`
+- onboarding rejects non-US numbers until international support is explicitly enabled
+- one-way normalization occurs before persistence so all downstream services receive canonical values
+
 Current risk if not enforced:
 
 - inbound replies fail to map to profiles
@@ -246,7 +346,7 @@ Required alignment actions:
 
 1. set Twilio defaults for Twilio-first environments
 2. keep provider abstraction for fallback/testing
-3. clearly document whether per-profile provider routing is in or out of scope
+3. per-profile provider routing is out of scope for MVP; provider selection is global by env
 
 ---
 
@@ -272,10 +372,12 @@ Current behavior:
 - apply execution updates `applications.status`
 - `alerts.status` is not automatically mirrored to `applied/failed` in current queue completion path
 
-Decision required (document as policy):
+Policy (implemented requirement):
 
-- either keep alerts as decision-log only (`pending/confirmed/skipped/expired`)
-- or mirror final execution outcome to `alerts.applied/failed` for unified lifecycle reporting
+- `alerts` remains the user decision record and also mirrors terminal execution outcomes.
+- on application terminal success: set `alerts.status='applied'`.
+- on application terminal failure: set `alerts.status='failed'`.
+- `applications` remains source of detailed execution state and diagnostics.
 
 ---
 
@@ -293,6 +395,11 @@ Key fields:
 - preference fields used in matching:
   - `industries[]`, `levels[]`, `locations[]`, `remote_ok`, `gray_areas`
 - `resume_json`, contact fields, work auth fields
+
+Persistence rule:
+
+- `phone` is stored in canonical E.164 format only.
+- `sms_provider` for Twilio-first deployments should default to `twilio`.
 
 ## `jobs`
 
@@ -339,8 +446,8 @@ pending
   -> expired   (timeout cron or STOP sweep)
 
 confirmed
-  -> applied   (application success, optional mirror update)
-  -> failed    (application failed, optional mirror update)
+  -> applied   (application success; mirrored from applications)
+  -> failed    (application failure; mirrored from applications)
 ```
 
 ### SMS Subscription State Machine
@@ -348,10 +455,9 @@ confirmed
 ```text
 sms_opt_in=true
   -> false (STOP)
-  -> true  (future START support)
+sms_opt_in=false
+  -> true  (START)
 ```
-
-Note: current implementation handles STOP but not explicit START re-enable command.
 
 ---
 
@@ -387,6 +493,11 @@ The following comments are normative design guidance for data provenance and det
 - Soft constraints:
   - unknown industry -> partial score, not auto reject
   - missing location details -> downgraded score
+
+Matching send policy:
+
+- SMS alerts are sent only for `matched=true` and zero hard rejections.
+- matching rationale is stored in metadata for operator debugging.
 
 ### Comment D: Resume-aware matching strategy
 
@@ -530,6 +641,12 @@ Important alignment notes:
 - if Twilio-first is intended, set `SMS_PROVIDER=twilio` in all deployed environments
 - avoid mixed defaults between docs and code (`plivo` fallback should be deliberate, not accidental)
 
+Runtime ownership:
+
+- app runtime: Twilio creds + Supabase keys + queue secret
+- scheduler runtime (GitHub Actions/cron host): queue secret and app base URL
+- never expose Twilio auth token to browser/client bundles
+
 Recommended Twilio Console setup:
 
 1. Buy/configure a US-capable number.
@@ -548,7 +665,8 @@ Recommended Twilio Console setup:
 4. STOP must always disable future sends immediately (`sms_opt_in=false`).
 5. Keep secrets server-only; never expose Twilio auth token in client bundles.
 6. Maintain minimal PII in logs (mask phone and message content when possible).
-7. If STOP response text references START, START handling must exist and be tested.
+7. START, if advertised, must be live and tested before release.
+8. Invalid signature requests return non-success response and generate security telemetry.
 
 ---
 
@@ -562,6 +680,12 @@ Track metrics:
 - queue enqueue latency after `YES`
 - apply completion latency and status distribution
 - alert expiration volume
+
+SLO targets:
+
+- `YES -> queued` P95 under 60 seconds
+- `queued -> running` P95 under 3 minutes
+- queue backlog alert when oldest queued item age exceeds 10 minutes
 
 Suggested alerting:
 
@@ -584,6 +708,12 @@ Current repo note:
 - workflow currently schedules ingest + expire-alerts
 - process-queue scheduling must be explicitly wired for continuous apply execution
 
+Required launch state:
+
+- process-queue runs at least every minute in production
+- expire-alerts runs at least hourly
+- ingest cadence follows season policy from product plan
+
 ---
 
 ## Failure Modes and Expected Behavior
@@ -600,8 +730,8 @@ Current repo note:
    - application transitions to `failed`
    - retain run/error context in `apply_runs` + `applications.last_error`
 5. Reply says START but START unsupported:
-   - treat as unknown until START command support is implemented
-   - avoid contradictory user copy in webhook responses
+   - not allowed in release candidate builds
+   - START command support and tests are required before go-live
 
 ---
 
@@ -622,14 +752,15 @@ Current repo note:
 - unknown -> guidance response
 - unknown sender -> no-op
 - no pending alert -> no-op
-- Twilio signature invalid -> reject/ignore per policy
-- START behavior -> tested only when feature is implemented
+- Twilio signature invalid -> reject with no state writes
+- START behavior -> enable opt-in and return confirmation
 
 ### Data Integrity
 
 - unique `(user_id, job_id)` alert behavior
 - queue claim locking correctness
 - proper `applications.status` transitions
+- `alerts` terminal mirror (`applied/failed`) consistency with `applications`
 - canonical E.164 phone format at write/read/send boundaries
 
 ### Security
@@ -649,11 +780,17 @@ Current repo note:
 6. Monitor unknown replies, command distribution, and send failure rates.
 7. Launch paid tier SMS access gates and track COGS per apply.
 
+Release gate (must pass):
+
+- signature verification enabled
+- E.164 canonicalization deployed and backfilled
+- START support implemented (or START references removed everywhere)
+- queue scheduler live with healthy latency metrics
+
 ---
 
 ## Future Enhancements
 
-- START keyword re-subscribe flow.
 - localized command parsing and multilingual templates.
 - message templating by tier and urgency.
 - dynamic send windows by user timezone and preferences.
@@ -670,3 +807,4 @@ Current repo note:
 4. Canonical phone format must be consistent across storage, lookup, and provider sends.
 5. Every transition must be reflected in Supabase statuses for recoverability and audit.
 6. Twilio is transport; backend state machine is source of truth.
+7. Webhook authenticity and idempotency are mandatory, not optional hardening.
