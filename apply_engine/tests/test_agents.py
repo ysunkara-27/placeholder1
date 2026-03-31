@@ -528,6 +528,189 @@ class AgentPlanningTests(unittest.TestCase):
         self.assertTrue(any(call == ("check", GREENHOUSE_SELECTORS["authorized_yes"], "") for call in page.calls))
         self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
 
+    def test_greenhouse_execute_retries_after_blocked_page_hint_fill(self) -> None:
+        class FakeLocator:
+            def __init__(self, inner_text: str = "Review your application details", count: int = 1) -> None:
+                self._inner_text = inner_text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._inner_text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def wait_for_timeout(self, _: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"greenhouse-blocked-hint"
+
+            async def evaluate(self, *_args, **_kwargs):
+                return True
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator()
+                return FakeLocator(count=1)
+
+        agent = GreenhouseAgent()
+        request = make_request("https://job-boards.greenhouse.io/rendezvousrobotics/jobs/4111372009")
+        actions = agent.build_actions(request)
+        page = FakePage()
+        flow_results = [
+            SubmissionBlockedError(
+                "Are you a U.S. citizen, lawful permanent resident of the U.S., protected individual as defined by 8 U.S.C. 1324b(a)(3), or eligible to obtain the required authorizations from the U.S. Department of State?"
+            ),
+            "Applied successfully",
+        ]
+
+        async def fake_complete_submission_flow(*args, **kwargs):
+            result = flow_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        async def fake_fill_detected_questions_by_hint(*args, **kwargs):
+            return [
+                "are you a u.s. citizen, lawful permanent resident of the u.s., protected individual as defined by 8 u.s.c. 1324b(a)(3), or eligible to obtain the required authorizations from the u.s. department of state?"
+            ]
+
+        with (
+            patch("apply_engine.agents.greenhouse.complete_submission_flow", fake_complete_submission_flow),
+            patch("apply_engine.agents.greenhouse.fill_detected_questions_by_hint", fake_fill_detected_questions_by_hint),
+        ):
+            confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
+                agent.execute(page, request.profile, actions)
+            )
+
+        self.assertEqual(confirmation, "Applied successfully")
+        self.assertEqual(unresolved_questions, [])
+        self.assertTrue(any("protected individual" in answer for answer in inferred_answers))
+        self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
+
+    def test_greenhouse_execute_retries_blocked_combobox_question_by_hint(self) -> None:
+        class FakeLocator:
+            def __init__(self, inner_text: str = "Review your application details", count: int = 1) -> None:
+                self._inner_text = inner_text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._inner_text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+
+            async def wait_for_timeout(self, _: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"greenhouse-targeted-retry"
+
+            async def evaluate(self, *_args, **_kwargs):
+                return True
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator()
+                return FakeLocator(count=1)
+
+        agent = GreenhouseAgent()
+        request = make_request("https://job-boards.greenhouse.io/rendezvousrobotics/jobs/4111372009")
+        actions = agent.build_actions(request)
+        page = FakePage()
+        flow_results = [
+            SubmissionBlockedError(
+                "Are you a U.S. citizen, lawful permanent resident of the U.S., protected individual as defined by 8 U.S.C. 1324b(a)(3), or eligible to obtain the required authorizations from the U.S. Department of State?"
+            ),
+            "Applied successfully",
+        ]
+        click_calls: list[str] = []
+
+        async def fake_complete_submission_flow(*args, **kwargs):
+            result = flow_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        async def fake_fill_detected_questions_by_hint(*args, **kwargs):
+            return []
+
+        async def fake_scan_form_questions(*args, **kwargs):
+            return [
+                {
+                    "type": "radio_group",
+                    "selector": "#question_4820881009",
+                    "hint": "Are you a U.S. citizen, lawful permanent resident of the U.S., protected individual as defined by 8 U.S.C. 1324b(a)(3), or eligible to obtain the required authorizations from the U.S. Department of State?",
+                    "required": True,
+                    "options": [
+                        {"selector": "#question_4820881009_yes", "label": "Yes", "value": "1"},
+                        {"selector": "#question_4820881009_no", "label": "No", "value": "0"},
+                    ],
+                }
+            ]
+
+        async def fake_get_preferred_selector(_page, selector):
+            return selector
+
+        async def fake_click(selector: str):
+            click_calls.append(selector)
+
+        with (
+            patch("apply_engine.agents.greenhouse.complete_submission_flow", fake_complete_submission_flow),
+            patch("apply_engine.agents.greenhouse.fill_detected_questions_by_hint", fake_fill_detected_questions_by_hint),
+            patch("apply_engine.agents.greenhouse.scan_form_questions", fake_scan_form_questions),
+            patch("apply_engine.agents.greenhouse.get_preferred_selector", fake_get_preferred_selector),
+            patch.object(page, "click", fake_click),
+        ):
+            confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
+                agent.execute(page, request.profile, actions)
+            )
+
+        self.assertEqual(confirmation, "Applied successfully")
+        self.assertEqual(unresolved_questions, [])
+        self.assertIn("#question_4820881009_yes", click_calls)
+        self.assertTrue(any("protected individual" in answer for answer in inferred_answers))
+        self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
+
     def test_greenhouse_apply_returns_applied_when_runner_succeeds(self) -> None:
         agent = GreenhouseAgent()
         request = ApplyRequest(
@@ -800,6 +983,107 @@ class AgentPlanningTests(unittest.TestCase):
         self.assertTrue(any(call == ("select", LEVER_SELECTORS["work_authorization"], "US Citizen") for call in page.calls))
         self.assertTrue(any(call == ("check", LEVER_SELECTORS["authorized_yes"], "") for call in page.calls))
         self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
+
+    def test_lever_execute_retries_after_proactive_card_field_recovery(self) -> None:
+        class FakeLocator:
+            def __init__(self, inner_text: str = "Review your application details", count: int = 1) -> None:
+                self._inner_text = inner_text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._inner_text
+
+            async def is_visible(self) -> bool:
+                return self._count > 0
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def evaluate(self, script: str, *_args):
+                if 'name$="[baseTemplate]"' in script:
+                    return [
+                        {
+                            "type": "textarea",
+                            "selector": 'textarea[name="cards[card-1][field0]"]',
+                            "hint": "When will you graduate? (expected month & year)",
+                            "required": True,
+                            "options": [],
+                        },
+                        {
+                            "type": "textarea",
+                            "selector": 'textarea[name="cards[card-1][field1]"]',
+                            "hint": "When can you start internship?",
+                            "required": True,
+                            "options": [],
+                        },
+                    ]
+                return []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def wait_for_timeout(self, _: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"lever-custom-recovery"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator()
+                return FakeLocator(count=1)
+
+        agent = LeverAgent()
+        request = make_request("https://jobs.lever.co/weride/8f84c602-8a79-43f6-b662-74a92ef761f5")
+        actions = agent.build_actions(request)
+        page = FakePage()
+        flow_results = [
+            SubmissionBlockedError("Page.click: Timeout 30000ms exceeded."),
+            "Applied successfully",
+        ]
+
+        async def fake_complete_submission_flow(*args, **kwargs):
+            result = flow_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("apply_engine.agents.lever.complete_submission_flow", fake_complete_submission_flow):
+            confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
+                agent.execute(page, request.profile, actions)
+            )
+
+        self.assertEqual(confirmation, "Applied successfully")
+        self.assertEqual(unresolved_questions, [])
+        self.assertIn(
+            ("fill", 'textarea[name="cards[card-1][field0]"]', "2027"),
+            page.calls,
+        )
+        self.assertIn(
+            ("fill", 'textarea[name="cards[card-1][field1]"]', "2026-06-01"),
+            page.calls,
+        )
+        self.assertIn(
+            "when will you graduate? (expected month & year)",
+            inferred_answers,
+        )
+        self.assertTrue(any(screenshot.label == "recovery_custom_cards" for screenshot in screenshots))
 
     def test_lever_apply_returns_applied_when_runner_succeeds(self) -> None:
         agent = LeverAgent()

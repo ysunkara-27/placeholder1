@@ -91,7 +91,14 @@ async def is_combobox_input(page: Any, selector: str) -> bool:
         return False
 
 
-async def fill_combobox_input(page: Any, selector: str, value: str) -> None:
+async def fill_combobox_input(
+    page: Any,
+    selector: str,
+    value: str,
+    *,
+    commit_value: str | None = None,
+) -> None:
+    search_value = _display_combobox_search_value(value)
     await page.click(selector)
 
     locator_factory = getattr(page, "locator", None)
@@ -103,7 +110,7 @@ async def fill_combobox_input(page: Any, selector: str, value: str) -> None:
             press_sequentially = getattr(locator, "press_sequentially", None)
             if callable(fill_method) and callable(press_sequentially):
                 await fill_method("")
-                await press_sequentially(value)
+                await press_sequentially(search_value)
                 typed = True
         except Exception:
             typed = False
@@ -113,19 +120,20 @@ async def fill_combobox_input(page: Any, selector: str, value: str) -> None:
         if callable(type_text):
             try:
                 await page.fill(selector, "")
-                await type_text(selector, value)
+                await type_text(selector, search_value)
                 typed = True
             except Exception:
                 typed = False
 
     if not typed:
-        await page.fill(selector, value)
+        await page.fill(selector, search_value)
 
     wait_for_timeout = getattr(page, "wait_for_timeout", None)
     if callable(wait_for_timeout):
         await wait_for_timeout(350)
 
     selected_via_option_click = False
+    resolved_commit_value = (commit_value or "").strip()
     input_id = ""
     if selector.startswith("#"):
         input_id = selector[1:]
@@ -150,16 +158,36 @@ async def fill_combobox_input(page: Any, selector: str, value: str) -> None:
     if input_id:
         try:
             option_target = None
+            options: list[dict[str, str]] = []
             for _attempt in range(6):
+                options = await get_combobox_options(page, input_id)
                 option_target = resolve_combobox_option_selector(
                     value,
-                    await get_combobox_options(page, input_id),
+                    options,
                 )
                 if option_target:
                     break
                 if callable(wait_for_timeout):
                     await wait_for_timeout(250)
+            if not option_target:
+                await _open_combobox_toggle(page, selector)
+                if callable(wait_for_timeout):
+                    await wait_for_timeout(150)
+                options = await get_combobox_options(page, input_id)
+                option_target = resolve_combobox_option_selector(
+                    value,
+                    options,
+                )
             if option_target and await selector_exists(page, option_target):
+                if not resolved_commit_value:
+                    for option in options:
+                        if option.get("selector") != option_target:
+                            continue
+                        resolved_commit_value = (
+                            str(option.get("value") or "").strip()
+                            or str(option.get("label") or "").strip()
+                        )
+                        break
                 await page.click(option_target)
                 selected_via_option_click = True
                 if callable(wait_for_timeout):
@@ -172,8 +200,204 @@ async def fill_combobox_input(page: Any, selector: str, value: str) -> None:
     if callable(press) and not selected_via_option_click:
         await press("ArrowDown")
         await press("Enter")
+        if callable(wait_for_timeout):
+            await wait_for_timeout(150)
+    await _sync_combobox_required_input(
+        page,
+        selector,
+        search_value,
+        commit_value=resolved_commit_value,
+    )
     if callable(press):
         await press("Tab")
+        if callable(wait_for_timeout):
+            await wait_for_timeout(100)
+
+
+def _display_combobox_search_value(value: str) -> str:
+    canonical = _canonicalize_select_value(value)
+    if not canonical:
+        return value
+
+    month_names = {
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    }
+    if canonical in month_names:
+        return canonical.title()
+
+    display_map = {
+        "bachelor": "Bachelor",
+        "master": "Master",
+        "computer science": "Computer Science",
+        "female": "Female",
+        "male": "Male",
+        "citizen": "Citizen",
+        "permanent resident": "Permanent Resident",
+        "authorized": "Authorized",
+        "no sponsorship": "No",
+        "yes": "Yes",
+        "no": "No",
+        "onsite": "Onsite",
+        "hybrid": "Hybrid",
+        "remote": "Remote",
+        "decline": "Decline",
+        "not veteran": "I am not a protected veteran",
+        "no disability": "No, I do not have a disability",
+    }
+    return display_map.get(canonical, value)
+
+
+async def _open_combobox_toggle(page: Any, selector: str) -> None:
+    evaluate = getattr(page, "evaluate", None)
+    if not callable(evaluate):
+        return
+
+    try:
+        await evaluate(
+            """
+            ({ selector }) => {
+              const input = document.querySelector(selector);
+              if (!(input instanceof HTMLElement)) {
+                return false;
+              }
+
+              const wrapper =
+                input.closest(".select__container") ||
+                input.closest(".select") ||
+                input.closest(".field-wrapper") ||
+                input.closest(".input-wrapper") ||
+                input.closest(".select-shell");
+              if (!(wrapper instanceof HTMLElement)) {
+                return false;
+              }
+
+              const toggle = wrapper.querySelector('button[aria-label="Toggle flyout"]');
+              if (!(toggle instanceof HTMLButtonElement)) {
+                return false;
+              }
+
+              toggle.click();
+              return true;
+            }
+            """,
+            {"selector": selector},
+        )
+    except Exception:
+        return
+
+
+async def _sync_combobox_required_input(
+    page: Any,
+    selector: str,
+    fallback_value: str,
+    *,
+    commit_value: str | None = None,
+) -> None:
+    evaluate = getattr(page, "evaluate", None)
+    if not callable(evaluate):
+        return
+
+    try:
+        await evaluate(
+            """
+            ({ selector, fallbackValue, commitValue }) => {
+              const setNativeInputValue = (element, value) => {
+                const descriptor = Object.getOwnPropertyDescriptor(
+                  HTMLInputElement.prototype,
+                  "value",
+                );
+                if (descriptor && typeof descriptor.set === "function") {
+                  descriptor.set.call(element, value);
+                } else {
+                  element.value = value;
+                }
+                element.defaultValue = value;
+                element.setAttribute("value", value);
+              };
+
+              const input = document.querySelector(selector);
+              if (!(input instanceof HTMLElement)) {
+                return false;
+              }
+
+              const wrapper =
+                input.closest(".select__container") ||
+                input.closest(".select") ||
+                input.closest(".field-wrapper") ||
+                input.closest(".input-wrapper") ||
+                input.closest(".select-shell");
+              if (!(wrapper instanceof HTMLElement)) {
+                return false;
+              }
+
+              const singleValue = wrapper.querySelector(".select__single-value");
+              const inputContainer = wrapper.querySelector(".select__input-container");
+              const hiddenRequiredInput = wrapper.querySelector('input[aria-hidden="true"]');
+              if (!(hiddenRequiredInput instanceof HTMLInputElement)) {
+                return false;
+              }
+
+              const explicitCommitValue = (commitValue || "").trim();
+              const selectedLabel =
+                singleValue instanceof HTMLElement ? (singleValue.textContent || "").trim() : "";
+              const committedValue =
+                explicitCommitValue ||
+                (input instanceof HTMLInputElement ? (input.dataset.twinCommittedValue || "").trim() : "") ||
+                (wrapper.dataset.twinCommittedValue || "").trim() ||
+                selectedLabel ||
+                (input instanceof HTMLInputElement ? (input.value || "").trim() : "") ||
+                (fallbackValue || "").trim();
+
+              if (!committedValue) {
+                return false;
+              }
+
+              if (input instanceof HTMLInputElement) {
+                if (explicitCommitValue) {
+                  input.dataset.twinCommittedValue = explicitCommitValue;
+                }
+                setNativeInputValue(input, committedValue);
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+                input.dispatchEvent(new Event("blur", { bubbles: true }));
+              }
+
+              if (inputContainer instanceof HTMLElement) {
+                inputContainer.setAttribute("data-value", committedValue);
+              }
+
+              if (explicitCommitValue) {
+                wrapper.dataset.twinCommittedValue = explicitCommitValue;
+              }
+
+              setNativeInputValue(hiddenRequiredInput, committedValue);
+              hiddenRequiredInput.required = false;
+              hiddenRequiredInput.disabled = true;
+              hiddenRequiredInput.removeAttribute("required");
+              hiddenRequiredInput.dispatchEvent(new Event("input", { bubbles: true }));
+              hiddenRequiredInput.dispatchEvent(new Event("change", { bubbles: true }));
+              return true;
+            }
+            """,
+            {
+                "selector": selector,
+                "fallbackValue": fallback_value,
+                "commitValue": (commit_value or "").strip(),
+            },
+        )
+    except Exception:
+        return
 
 
 async def click_preferred_selector(page: Any, selector_group: str) -> None:

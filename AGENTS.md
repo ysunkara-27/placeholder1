@@ -1,6 +1,6 @@
 # Twin Execution Agents
 
-Last updated: 2026-03-30
+Last updated: 2026-03-31
 
 This file defines the working roles for pushing `Twin` to MVP. It is not a product spec. It is an execution document for multi-step development sessions.
 
@@ -88,6 +88,7 @@ Current execution goals:
 - maximize real submit success on vetted jobs
 - reduce ambiguous validation failures
 - attach enough metadata to debug a failure from the dashboard alone
+- keep Greenhouse and Lever live-rerun work focused on the current highest-value blockers instead of broadening portal scope
 
 ### 4. Research / Normalization Agent
 

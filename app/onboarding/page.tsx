@@ -66,6 +66,7 @@ interface FormState {
   gray_areas: GrayAreaSuggestion | null;
   // Step 4: resume
   annotatedResume: AnnotatedResume | null;
+  resumeUrl: string | null;
   // Step 5: autofill (optional)
   eeo: EEOData | null;
 }
@@ -77,6 +78,7 @@ const INITIAL: FormState = {
   authorized_to_work: true, visa_type: "", earliest_start_date: "",
   industries: [], levels: [], locations: [], remote_ok: false, gray_areas: null,
   annotatedResume: null,
+  resumeUrl: null,
   eeo: null,
 };
 
@@ -120,6 +122,7 @@ export default function OnboardingPage() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
@@ -161,6 +164,8 @@ export default function OnboardingPage() {
           router.replace("/auth?error=session_required");
           return;
         }
+
+        setSessionUserId(session.user.id);
 
         const googleName = session.user.user_metadata?.full_name as
           | string
@@ -206,6 +211,7 @@ export default function OnboardingPage() {
             gray_areas: mapped.gray_areas,
             eeo: mapped.eeo,
             annotatedResume: extractResumeFromProfileRow(profileRow),
+            resumeUrl: mapped.resume_url,
           }));
         } else if (googleName) {
           setForm((current) => ({ ...current, name: googleName }));
@@ -251,11 +257,11 @@ export default function OnboardingPage() {
         return;
       }
 
-      const { annotatedResume, ...profileFields } = form;
+      const { annotatedResume, resumeUrl: _resumeUrl, ...profileFields } = form;
       const payload = mapProfileToUpsertInput({
         userId: session.user.id,
         userEmail: session.user.email ?? "",
-        profile: profileFields,
+        profile: { ...profileFields, resume_url: form.resumeUrl },
         resume: annotatedResume,
       });
 
@@ -351,6 +357,8 @@ export default function OnboardingPage() {
                 <StepResume
                   value={form.annotatedResume}
                   onChange={(annotatedResume) => update({ annotatedResume })}
+                  onResumeUrl={(resumeUrl) => update({ resumeUrl })}
+                  userId={sessionUserId ?? undefined}
                 />
               )}
               {currentStep.id === "autofill" && (

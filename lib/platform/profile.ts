@@ -24,6 +24,7 @@ export interface PersistedProfile {
   remote_ok: boolean;
   gray_areas: GrayAreaSuggestion | null;
   eeo: EEOData | null;
+  resume_url: string | null;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -53,6 +54,7 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     remote_ok: row.remote_ok,
     gray_areas: (row.gray_areas as GrayAreaSuggestion | null) ?? null,
     eeo: (row.eeo as EEOData | null) ?? null,
+    resume_url: row.resume_url ?? null,
   };
 }
 
@@ -90,6 +92,7 @@ export function mapProfileToUpsertInput(args: {
     gray_areas: (profile.gray_areas ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["gray_areas"],
     eeo: (profile.eeo ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["eeo"],
     resume_json: (resume ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["resume_json"],
+    resume_url: profile.resume_url ?? null,
     notification_pref: profile.phone ? "sms" : "email",
     sms_provider: profile.phone ? "plivo" : null,
     sms_opt_in: Boolean(profile.phone),

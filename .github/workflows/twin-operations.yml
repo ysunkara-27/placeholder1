@@ -83,15 +83,20 @@ jobs:
       - name: Create virtual environment
         run: python -m venv .venv
 
-      - name: Install apply engine dependencies
-        run: ./.venv/bin/python -m pip install -r apply_engine/requirements.txt
+      - name: Install scraper dependencies
+        run: ./.venv/bin/python -m pip install -r scraper/requirements.txt
 
       - name: Scrape and ingest live sources
         env:
           TWIN_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
           TWIN_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          ./.venv/bin/python apply_engine/scripts/scrape_and_ingest_jobs.py \
+          ./.venv/bin/python -m scraper.run_scrape \
+            --sources-file scraper/career-page-links.json \
             --base-url "$TWIN_BASE_URL" \
             --worker-secret "$TWIN_WORKER_SECRET" \
-            --concurrency 20
+            --concurrency 20 \
+            --skip-gemini

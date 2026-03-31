@@ -1,6 +1,6 @@
 # Twin MVP Plan
 
-Last updated: 2026-03-30
+Last updated: 2026-03-31
 
 This file is the active execution plan for getting `Twin` from its current partial state to a working MVP.
 
@@ -29,9 +29,10 @@ The biggest remaining blockers to MVP are:
 
 1. real live-run success rate on supported portals is still not high enough
 2. confirm-to-queue-to-process loop is only partially productized
-3. Greenhouse live runs still consume most of the real execution budget and remain the main automation bottleneck, but they now fail with classified step-level timeouts instead of opaque hangs
-4. Workday is still less reliable than Greenhouse and Lever
-5. queue processing is operational locally, but still needs repeated real-run validation and the default app-to-engine timeout had to be widened after a real Greenhouse run hit 120s
+3. Greenhouse is still the main automation bottleneck, but the failure is now narrow: education-field validation has been largely cleared and the remaining repeated live blocker is the ITAR eligibility question on the vetted Rendezvous Robotics run
+4. Lever is operationally acceptable for MVP when captcha/manual verification is surfaced as `requires_auth`, but WeRide-style `cards[...]` custom fields still need more live validation
+5. Workday is still less reliable than Greenhouse and Lever
+6. queue processing is operational locally, but repeated live validation inside this sandbox is now partially blocked by outbound DNS failures to hosted Supabase
 6. run telemetry is good, but we still need to turn real failures into targeted fixes quickly
 7. unresolved required questions now need to be surfaced to the user before confirmation, not just stored in run data
 8. follow-up answers now round-trip through SMS and profile storage, but they still need repeated live validation against real blocked applications
@@ -79,6 +80,7 @@ Exact actions:
 
 1. Run live Greenhouse applications from the vetted set
 2. Fix the top repeated blocker in this order:
+   - remaining ITAR/custom-question selector state
    - required field mismatch
    - option text mismatch
    - multi-step navigation stall
@@ -310,3 +312,53 @@ That means:
 5. if a run surfaces unresolved required prompts, review `reports/daily-followups-YYYY-MM-DD.md`
 6. optionally send the daily SMS batch with `npm run send:daily:followups`
 7. fix the first real blocker that shows up
+
+## Session Log — 2026-03-31
+
+Completed in this session:
+
+- unified metadata-driven combobox filling with the low-level shared combobox executor
+- added month-number and education-synonym matching to the browser-level combobox matcher
+- fixed a DOM wrapper-selection bug where Greenhouse required-input sync could stop at `.select-shell` instead of the real `.select__container`
+- added low-level hidden required-input sync directly inside `fill_combobox_input`, not only in later portal-specific cleanup
+- added a Greenhouse post-fill verification pass that rechecks education fields and captures field-state diagnostics
+- proved through live reruns that Greenhouse education is no longer the main blocker; the failure moved from `School / Degree / Discipline` to the ITAR eligibility question on Rendezvous
+- added blocked-page Greenhouse retry logic so the agent re-runs hint-driven autofill on the exact blocked page before falling back to generic selector recovery
+- extended blocker classification so ITAR / lawful-permanent-resident / protected-individual wording is treated as `authorization`
+- wired proactive Lever `cards[...]` filling into the real agent path before submit and on submit-time recovery instead of leaving it as an unused helper
+- added targeted operator diagnostics for Greenhouse question-level failures
+- identified an operator-path issue where polling TTY-bound worker sessions could kill the worker and contaminate live runs
+- switched back to a non-TTY worker path for live reruns
+- patched browser-level combobox commit flow so matched option values are preserved and synced into hidden required inputs, not just visible labels
+- patched Greenhouse required-input sync to prefer explicit committed option values over `.select__single-value` text
+- fixed a live Greenhouse inference bug where `Start date month` could collide with generic `start_date` and incorrectly fill education month fields with a full ISO date
+- upgraded Greenhouse metadata parsing so `multi_select_style: checkbox` questions expose real input-name selectors in addition to react-select option selectors
+- upgraded `process:queue:direct` to self-heal the local worker by checking `/health`, auto-starting uvicorn locally, and retrying once after connection-level worker failures
+
+Verified:
+
+- `./.venv/bin/python -m unittest apply_engine.tests.test_agents -v`
+- `./.venv/bin/python -m unittest apply_engine.tests.test_browser apply_engine.tests.test_agents -v`
+- `npm run test:apply-engine` (`97` passing tests)
+- `npm run build`
+
+Current live truth after this session:
+
+- Greenhouse:
+  - the old education validation blocker is effectively cleared
+  - the remaining repeated live blocker is the ITAR eligibility question on the vetted Rendezvous run
+  - the current rerun is the first one exercising both the explicit combobox commit-value patch and the metadata-style selector patch together
+  - a transient retry-path regression briefly surfaced `First Name is required`; that was narrowed and patched by reinforcing identity fields before retry
+- Lever:
+  - captcha/manual verification correctly lands as `requires_auth`
+  - proactive `cards[...]` filling is now wired in, but WeRide still needs another clean live validation pass
+- Ops:
+  - repeated live validation from inside this Codex sandbox is now partially limited by intermittent DNS failures to hosted Supabase (`ENOTFOUND`)
+
+Exact next step:
+
+1. keep `Phase A` active
+2. let the current clean Greenhouse rerun finish on the latest commit-value + metadata-style patch set
+3. inspect the full persisted error/debug payload for the Rendezvous ITAR field if it still blocks
+4. patch the exact ITAR selector-state issue if it still does not commit
+5. then rerun WeRide Lever with the proactive `cards[...]` path active

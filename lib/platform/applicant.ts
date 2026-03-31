@@ -81,7 +81,7 @@ export function mapPersistedProfileToApplicantDraft(
     linkedin: profile.linkedin_url,
     website: profile.website_url,
     github: profile.github_url,
-    resume_pdf_path: "/tmp/resume.pdf",
+    resume_pdf_path: profile.resume_url ?? "",
     school: profile.school,
     major: profile.major,
     gpa: profile.gpa,

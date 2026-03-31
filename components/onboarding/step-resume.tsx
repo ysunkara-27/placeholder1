@@ -19,12 +19,15 @@ const STRUCTURING_MESSAGES = [
 interface Props {
   value: AnnotatedResume | null;
   onChange: (resume: AnnotatedResume) => void;
+  onResumeUrl?: (url: string) => void;
+  userId?: string;
 }
 
-export function StepResume({ value, onChange }: Props) {
+export function StepResume({ value, onChange, onResumeUrl, userId }: Props) {
   const [phase, setPhase] = useState<Phase>(value ? "annotate" : "upload");
   const [structuringMsg, setStructuringMsg] = useState(STRUCTURING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
+  const pendingFile = useRef<File | null>(null);
   const msgInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -42,7 +45,8 @@ export function StepResume({ value, onChange }: Props) {
     };
   }, [phase]);
 
-  async function handlePdfParsed(text: string) {
+  async function handlePdfParsed(text: string, file: File) {
+    pendingFile.current = file;
     setPhase("structuring");
     setError(null);
 
@@ -61,6 +65,19 @@ export function StepResume({ value, onChange }: Props) {
       const structured: AnnotatedResume = await res.json();
       onChange(structured);
       setPhase("annotate");
+
+      // Upload the PDF to storage in the background
+      if (userId && pendingFile.current) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", pendingFile.current);
+        uploadForm.append("userId", userId);
+        fetch("/api/resume/upload", { method: "POST", body: uploadForm })
+          .then((r) => r.json())
+          .then((data: { resumeUrl?: string }) => {
+            if (data.resumeUrl && onResumeUrl) onResumeUrl(data.resumeUrl);
+          })
+          .catch(() => {/* non-fatal */});
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to structure resume");
       setPhase("error");
@@ -80,7 +97,7 @@ export function StepResume({ value, onChange }: Props) {
           </p>
         </div>
 
-        <PdfUploader onParsed={handlePdfParsed} />
+        <PdfUploader onParsed={(text, file) => handlePdfParsed(text, file)} />
 
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-1.5">
           <p className="text-sm font-medium text-gray-700">What happens next:</p>

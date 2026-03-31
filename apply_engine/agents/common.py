@@ -377,6 +377,18 @@ def classify_blocked_field_family(error: str) -> str | None:
         for token in ("work authorization", "authorized", "sponsorship", "visa")
     ):
         return "authorization"
+    if any(
+        token in normalized
+        for token in (
+            "u.s. citizen",
+            "us citizen",
+            "lawful permanent resident",
+            "protected individual",
+            "department of state",
+            "itar",
+        )
+    ):
+        return "authorization"
 
     if any(
         token in normalized
@@ -939,18 +951,34 @@ GREENHOUSE_METADATA_QUESTIONS_SCRIPT = """
           options: [],
         });
       } else if (fieldType === "multi_value_single_select") {
+        const questionStyle = normalize(question?.multi_select_style).toLowerCase();
+        const normalizedOptions = Array.isArray(field.values)
+          ? field.values.map((option, index) => ({
+              selector: [
+                `input[name="${name}"][value="${String(option.value)}"]`,
+                `input[type="radio"][name="${name}"][value="${String(option.value)}"]`,
+                `input[type="checkbox"][name="${name}"][value="${String(option.value)}"]`,
+                `#react-select-${name}-option-${index}`,
+                `[id^="react-select-${name}-option-"]`,
+              ].join(", "),
+              value: normalize(String(option.value)),
+              label: normalize(option.label),
+            }))
+          : [];
+
+        const isBinaryYesNo =
+          normalizedOptions.length === 2 &&
+          normalizedOptions.every((option) => ["yes", "no"].includes(option.label.toLowerCase()));
+
         descriptors.push({
-          type: "combobox_select",
+          type:
+            questionStyle === "checkbox" || isBinaryYesNo
+              ? "radio_group"
+              : "combobox_select",
           selector: `#${name}`,
           hint,
           required: Boolean(question.required),
-          options: Array.isArray(field.values)
-            ? field.values.map((option) => ({
-                selector: `#${name}`,
-                value: normalize(String(option.value)),
-                label: normalize(option.label),
-              }))
-            : [],
+          options: normalizedOptions,
         });
       }
     }
@@ -1224,6 +1252,8 @@ def infer_answer_for_hint(
             "lawful permanent resident",
             "protected individual",
             "required authorizations from the u.s. department of state",
+            "itar",
+            "u.s. person",
         )
     ):
         return "yes" if profile.work_authorization else "no"
@@ -1258,6 +1288,14 @@ def infer_answer_for_hint(
         return infer_answer_for_field_key(profile, "gpa")
     if any(keyword in normalized for keyword in ("graduation", "graduate", "class year", "expected grad")):
         return infer_answer_for_field_key(profile, "graduation_date")
+    if "start date month" in normalized or "education start month" in normalized:
+        return infer_answer_for_field_key(profile, "start_month")
+    if "start date year" in normalized or "education start year" in normalized:
+        return infer_answer_for_field_key(profile, "start_year")
+    if "end date month" in normalized or "graduation month" in normalized:
+        return infer_answer_for_field_key(profile, "end_month")
+    if "end date year" in normalized or "graduation year" in normalized:
+        return infer_answer_for_field_key(profile, "end_year")
     if any(
         keyword in normalized
         for keyword in (
@@ -1641,7 +1679,12 @@ async def fill_detected_questions_by_hint(
                 filled_hints.append(hint)
             elif field_type == "combobox_select":
                 combobox_text = resolve_combobox_text(answer, options)
-                await fill_combobox_input(page, target_selector, combobox_text)
+                await fill_combobox_input(
+                    page,
+                    target_selector,
+                    combobox_text,
+                    commit_value=resolve_option_value(answer, options),
+                )
                 filled_hints.append(hint)
             elif field_type == "radio_group":
                 option_selector = resolve_option_selector(answer, options)
@@ -1797,6 +1840,55 @@ async def fill_lever_card_fields_from_error(
             target_selector = await get_preferred_selector(page, selector)
             if field_type in {"text", "textarea", "email", "tel", "number", "date"}:
                 await page.fill(target_selector, answer)
+                filled_hints.append(hint)
+        except Exception:
+            continue
+
+    return filled_hints
+
+
+async def fill_required_lever_card_fields(
+    page: Any,
+    profile: ApplicantProfile,
+    hint_aliases: dict[str, list[str]] | None = None,
+) -> list[str]:
+    descriptors = await scan_form_questions(page)
+    if not descriptors:
+        return []
+
+    filled_hints: list[str] = []
+
+    for descriptor in descriptors:
+        if not isinstance(descriptor, dict):
+            continue
+
+        selector = descriptor.get("selector")
+        if not isinstance(selector, str) or "cards[" not in selector:
+            continue
+
+        if not bool(descriptor.get("required")):
+            continue
+
+        hint = normalize_confirmation_text(str(descriptor.get("hint", "")), limit=160).lower()
+        field_type = descriptor.get("type")
+        options = descriptor.get("options") if isinstance(descriptor.get("options"), list) else []
+        if not hint or _should_ignore_unresolved_hint(hint):
+            continue
+
+        answer = infer_answer_for_hint(profile, hint, options, hint_aliases)
+        if not answer:
+            continue
+
+        try:
+            if not await selector_exists(page, selector):
+                continue
+
+            target_selector = await get_preferred_selector(page, selector)
+            if field_type in {"text", "textarea", "email", "tel", "number", "date"}:
+                await page.fill(target_selector, answer)
+                filled_hints.append(hint)
+            elif field_type == "select":
+                await page.select_option(target_selector, resolve_option_value(answer, options))
                 filled_hints.append(hint)
         except Exception:
             continue

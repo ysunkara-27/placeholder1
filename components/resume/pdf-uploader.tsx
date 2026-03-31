@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 
 interface Props {
-  onParsed: (text: string) => void;
+  onParsed: (text: string, file: File) => void;
 }
 
 export function PdfUploader({ onParsed }: Props) {
@@ -37,7 +37,7 @@ export function PdfUploader({ onParsed }: Props) {
         }
 
         const { text } = await res.json();
-        onParsed(text);
+        onParsed(text, f);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to parse PDF");
         setFile(null);

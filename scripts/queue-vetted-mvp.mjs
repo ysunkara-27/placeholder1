@@ -322,17 +322,15 @@ async function queueApplicationForSeed(supabase, userId, seed, applicantDraft) {
     throw existing.error;
   }
 
-  if (
-    existing.data &&
-    existing.data.status === "running" &&
-    isStaleRunningApplication(existing.data)
-  ) {
+  if (existing.data && existing.data.status === "running") {
     const reclaimed = await supabase
       .from("applications")
       .update({
         status: "queued",
         confirmation_text: null,
-        last_error: "Reclaimed stale running application for vetted MVP rerun.",
+        last_error: isStaleRunningApplication(existing.data)
+          ? "Reclaimed stale running application for vetted MVP rerun."
+          : "Requeued active running application for vetted MVP rerun.",
         queued_at: new Date().toISOString(),
         started_at: null,
         completed_at: null,
@@ -351,12 +349,14 @@ async function queueApplicationForSeed(supabase, userId, seed, applicantDraft) {
 
     return {
       application: reclaimed.data,
-      disposition: "requeued_stale_running",
+      disposition: isStaleRunningApplication(existing.data)
+        ? "requeued_stale_running"
+        : "requeued_running",
       job,
     };
   }
 
-  if (existing.data && ["queued", "running"].includes(existing.data.status)) {
+  if (existing.data && existing.data.status === "queued") {
     return {
       application: existing.data,
       disposition: existing.data.status,

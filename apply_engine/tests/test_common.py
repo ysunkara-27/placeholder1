@@ -8,6 +8,7 @@ from apply_engine.agents.common import (
     classify_blocked_field_family,
     collect_unresolved_required_questions,
     fill_detected_questions_by_hint,
+    fill_required_lever_card_fields,
     fill_lever_card_fields_from_error,
     infer_answer_for_hint,
     resolve_combobox_text,
@@ -432,6 +433,51 @@ class CommonAgentHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_fill_required_lever_card_fields_uses_required_template_metadata(self) -> None:
+        profile = make_profile()
+        page = FakeMetadataQuestionPage(
+            [],
+            lever=[
+                {
+                    "type": "textarea",
+                    "selector": 'textarea[name="cards[card-1][field0]"]',
+                    "hint": "When will you graduate? (expected month & year)",
+                    "required": True,
+                    "options": [],
+                },
+                {
+                    "type": "textarea",
+                    "selector": 'textarea[name="cards[card-1][field1]"]',
+                    "hint": "When can you start internship?",
+                    "required": True,
+                    "options": [],
+                },
+            ],
+        )
+
+        filled = asyncio.run(
+            fill_required_lever_card_fields(
+                page,
+                profile,
+                LEVER_HINT_ALIASES,
+            )
+        )
+
+        self.assertEqual(
+            page.calls,
+            [
+                ("fill", 'textarea[name="cards[card-1][field0]"]', "2027-06-15"),
+                ("fill", 'textarea[name="cards[card-1][field1]"]', "2026-06-01"),
+            ],
+        )
+        self.assertEqual(
+            filled,
+            [
+                "when will you graduate? (expected month & year)",
+                "when can you start internship?",
+            ],
+        )
+
     def test_infer_answer_for_hint_resolves_text_and_eeo_values(self) -> None:
         profile = make_profile()
 
@@ -450,6 +496,14 @@ class CommonAgentHelpersTests(unittest.TestCase):
         self.assertEqual(
             infer_answer_for_hint(profile, "Start Month"),
             "08",
+        )
+        self.assertEqual(
+            infer_answer_for_hint(profile, "Start date month"),
+            "08",
+        )
+        self.assertEqual(
+            infer_answer_for_hint(profile, "End date month"),
+            "06",
         )
         self.assertEqual(
             infer_answer_for_hint(profile, "End Year"),
@@ -553,12 +607,12 @@ class CommonAgentHelpersTests(unittest.TestCase):
                     ],
                 },
                 {
-                    "type": "combobox_select",
+                    "type": "radio_group",
                     "selector": '#question_itar',
                     "hint": "Are you a U.S. citizen, lawful permanent resident, or otherwise eligible under ITAR?",
                     "options": [
-                        {"selector": '#question_itar', "value": "1", "label": "Yes"},
-                        {"selector": '#question_itar', "value": "0", "label": "No"},
+                        {"selector": "#question_itar_yes", "value": "1", "label": "Yes"},
+                        {"selector": "#question_itar_no", "value": "0", "label": "No"},
                     ],
                 },
                 {
@@ -591,11 +645,7 @@ class CommonAgentHelpersTests(unittest.TestCase):
                 ("fill", 'input[name="school_freeform"]', "Stanford University"),
                 ("select", 'select[name="gender"]', "Woman"),
                 ("select", 'select[name="onsite_preference"]', "open_onsite"),
-                ("click", '#question_itar', ""),
-                ("fill", '#question_itar', "Yes"),
-                ("keyboard", "ArrowDown", ""),
-                ("keyboard", "Enter", ""),
-                ("keyboard", "Tab", ""),
+                ("click", "#question_itar_yes", ""),
                 ("click", "#relocation_yes", ""),
                 ("check", "#python", ""),
                 ("check", "#typescript", ""),

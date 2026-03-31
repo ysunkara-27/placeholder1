@@ -11,6 +11,7 @@ from apply_engine.browser import (
     describe_application_step,
     execute_actions,
     extract_page_url,
+    fill_combobox_input,
     extract_validation_issues,
     inspect_missing_required_fields,
     looks_like_auth_wall,
@@ -131,6 +132,7 @@ class FakeComboboxPage(FakePage):
     def __init__(self) -> None:
         super().__init__()
         self.keyboard = FakeKeyboard(self.calls)
+        self.synced_required_values: list[tuple[str, str, str]] = []
 
     def locator(self, selector: str):
         if selector == "body":
@@ -142,12 +144,50 @@ class FakeComboboxPage(FakePage):
         return FakeLocator(1)
 
     async def evaluate(self, _script: str, arg: object | None = None):
+        if isinstance(arg, dict) and "fallbackValue" in arg:
+            self.synced_required_values.append(
+                (
+                    str(arg.get("selector", "")),
+                    str(arg.get("fallbackValue", "")),
+                    str(arg.get("commitValue", "")),
+                )
+            )
+            return True
         if isinstance(arg, dict) and arg.get("selector") in {"#school--0", 'input[id^="school--"]'}:
             if "element.id" in _script:
                 return "school--0"
             return True
         if isinstance(arg, dict) and arg.get("inputId") == "school--0":
             return [{"selector": "#react-select-school--0-option-0", "label": "Stanford University"}]
+        return await super().evaluate(_script, arg)
+
+
+class FakeMonthComboboxPage(FakeComboboxPage):
+    def locator(self, selector: str):
+        if selector == "body":
+            return FakeLocator(1, self.body_texts[self.body_index])
+        if selector in {"#end-month--0", 'input[id^="end-month--"]'}:
+            return FakeComboboxLocator(self, selector)
+        if selector == '#react-select-end-month--0-option-0, [id^="react-select-end-month--0-option-"]':
+            return FakeLocator(1, visible=True)
+        return FakeLocator(1)
+
+    async def evaluate(self, _script: str, arg: object | None = None):
+        if isinstance(arg, dict) and "fallbackValue" in arg:
+            self.synced_required_values.append(
+                (
+                    str(arg.get("selector", "")),
+                    str(arg.get("fallbackValue", "")),
+                    str(arg.get("commitValue", "")),
+                )
+            )
+            return True
+        if isinstance(arg, dict) and arg.get("selector") in {"#end-month--0", 'input[id^="end-month--"]'}:
+            if "element.id" in _script:
+                return "end-month--0"
+            return True
+        if isinstance(arg, dict) and arg.get("inputId") == "end-month--0":
+            return [{"selector": "#react-select-end-month--0-option-0", "label": "June"}]
         return await super().evaluate(_script, arg)
 
 
@@ -199,6 +239,41 @@ class BrowserTests(unittest.TestCase):
                 ("click", "#react-select-school--0-option-0", ""),
                 ("keyboard", "Tab", ""),
             ],
+        )
+        self.assertEqual(
+            page.synced_required_values,
+            [('input[id^="school--"]', "Stanford University", "Stanford University")],
+        )
+
+    def test_execute_actions_canonicalizes_combobox_search_text_for_month_values(self) -> None:
+        page = FakeMonthComboboxPage()
+        actions = [PlannedAction("fill", 'input[id^="end-month--"]', "06")]
+
+        asyncio.run(execute_actions(page, actions))
+
+        self.assertEqual(
+            page.calls,
+            [
+                ("click", 'input[id^="end-month--"]', ""),
+                ("fill", 'input[id^="end-month--"]', ""),
+                ("type", 'input[id^="end-month--"]', "June"),
+                ("click", "#react-select-end-month--0-option-0", ""),
+                ("keyboard", "Tab", ""),
+            ],
+        )
+        self.assertEqual(
+            page.synced_required_values,
+            [('input[id^="end-month--"]', "June", "June")],
+        )
+
+    def test_fill_combobox_input_preserves_explicit_commit_value(self) -> None:
+        page = FakeComboboxPage()
+
+        asyncio.run(fill_combobox_input(page, "#school--0", "Yes", commit_value="1"))
+
+        self.assertEqual(
+            page.synced_required_values[-1],
+            ("#school--0", "Yes", "1"),
         )
 
     def test_click_preferred_selector_uses_visible_candidate(self) -> None:

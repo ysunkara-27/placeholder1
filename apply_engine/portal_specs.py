@@ -352,6 +352,12 @@ GREENHOUSE_HINT_ALIASES = {
     "work_authorization": [
         "authorized for employment in the united states",
         "eligible to work in the united states",
+        "itar",
+        "u.s. person",
+        "eligible to work with itar",
+        "export control",
+        "lawful permanent resident",
+        "protected individual",
     ],
     "sponsorship_required": [
         "require immigration sponsorship",

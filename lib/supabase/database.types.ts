@@ -236,6 +236,7 @@ export interface Database {
           phone: string | null;
           remote_ok: boolean;
           resume_json: Json | null;
+          resume_url: string | null;
           school: string | null;
           sms_opt_in: boolean;
           sms_provider: string | null;
@@ -270,6 +271,7 @@ export interface Database {
           phone?: string | null;
           remote_ok?: boolean;
           resume_json?: Json | null;
+          resume_url?: string | null;
           school?: string | null;
           sms_opt_in?: boolean;
           sms_provider?: string | null;
@@ -304,6 +306,7 @@ export interface Database {
           phone?: string | null;
           remote_ok?: boolean;
           resume_json?: Json | null;
+          resume_url?: string | null;
           school?: string | null;
           sms_opt_in?: boolean;
           sms_provider?: string | null;

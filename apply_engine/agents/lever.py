@@ -5,6 +5,7 @@ from apply_engine.agents.common import (
     build_common_contact_actions,
     collect_unresolved_required_questions,
     fill_detected_questions_by_hint,
+    fill_required_lever_card_fields,
     fill_lever_card_fields_from_error,
 )
 from apply_engine.agents.base import PortalAgent
@@ -138,6 +139,14 @@ class LeverAgent(PortalAgent):
             for answer in initial_answers:
                 if answer not in inferred_answers:
                     inferred_answers.append(answer)
+            proactive_card_answers = await fill_required_lever_card_fields(
+                page,
+                profile,
+                LEVER_HINT_ALIASES,
+            )
+            for answer in proactive_card_answers:
+                if answer not in inferred_answers:
+                    inferred_answers.append(answer)
             for hint in await collect_unresolved_required_questions(
                 page,
                 profile,
@@ -153,6 +162,14 @@ class LeverAgent(PortalAgent):
                     LEVER_HINT_ALIASES,
                 )
                 for answer in step_answers:
+                    if answer not in inferred_answers:
+                        inferred_answers.append(answer)
+                proactive_step_card_answers = await fill_required_lever_card_fields(
+                    step_page,
+                    profile,
+                    LEVER_HINT_ALIASES,
+                )
+                for answer in proactive_step_card_answers:
                     if answer not in inferred_answers:
                         inferred_answers.append(answer)
                 for hint in await collect_unresolved_required_questions(
@@ -184,14 +201,13 @@ class LeverAgent(PortalAgent):
                     on_step=on_step,
                 )
             except SubmissionBlockedError as exc:
-                card_recoveries = await fill_lever_card_fields_from_error(
+                proactive_card_recoveries = await fill_required_lever_card_fields(
                     page,
                     profile,
-                    str(exc),
                     LEVER_HINT_ALIASES,
                 )
-                if card_recoveries:
-                    for answer in card_recoveries:
+                if proactive_card_recoveries:
+                    for answer in proactive_card_recoveries:
                         if answer not in inferred_answers:
                             inferred_answers.append(answer)
                     recovery_family_used = "custom"
@@ -206,29 +222,51 @@ class LeverAgent(PortalAgent):
                         on_step=on_step,
                     )
                 else:
-                    recovered_family = await attempt_recovery_for_blocked_family(
-                        page,
-                        profile,
-                        str(exc),
-                        selectors=LEVER_SELECTORS,
-                        custom_selectors=LEVER_CUSTOM_SELECTORS,
-                        runtime_hints=runtime_hints,
-                        hint_aliases=LEVER_HINT_ALIASES,
+                    card_recoveries = await fill_lever_card_fields_from_error(
+                    page,
+                    profile,
+                    str(exc),
+                    LEVER_HINT_ALIASES,
                     )
-                    if not recovered_family:
-                        raise
+                    if card_recoveries:
+                        for answer in card_recoveries:
+                            if answer not in inferred_answers:
+                                inferred_answers.append(answer)
+                        recovery_family_used = "custom"
+                        recovery = await capture_page_screenshot(page, "recovery_custom_cards")
+                        if recovery:
+                            screenshots.append(recovery)
 
-                    recovery_family_used = recovered_family
-                    recovery = await capture_page_screenshot(page, f"recovery_{recovered_family}")
-                    if recovery:
-                        screenshots.append(recovery)
+                        confirmation = await complete_submission_flow(
+                            page,
+                            submit_selector=self.submit_selector,
+                            next_selector=self.next_selector,
+                            on_step=on_step,
+                        )
+                    else:
+                        recovered_family = await attempt_recovery_for_blocked_family(
+                            page,
+                            profile,
+                            str(exc),
+                            selectors=LEVER_SELECTORS,
+                            custom_selectors=LEVER_CUSTOM_SELECTORS,
+                            runtime_hints=runtime_hints,
+                            hint_aliases=LEVER_HINT_ALIASES,
+                        )
+                        if not recovered_family:
+                            raise
 
-                    confirmation = await complete_submission_flow(
-                        page,
-                        submit_selector=self.submit_selector,
-                        next_selector=self.next_selector,
-                        on_step=on_step,
-                    )
+                        recovery_family_used = recovered_family
+                        recovery = await capture_page_screenshot(page, f"recovery_{recovered_family}")
+                        if recovery:
+                            screenshots.append(recovery)
+
+                        confirmation = await complete_submission_flow(
+                            page,
+                            submit_selector=self.submit_selector,
+                            next_selector=self.next_selector,
+                            on_step=on_step,
+                        )
 
             final = await capture_page_screenshot(page, "final_state")
             if final:

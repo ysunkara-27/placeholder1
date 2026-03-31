@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+
+let spawnedWorker = null;
 
 function loadDotEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -93,6 +96,88 @@ function formatError(error) {
   }
 
   return String(error);
+}
+
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function isApplyEngineHealthy(baseUrl, timeoutMs = 3000) {
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}/health`, timeoutMs);
+    if (!response.ok) {
+      return false;
+    }
+    const payload = await response.json().catch(() => ({}));
+    return payload && typeof payload === "object" && payload.status === "ok";
+  } catch {
+    return false;
+  }
+}
+
+function shouldSelfManageWorker(baseUrl) {
+  try {
+    const url = new URL(baseUrl);
+    return ["127.0.0.1", "localhost"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function cleanupSpawnedWorker() {
+  if (!spawnedWorker || spawnedWorker.killed) {
+    return;
+  }
+
+  try {
+    spawnedWorker.kill("SIGTERM");
+  } catch {}
+}
+
+async function ensureApplyEngineHealthy(env, forceRestart = false) {
+  if (!forceRestart && (await isApplyEngineHealthy(env.applyEngineBaseUrl))) {
+    return;
+  }
+
+  if (!shouldSelfManageWorker(env.applyEngineBaseUrl)) {
+    throw new Error(
+      `Apply engine is not healthy at ${env.applyEngineBaseUrl} and cannot be auto-started`
+    );
+  }
+
+  if (forceRestart && spawnedWorker && !spawnedWorker.killed) {
+    cleanupSpawnedWorker();
+    spawnedWorker = null;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  if (!spawnedWorker || spawnedWorker.killed) {
+    const workerBinary = path.join(process.cwd(), ".venv", "bin", "uvicorn");
+    spawnedWorker = spawn(
+      workerBinary,
+      ["apply_engine.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      {
+        cwd: process.cwd(),
+        stdio: "ignore",
+      }
+    );
+  }
+
+  const readyDeadline = Date.now() + 15_000;
+  while (Date.now() < readyDeadline) {
+    if (await isApplyEngineHealthy(env.applyEngineBaseUrl)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+
+  throw new Error(`Apply engine did not become healthy at ${env.applyEngineBaseUrl}`);
 }
 
 function nowIso() {
@@ -345,6 +430,7 @@ async function processQueueRun(supabase, env, attempt) {
   );
 
   try {
+    await ensureApplyEngineHealthy(env);
     result = await fetchApplySubmitWithRetry(
       env.applyEngineBaseUrl,
       timeoutMs,
@@ -352,10 +438,37 @@ async function processQueueRun(supabase, env, attempt) {
     );
     runId = await persistRun(supabase, claimed, requestPayload, result, result.error || null);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to process queued application";
-    result = buildFailureResult(requestPayload, message);
-    runId = await persistRun(supabase, claimed, requestPayload, result, message);
+    const message = formatError(error).toLowerCase();
+    const shouldRestartWorker =
+      shouldSelfManageWorker(env.applyEngineBaseUrl) &&
+      (message.includes("fetch failed") ||
+        message.includes("econnrefused") ||
+        message.includes("socket hang up") ||
+        message.includes("network"));
+
+    if (shouldRestartWorker) {
+      await ensureApplyEngineHealthy(env, true);
+      try {
+        result = await fetchApplySubmit(
+          env.applyEngineBaseUrl,
+          timeoutMs,
+          requestPayload
+        );
+        runId = await persistRun(supabase, claimed, requestPayload, result, result.error || null);
+      } catch (retryError) {
+        const retryMessage =
+          retryError instanceof Error
+            ? retryError.message
+            : "Failed to process queued application";
+        result = buildFailureResult(requestPayload, retryMessage);
+        runId = await persistRun(supabase, claimed, requestPayload, result, retryMessage);
+      }
+    } else {
+      const message =
+        error instanceof Error ? error.message : "Failed to process queued application";
+      result = buildFailureResult(requestPayload, message);
+      runId = await persistRun(supabase, claimed, requestPayload, result, message);
+    }
   }
 
   const updated = await supabase
@@ -405,6 +518,8 @@ async function main() {
     `[Twin direct queue] engine=${env.applyEngineBaseUrl} timeout_ms=${env.applyEngineTimeoutMs} greenhouse_timeout_ms=${env.applyEngineGreenhouseTimeoutMs} max_runs=${env.maxRuns}`
   );
 
+  await ensureApplyEngineHealthy(env);
+
   const reclaimed = await reclaimStaleRunningApplications(supabase);
   if (reclaimed > 0) {
     console.log(`[Twin direct queue] reclaimed ${reclaimed} stale running application(s)`);
@@ -419,6 +534,16 @@ async function main() {
 
   console.log("[Twin direct queue] reached max_runs; run again to continue draining the queue");
 }
+
+process.on("exit", cleanupSpawnedWorker);
+process.on("SIGINT", () => {
+  cleanupSpawnedWorker();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  cleanupSpawnedWorker();
+  process.exit(143);
+});
 
 main().catch((error) => {
   console.error("[Twin direct queue] failed:", formatError(error));
