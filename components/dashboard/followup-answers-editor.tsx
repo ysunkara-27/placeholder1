@@ -85,7 +85,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
           deleted: false,
         }))
       );
-      setSuccess("Saved. Future runs will use these answers automatically.");
+      setSuccess("Saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -96,19 +96,15 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
   const visibleAnswers = answers.filter((a) => !a.deleted);
 
   return (
-    <section className="rounded-3xl border border-sky-200 bg-sky-50/70 p-6">
+    <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
             Gray area answers
           </p>
-          <h3 className="mt-1.5 text-lg font-semibold text-gray-900">
-            Saved clarifications Twin can reuse
-          </h3>
-          <p className="mt-2 text-sm text-gray-600 max-w-xl">
-            These are the answers you&apos;ve given to tricky application questions
-            (salary expectations, relocation, etc.). Twin reuses them automatically
-            so later runs don&apos;t block on the same prompts.
+          <h3 className="mt-1 text-sm font-semibold text-gray-900">Saved answers</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            Twin reuses these for future applications.
           </p>
         </div>
       </div>
@@ -124,7 +120,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
         {visibleAnswers.map((entry, index) => (
           <div
             key={`${entry.key}-${index}`}
-            className="rounded-2xl border border-sky-100 bg-white px-4 py-3 flex flex-col gap-2"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex flex-col gap-2"
           >
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-700">
@@ -134,7 +130,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
                 type="text"
                 value={entry.key}
                 onChange={(e) => upsertAnswer(index, { key: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="e.g. What salary range are you targeting?"
               />
             </div>
@@ -146,12 +142,12 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
                 value={entry.value}
                 onChange={(e) => upsertAnswer(index, { value: e.target.value })}
                 rows={2}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                 placeholder="e.g. $90–110k base in SF Bay Area; open to lower for early-stage with strong equity."
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-500">
                 {entry.dirty ? "Edited, not yet saved" : "In use for future runs"}
               </span>
               <button
@@ -168,7 +164,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
         <button
           type="button"
           onClick={addNew}
-          className="mt-2 inline-flex items-center rounded-full border border-dashed border-sky-300 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+          className="mt-2 inline-flex items-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
         >
           + Add another answer
         </button>
@@ -179,7 +175,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
+          className="inline-flex items-center rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save answers"}
         </button>

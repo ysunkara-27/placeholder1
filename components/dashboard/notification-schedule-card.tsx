@@ -40,7 +40,7 @@ export function NotificationScheduleCard({
       if (!res.ok) {
         throw new Error(json.error || "Failed to update schedule");
       }
-      setSuccess("Saved. Twin will use this schedule for daily lists and queueing.");
+      setSuccess("Saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update schedule");
     } finally {
@@ -49,18 +49,15 @@ export function NotificationScheduleCard({
   }
 
   return (
-    <section className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-6 space-y-4">
+    <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-700">
+          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
             Notification schedule
           </p>
-          <h3 className="mt-1.5 text-lg font-semibold text-gray-900">
-            When Twin sends and applies
-          </h3>
-          <p className="mt-2 text-sm text-gray-600 max-w-xl">
-            Set fixed daily times for your shortlist SMS, last edits, and when Twin aims
-            to finish submissions. Times are interpreted in your timezone ({timezone || "UTC"}).
+          <h3 className="mt-1 text-sm font-semibold text-gray-900">Daily timing</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            Timezone: {timezone || "UTC"}
           </p>
         </div>
       </div>
@@ -80,9 +77,7 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">
-            When you receive the numbered daily job list.
-          </p>
+          <p className="text-[11px] text-gray-500">Shortlist SMS</p>
         </div>
 
         <div className="space-y-1">
@@ -99,9 +94,7 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">
-            After this, Twin locks in your choices and queues applications.
-          </p>
+          <p className="text-[11px] text-gray-500">No more edits after this</p>
         </div>
 
         <div className="space-y-1">
@@ -118,9 +111,7 @@ export function NotificationScheduleCard({
             }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
-          <p className="text-[11px] text-gray-500">
-            Twin aims to finish all submissions by this time.
-          </p>
+          <p className="text-[11px] text-gray-500">Target completion</p>
         </div>
       </div>
 
@@ -129,7 +120,7 @@ export function NotificationScheduleCard({
           type="button"
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save schedule"}
         </button>
@@ -138,8 +129,7 @@ export function NotificationScheduleCard({
       </div>
 
       <p className="text-[11px] text-gray-500">
-        Twin enforces that shortlist &lt; cutoff &lt; goal, and there is at least 60 minutes
-        between cutoff and goal so there is time to actually run applications.
+        Must be shortlist &lt; cutoff &lt; goal, with at least 60 minutes between cutoff and goal.
       </p>
     </section>
   );
