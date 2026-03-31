@@ -1,5 +1,6 @@
-import type { EEOData } from "@/lib/types";
 import type { PersistedProfile } from "@/lib/platform/profile";
+
+type ApplicantEEO = Record<string, string>;
 
 export interface ApplicantProfileDraft {
   first_name: string;
@@ -14,8 +15,12 @@ export interface ApplicantProfileDraft {
   github_url: string;
   linkedin: string;
   website: string;
+  github: string;
   resume_pdf_path: string;
+  school: string;
   major: string;
+  gpa: string;
+  graduation: string;
   authorized_to_work: boolean;
   visa_type: string;
   earliest_start_date: string;
@@ -28,7 +33,7 @@ export interface ApplicantProfileDraft {
   weekly_availability_hours: string;
   graduation_window: string;
   commute_preference: string;
-  eeo: EEOData | null;
+  eeo: ApplicantEEO;
   custom_answers: Record<string, string>;
 }
 
@@ -41,11 +46,26 @@ function splitName(name: string) {
   };
 }
 
+function extractStoredFollowupAnswers(profile: PersistedProfile): Record<string, string> {
+  const followUpAnswers = profile.gray_areas?.follow_up_answers;
+  if (!followUpAnswers || typeof followUpAnswers !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(followUpAnswers).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[0] === "string" && typeof entry[1] === "string"
+    )
+  );
+}
+
 export function mapPersistedProfileToApplicantDraft(
   profile: PersistedProfile,
   userEmail: string
 ): ApplicantProfileDraft {
   const { firstName, lastName } = splitName(profile.name);
+  const storedFollowupAnswers = extractStoredFollowupAnswers(profile);
 
   return {
     first_name: firstName,
@@ -60,8 +80,12 @@ export function mapPersistedProfileToApplicantDraft(
     github_url: profile.github_url,
     linkedin: profile.linkedin_url,
     website: profile.website_url,
+    github: profile.github_url,
     resume_pdf_path: "/tmp/resume.pdf",
+    school: profile.school,
     major: profile.major,
+    gpa: profile.gpa,
+    graduation: profile.graduation,
     authorized_to_work: profile.authorized_to_work,
     visa_type: profile.visa_type,
     earliest_start_date: profile.earliest_start_date,
@@ -81,7 +105,11 @@ export function mapPersistedProfileToApplicantDraft(
     weekly_availability_hours: "",
     graduation_window: profile.graduation,
     commute_preference: profile.remote_ok ? "Prefer remote-friendly roles" : "",
-    eeo: profile.eeo,
+    eeo: Object.fromEntries(
+      Object.entries(profile.eeo ?? {}).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string"
+      )
+    ),
     custom_answers: {
       ...(profile.school ? { school: profile.school, university: profile.school } : {}),
       ...(profile.major ? { major: profile.major } : {}),
@@ -96,6 +124,7 @@ export function mapPersistedProfileToApplicantDraft(
       ...(profile.locations[0]
         ? { relocation: profile.remote_ok ? "no" : "yes" }
         : {}),
+      ...storedFollowupAnswers,
     },
   };
 }

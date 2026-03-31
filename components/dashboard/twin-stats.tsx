@@ -9,11 +9,11 @@ interface Stat {
 
 interface Props {
   applied: number;
-  queued: number;
-  failed: number;
+  pending: number;
+  matched: number;
 }
 
-export function TwinStats({ applied, queued, failed }: Props) {
+export function TwinStats({ applied, pending, matched }: Props) {
   const stats: Stat[] = [
     {
       label: "Applied",
@@ -21,15 +21,15 @@ export function TwinStats({ applied, queued, failed }: Props) {
       description: "Submitted by your Twin",
     },
     {
-      label: "Queued",
-      value: queued,
-      description: "Waiting for execution or running now",
-      active: queued > 0,
+      label: "Pending",
+      value: pending,
+      description: "Waiting on confirmation or execution",
+      active: pending > 0,
     },
     {
-      label: "Failed",
-      value: failed,
-      description: "Need review before retrying",
+      label: "Matched",
+      value: matched,
+      description: "Relevant jobs found for your profile",
     },
   ];
 

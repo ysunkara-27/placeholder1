@@ -127,6 +127,10 @@ function buildFailureResult(
     actions: [],
     error,
     screenshots: [],
+    inferred_answers: [],
+    unresolved_questions: [],
+    recovery_attempted: false,
+    recovery_family: null,
   };
 }
 

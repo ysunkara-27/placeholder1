@@ -1,0 +1,382 @@
+[
+  {
+    "id": "stripe-greenhouse",
+    "portal": "greenhouse",
+    "company": "Stripe",
+    "board_token": "stripe",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/stripe/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Major payments company, posts SWE/infra/data interns"
+  },
+  {
+    "id": "scaleai-greenhouse",
+    "portal": "greenhouse",
+    "company": "Scale AI",
+    "board_token": "scaleai",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/scaleai/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Research", "Data"],
+    "notes": "AI data labeling and infrastructure, posts SWE/ML/data interns"
+  },
+  {
+    "id": "figma-greenhouse",
+    "portal": "greenhouse",
+    "company": "Figma",
+    "board_token": "figma",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/figma/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Design"],
+    "notes": "Collaborative design tool, posts SWE and design interns"
+  },
+  {
+    "id": "databricks-greenhouse",
+    "portal": "greenhouse",
+    "company": "Databricks",
+    "board_token": "databricks",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/databricks/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Data"],
+    "notes": "Data and AI platform, posts SWE/data/ML interns"
+  },
+  {
+    "id": "coinbase-greenhouse",
+    "portal": "greenhouse",
+    "company": "Coinbase",
+    "board_token": "coinbase",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/coinbase/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Crypto exchange, posts SWE/finance interns"
+  },
+  {
+    "id": "brex-greenhouse",
+    "portal": "greenhouse",
+    "company": "Brex",
+    "board_token": "brex",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/brex/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Corporate spend platform, posts SWE/finance interns"
+  },
+  {
+    "id": "benchling-greenhouse",
+    "portal": "greenhouse",
+    "company": "Benchling",
+    "board_token": "benchling",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/benchling/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "Life science R&D platform, posts SWE/biotech interns"
+  },
+  {
+    "id": "ramp-greenhouse",
+    "portal": "greenhouse",
+    "company": "Ramp",
+    "board_token": "ramp",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/ramp/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Corporate card and spend management, posts SWE/finance interns"
+  },
+  {
+    "id": "plaid-greenhouse",
+    "portal": "greenhouse",
+    "company": "Plaid",
+    "board_token": "plaid",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/plaid/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Financial data network, posts SWE/fintech interns"
+  },
+  {
+    "id": "airtable-greenhouse",
+    "portal": "greenhouse",
+    "company": "Airtable",
+    "board_token": "airtable",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/airtable/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "No-code database platform, posts SWE interns"
+  },
+  {
+    "id": "duolingo-greenhouse",
+    "portal": "greenhouse",
+    "company": "Duolingo",
+    "board_token": "duolingo",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/duolingo/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Language learning app, posts SWE/ML interns"
+  },
+  {
+    "id": "robinhood-greenhouse",
+    "portal": "greenhouse",
+    "company": "Robinhood",
+    "board_token": "robinhood",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/robinhood/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Commission-free investing app, posts SWE/finance interns"
+  },
+  {
+    "id": "doordash-greenhouse",
+    "portal": "greenhouse",
+    "company": "DoorDash",
+    "board_token": "doordash",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/doordash/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Operations"],
+    "notes": "Food delivery platform, posts SWE/ops/data interns"
+  },
+  {
+    "id": "lyft-greenhouse",
+    "portal": "greenhouse",
+    "company": "Lyft",
+    "board_token": "lyft",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/lyft/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Ridesharing platform, posts SWE/data interns"
+  },
+  {
+    "id": "notion-greenhouse",
+    "portal": "greenhouse",
+    "company": "Notion",
+    "board_token": "notion",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/notion/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "All-in-one workspace, posts SWE interns"
+  },
+  {
+    "id": "retool-greenhouse",
+    "portal": "greenhouse",
+    "company": "Retool",
+    "board_token": "retool",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/retool/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Internal tools builder, posts SWE interns"
+  },
+  {
+    "id": "rippling-greenhouse",
+    "portal": "greenhouse",
+    "company": "Rippling",
+    "board_token": "rippling",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/rippling/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "HR and payroll platform, posts SWE/finance interns"
+  },
+  {
+    "id": "lattice-greenhouse",
+    "portal": "greenhouse",
+    "company": "Lattice",
+    "board_token": "lattice",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/lattice/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "People management platform, posts SWE interns"
+  },
+  {
+    "id": "linear-greenhouse",
+    "portal": "greenhouse",
+    "company": "Linear",
+    "board_token": "linear",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/linear/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Issue tracking tool, posts SWE interns"
+  },
+  {
+    "id": "verkada-greenhouse",
+    "portal": "greenhouse",
+    "company": "Verkada",
+    "board_token": "verkada",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/verkada/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Physical security platform, posts SWE/hardware interns"
+  },
+  {
+    "id": "anduril-greenhouse",
+    "portal": "greenhouse",
+    "company": "Anduril",
+    "board_token": "anduril",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/anduril/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "Defense technology, posts SWE/embedded/research interns"
+  },
+  {
+    "id": "openai-greenhouse",
+    "portal": "greenhouse",
+    "company": "OpenAI",
+    "board_token": "openai",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/openai/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "AI research lab, posts SWE/ML/research interns"
+  },
+  {
+    "id": "anthropic-greenhouse",
+    "portal": "greenhouse",
+    "company": "Anthropic",
+    "board_token": "anthropic",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/anthropic/jobs",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "AI safety company, posts SWE/ML/research interns"
+  },
+  {
+    "id": "twilio-greenhouse",
+    "portal": "greenhouse",
+    "company": "Twilio",
+    "board_token": "twilio",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/twilio/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Communications API platform, posts SWE interns"
+  },
+  {
+    "id": "asana-greenhouse",
+    "portal": "greenhouse",
+    "company": "Asana",
+    "board_token": "asana",
+    "board_url": "https://boards-api.greenhouse.io/v1/boards/asana/jobs",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Work management platform, posts SWE interns"
+  },
+  {
+    "id": "instacart-lever",
+    "portal": "lever",
+    "company": "Instacart",
+    "board_token": "instacart",
+    "board_url": "https://api.lever.co/v0/postings/instacart",
+    "enabled": true,
+    "default_industries": ["SWE", "Operations"],
+    "notes": "Grocery delivery platform, posts SWE/ops interns"
+  },
+  {
+    "id": "squarespace-lever",
+    "portal": "lever",
+    "company": "Squarespace",
+    "board_token": "squarespace",
+    "board_url": "https://api.lever.co/v0/postings/squarespace",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Website builder, posts SWE interns"
+  },
+  {
+    "id": "chime-lever",
+    "portal": "lever",
+    "company": "Chime",
+    "board_token": "chime",
+    "board_url": "https://api.lever.co/v0/postings/chime",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Neobank, posts SWE/fintech interns"
+  },
+  {
+    "id": "gusto-lever",
+    "portal": "lever",
+    "company": "Gusto",
+    "board_token": "gusto",
+    "board_url": "https://api.lever.co/v0/postings/gusto",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Payroll and HR platform, posts SWE/finance interns"
+  },
+  {
+    "id": "affirm-lever",
+    "portal": "lever",
+    "company": "Affirm",
+    "board_token": "affirm",
+    "board_url": "https://api.lever.co/v0/postings/affirm",
+    "enabled": true,
+    "default_industries": ["SWE", "Finance"],
+    "notes": "Buy now pay later platform, posts SWE/finance interns"
+  },
+  {
+    "id": "flexport-lever",
+    "portal": "lever",
+    "company": "Flexport",
+    "board_token": "flexport",
+    "board_url": "https://api.lever.co/v0/postings/flexport",
+    "enabled": true,
+    "default_industries": ["SWE", "Operations"],
+    "notes": "Freight logistics platform, posts SWE/ops interns"
+  },
+  {
+    "id": "cruise-lever",
+    "portal": "lever",
+    "company": "Cruise",
+    "board_token": "cruise",
+    "board_url": "https://api.lever.co/v0/postings/cruise",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "Autonomous vehicle company, posts SWE/robotics/ML interns"
+  },
+  {
+    "id": "waymo-lever",
+    "portal": "lever",
+    "company": "Waymo",
+    "board_token": "waymo",
+    "board_url": "https://api.lever.co/v0/postings/waymo",
+    "enabled": true,
+    "default_industries": ["SWE", "Research"],
+    "notes": "Self-driving technology, posts SWE/ML/research interns"
+  },
+  {
+    "id": "reddit-lever",
+    "portal": "lever",
+    "company": "Reddit",
+    "board_token": "reddit",
+    "board_url": "https://api.lever.co/v0/postings/reddit",
+    "enabled": true,
+    "default_industries": ["SWE"],
+    "notes": "Social media platform, posts SWE/data interns"
+  },
+  {
+    "id": "pinterest-lever",
+    "portal": "lever",
+    "company": "Pinterest",
+    "board_token": "pinterest",
+    "board_url": "https://api.lever.co/v0/postings/pinterest",
+    "enabled": true,
+    "default_industries": ["SWE", "Design"],
+    "notes": "Visual discovery platform, posts SWE/design/ML interns"
+  },
+  {
+    "id": "microsoft-workday",
+    "portal": "workday",
+    "company": "Microsoft",
+    "board_token": "microsoft",
+    "board_url": "https://microsoft.wd5.myworkdayjobs.com/en-US/External",
+    "enabled": false,
+    "default_industries": ["SWE"],
+    "notes": "Uses Workday — tenant-specific scraping not yet implemented"
+  },
+  {
+    "id": "amazon-workday",
+    "portal": "workday",
+    "company": "Amazon",
+    "board_token": "amazon",
+    "board_url": "https://amazon.jobs/en/search",
+    "enabled": false,
+    "default_industries": ["SWE"],
+    "notes": "Uses custom/Workday hybrid — scraping not yet implemented"
+  },
+  {
+    "id": "google-workday",
+    "portal": "workday",
+    "company": "Google",
+    "board_token": "google",
+    "board_url": "https://careers.google.com/jobs/results",
+    "enabled": false,
+    "default_industries": ["SWE"],
+    "notes": "Uses custom careers portal — scraping not yet implemented"
+  }
+]

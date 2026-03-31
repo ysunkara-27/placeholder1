@@ -60,6 +60,6 @@ export const config = {
      * - favicon.ico
      * - *.{png,jpg,jpeg,gif,svg,webp,ico}
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
   ],
 };

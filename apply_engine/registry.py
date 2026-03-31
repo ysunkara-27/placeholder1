@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from apply_engine.agents.ashby import AshbyAgent
 from apply_engine.agents.detector import detect_portal
 from apply_engine.agents.greenhouse import GreenhouseAgent
 from apply_engine.agents.lever import LeverAgent
@@ -12,6 +13,7 @@ AGENTS = {
     "greenhouse": GreenhouseAgent(),
     "lever": LeverAgent(),
     "workday": WorkdayAgent(),
+    "ashby": AshbyAgent(),
     "vision": VisionAgent(),
 }
 

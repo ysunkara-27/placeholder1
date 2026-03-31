@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
             url=parsed.url,
             profile=profile,
             dry_run=True,
+            runtime_hints=parsed.runtime_hints or {},
         )
         result = await route_application(request)
         return serialize_apply_result(result).to_dict()
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
             url=parsed.url,
             profile=profile,
             dry_run=parsed.dry_run,
+            runtime_hints=parsed.runtime_hints or {},
         )
         result = await route_application(request)
         return serialize_apply_result(result).to_dict()

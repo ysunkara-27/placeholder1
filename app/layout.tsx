@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
+
+const ramboia = localFont({
+  src: "../RamboiaTest-Regular.otf",
+  variable: "--font-ramboia",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Twin — Your application agent for internship season.",
@@ -14,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">{children}</body>
+      <body className={`${ramboia.variable} min-h-screen`}>{children}</body>
     </html>
   );
 }

@@ -19,6 +19,36 @@ export interface ApplyRunRecord {
       by_type: Record<string, number>;
     };
     screenshot_count: number;
+    latest_screenshot_label: string | null;
+    blocked_step: string | null;
+    blocked_field_family:
+      | "contact"
+      | "resume"
+      | "authorization"
+      | "education"
+      | "availability"
+      | "eeo"
+      | "custom"
+      | "unknown"
+      | null;
+    failure_source: "profile_data" | "automation" | "mixed" | "unknown" | null;
+    missing_profile_fields: string[];
+    inferred_answers_count: number;
+    inferred_answers: string[];
+    follow_up_required: boolean;
+    follow_up_items: string[];
+    error_kind: "none" | "auth" | "validation" | "execution";
+    recovery_attempted: boolean;
+    recovery_family:
+      | "contact"
+      | "resume"
+      | "authorization"
+      | "education"
+      | "availability"
+      | "eeo"
+      | "custom"
+      | "unknown"
+      | null;
   } | null;
 }
 
@@ -87,8 +117,50 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                     {run.summary.actions.optional} optional
                     {" · "}
                     {run.summary.screenshot_count} screenshots
+                    {" · "}
+                    {run.summary.inferred_answers_count} inferred
                   </p>
                 )}
+                {run.summary?.latest_screenshot_label && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    last frame: {run.summary.latest_screenshot_label.replaceAll("_", " ")}
+                  </p>
+                )}
+                {(run.summary?.blocked_step || run.summary?.blocked_field_family) && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    {run.summary.blocked_step
+                      ? `blocked step: ${run.summary.blocked_step.replaceAll("_", " ")}`
+                      : "blocked step: unknown"}
+                    {run.summary.blocked_field_family
+                      ? ` · family: ${run.summary.blocked_field_family.replaceAll("_", " ")}`
+                      : ""}
+                  </p>
+                )}
+                {(run.summary?.failure_source || run.summary?.missing_profile_fields.length) && (
+                  <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                    {run.summary.failure_source
+                      ? `source: ${run.summary.failure_source.replaceAll("_", " ")}`
+                      : "source: unknown"}
+                    {run.summary.missing_profile_fields.length
+                      ? ` · missing: ${run.summary.missing_profile_fields.join(", ")}`
+                      : ""}
+                  </p>
+                )}
+                {run.summary?.inferred_answers.length ? (
+                  <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                    inferred: {run.summary.inferred_answers.join(", ")}
+                  </p>
+                ) : null}
+                {run.summary?.follow_up_required && run.summary.follow_up_items.length ? (
+                  <p className="mt-1 text-[11px] text-amber-700 line-clamp-2">
+                    follow-up: {run.summary.follow_up_items.join(" · ")}
+                  </p>
+                ) : null}
+                {run.summary?.recovery_attempted ? (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    recovery: {run.summary.recovery_family?.replaceAll("_", " ") ?? "attempted"}
+                  </p>
+                ) : null}
                 {run.error && (
                   <p className="mt-2 text-xs text-red-600 line-clamp-2">{run.error}</p>
                 )}

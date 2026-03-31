@@ -1,4 +1,4 @@
-import jobs from "@/data/job-seeds/live-openings-2026.json";
+import jobs from "@/data/job-seeds/vetted-live-mvp.json";
 import { ApplyLab } from "@/components/apply/apply-lab";
 
 export default function ApplyLabPage() {
@@ -13,8 +13,9 @@ export default function ApplyLabPage() {
             Twin Apply Lab
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-500">
-            Use this page to test portal detection, queue submission, and manual
-            queue processing against seeded Greenhouse and Lever postings.
+            Use this page to run real MVP apply tests against a vetted set of
+            live Greenhouse and Lever postings, then queue and process them
+            through the worker flow.
           </p>
         </div>
 

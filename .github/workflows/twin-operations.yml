@@ -11,9 +11,14 @@ on:
         description: "Expire old pending alerts"
         required: false
         default: "true"
+      run_live_scrape:
+        description: "Run live source scrape and ingest"
+        required: false
+        default: "false"
   schedule:
     - cron: "0 13,1 * * *"
     - cron: "15 */6 * * *"
+    - cron: "0 */4 * * *"
 
 jobs:
   ingest-seed-jobs:
@@ -60,3 +65,33 @@ jobs:
             -X POST \
             -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
             "$TWIN_APP_BASE_URL/api/internal/cron/expire-alerts"
+
+  scrape-live-sources:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 */4 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_live_scrape == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Install apply engine dependencies
+        run: ./.venv/bin/python -m pip install -r apply_engine/requirements.txt
+
+      - name: Scrape and ingest live sources
+        env:
+          TWIN_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          TWIN_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          ./.venv/bin/python apply_engine/scripts/scrape_and_ingest_jobs.py \
+            --base-url "$TWIN_BASE_URL" \
+            --worker-secret "$TWIN_WORKER_SECRET" \
+            --concurrency 20

@@ -8,6 +8,8 @@ const publicEnvSchema = z.object({
 const serverEnvSchema = publicEnvSchema.extend({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   APPLY_ENGINE_BASE_URL: z.string().url().optional(),
+  APPLY_ENGINE_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   APPLY_QUEUE_WORKER_SECRET: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   SMS_PROVIDER: z.enum(["plivo", "twilio"]).default("plivo"),
@@ -30,6 +32,8 @@ function parseServerEnv() {
   return serverEnvSchema.parse({
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     APPLY_ENGINE_BASE_URL: process.env.APPLY_ENGINE_BASE_URL,
+    APPLY_ENGINE_TIMEOUT_MS: process.env.APPLY_ENGINE_TIMEOUT_MS,
+    APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS: process.env.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS,
     APPLY_QUEUE_WORKER_SECRET: process.env.APPLY_QUEUE_WORKER_SECRET,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -69,6 +73,8 @@ export function getApplyEngineEnv() {
 
   return {
     baseUrl: env.APPLY_ENGINE_BASE_URL,
+    timeoutMs: env.APPLY_ENGINE_TIMEOUT_MS ?? 240_000,
+    greenhouseTimeoutMs: env.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS ?? 420_000,
   };
 }
 

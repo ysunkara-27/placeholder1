@@ -31,4 +31,8 @@ def serialize_apply_result(result: ApplyResult) -> ApplyResultPayload:
             )
             for screenshot in result.screenshots
         ],
+        inferred_answers=list(result.inferred_answers),
+        unresolved_questions=list(result.unresolved_questions),
+        recovery_attempted=result.recovery_attempted,
+        recovery_family=result.recovery_family,
     )

@@ -21,6 +21,7 @@ class SerializeTests(unittest.TestCase):
                     data_base64="ZmFrZS1wbmc=",
                 )
             ],
+            inferred_answers=["gender", "relocation"],
         )
 
         payload = serialize_apply_result(result)
@@ -33,6 +34,7 @@ class SerializeTests(unittest.TestCase):
         self.assertFalse(payload.actions[1].required)
         self.assertEqual(len(payload.screenshots or []), 1)
         self.assertEqual(payload.screenshots[0].label, "final_state")
+        self.assertEqual(payload.inferred_answers, ["gender", "relocation"])
 
 
 if __name__ == "__main__":

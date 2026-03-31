@@ -32,6 +32,52 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(payload.profile.weekly_availability_hours, "40")
         self.assertEqual(payload.profile.graduation_window, "2027")
         self.assertEqual(payload.profile.custom_answers, {"favorite_language": "Python"})
+        self.assertEqual(payload.runtime_hints, {})
+
+    def test_apply_payload_accepts_runtime_hints(self) -> None:
+        payload = ApplyPayload.from_dict(
+            {
+                "url": "https://jobs.lever.co/weride/8f84c602-8a79-43f6-b662-74a92ef761f5",
+                "profile": {
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "test@example.com",
+                },
+                "runtime_hints": {
+                    "likely_blocked_family": "availability",
+                    "historical_blocked_families": ["availability", "eeo"],
+                },
+            }
+        )
+
+        self.assertEqual(payload.runtime_hints["likely_blocked_family"], "availability")
+        self.assertEqual(
+            payload.runtime_hints["historical_blocked_families"],
+            ["availability", "eeo"],
+        )
+
+    def test_apply_payload_accepts_extended_profile_fields(self) -> None:
+        payload = ApplyPayload.from_dict(
+            {
+                "url": "https://job-boards.greenhouse.io/scaleai/jobs/4606014005",
+                "profile": {
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "test@example.com",
+                    "linkedin_url": "https://linkedin.com/in/test-user",
+                    "website_url": "https://test.dev",
+                    "github_url": "https://github.com/test-user",
+                    "authorized_to_work": True,
+                    "earliest_start_date": "2026-06-01",
+                },
+            }
+        )
+
+        self.assertEqual(payload.profile.linkedin_url, "https://linkedin.com/in/test-user")
+        self.assertEqual(payload.profile.website_url, "https://test.dev")
+        self.assertEqual(payload.profile.github_url, "https://github.com/test-user")
+        self.assertTrue(payload.profile.authorized_to_work)
+        self.assertEqual(payload.profile.earliest_start_date, "2026-06-01")
 
     def test_apply_payload_rejects_extra_fields(self) -> None:
         with self.assertRaises(Exception):

@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:apply-engine": "./.venv/bin/python -m unittest discover apply_engine/tests -v"
+    "test:apply-engine": "./.venv/bin/python -m unittest discover apply_engine/tests -v",
+    "process:queue:local": "node scripts/process-queue-local.mjs",
+    "process:queue:direct": "node scripts/process-queue-direct.mjs",
+    "queue:vetted:mvp": "node scripts/queue-vetted-mvp.mjs",
+    "report:daily:followups": "node scripts/generate-daily-followup-report.mjs",
+    "send:daily:followups": "node scripts/send-daily-followups.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

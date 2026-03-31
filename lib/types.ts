@@ -128,6 +128,8 @@ export interface GrayAreaSuggestion {
     sponsorship: string;
     company_size: string;
   };
+  follow_up_answers?: Record<string, string>;
+  last_follow_up_response_at?: string;
 }
 
 // ─── Resume Chat ─────────────────────────────────────────────────────────────

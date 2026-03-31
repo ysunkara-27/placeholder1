@@ -1,0 +1,84 @@
+{
+  "jobs": [
+    {
+      "id": 1001001,
+      "title": "Software Engineering Intern, Summer 2026",
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/1001001",
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "updated_at": "2026-02-15T18:00:00.000Z",
+      "departments": [
+        {"id": 10, "name": "Engineering"}
+      ],
+      "offices": [
+        {"id": 20, "name": "San Francisco"}
+      ],
+      "content": "<p>Join our engineering team as a summer intern.</p>"
+    },
+    {
+      "id": 1001002,
+      "title": "Data Engineering Internship, Fall 2026",
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/1001002",
+      "location": {
+        "name": "Remote - US"
+      },
+      "updated_at": "2026-02-20T10:00:00.000Z",
+      "departments": [
+        {"id": 11, "name": "Data"}
+      ],
+      "offices": [
+        {"id": 20, "name": "Remote"}
+      ],
+      "content": "<p>Work on our data pipelines as an intern.</p>"
+    },
+    {
+      "id": 1001003,
+      "title": "New Grad Software Engineer",
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/1001003",
+      "location": {
+        "name": "New York, NY"
+      },
+      "updated_at": "2026-03-01T12:00:00.000Z",
+      "departments": [
+        {"id": 10, "name": "Engineering"}
+      ],
+      "offices": [
+        {"id": 21, "name": "New York"}
+      ],
+      "content": "<p>New grad role for recent computer science graduates.</p>"
+    },
+    {
+      "id": 1001004,
+      "title": "Senior Software Engineer",
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/1001004",
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "updated_at": "2026-01-10T09:00:00.000Z",
+      "departments": [
+        {"id": 10, "name": "Engineering"}
+      ],
+      "offices": [
+        {"id": 20, "name": "San Francisco"}
+      ],
+      "content": "<p>5+ years experience required.</p>"
+    },
+    {
+      "id": 1001005,
+      "title": "Staff Engineer, Platform",
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/1001005",
+      "location": {
+        "name": "Seattle, WA"
+      },
+      "updated_at": "2026-01-25T14:00:00.000Z",
+      "departments": [
+        {"id": 12, "name": "Platform"}
+      ],
+      "offices": [
+        {"id": 22, "name": "Seattle"}
+      ],
+      "content": "<p>8+ years experience required.</p>"
+    }
+  ]
+}

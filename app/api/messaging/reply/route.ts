@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { normalizeReplyText, extractPhoneNumber } from "@/lib/messaging/reply";
+import {
+  normalizeReplyText,
+  extractPhoneNumber,
+  parseFollowupReplyAnswers,
+} from "@/lib/messaging/reply";
 import {
   findProfileByPhone,
   findLatestPendingAlert,
@@ -9,6 +13,10 @@ import {
   expireAlertsForUser,
 } from "@/lib/alerts";
 import { queueApplication } from "@/lib/application-queue";
+import {
+  getDailyFollowupItemsForUser,
+  storeFollowupAnswersForUser,
+} from "@/lib/followups";
 import { mapProfileRowToPersistedProfile } from "@/lib/platform/profile";
 import { mapPersistedProfileToApplicantDraft } from "@/lib/platform/applicant";
 
@@ -90,6 +98,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return emptyOk();
   }
 
+  if (action === "unknown") {
+    const followupItems = await getDailyFollowupItemsForUser(
+      supabase,
+      profile.id,
+      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    ).catch(() => []);
+    const parsedAnswers = parseFollowupReplyAnswers(rawText);
+
+    if (followupItems.length > 0 && parsedAnswers.length > 0) {
+      const stored = await storeFollowupAnswersForUser(
+        supabase,
+        profile,
+        followupItems,
+        parsedAnswers
+      ).catch(() => ({ stored: false, count: 0 }));
+
+      if (stored.stored) {
+        if (provider === "twilio") {
+          return twiml(
+            `<Message>Saved ${stored.count} follow-up answer${stored.count === 1 ? "" : "s"}. Twin will use them before the next submit attempt.</Message>`
+          );
+        }
+        return emptyOk();
+      }
+    }
+  }
+
   const alert = await findLatestPendingAlert(supabase, profile.id).catch(() => null);
 
   if (!alert) {
@@ -116,6 +151,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         requestPayload: {
           url: job.application_url,
           profile: applicantDraft,
+          runtime_hints: {
+            historical_blocked_families: [],
+          },
         },
       }).catch((err) => {
         console.error("[messaging/reply][queue-application]", err);

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { BlockersSummary } from "@/components/dashboard/blockers-summary";
+import { FollowupsSummary } from "@/components/dashboard/followups-summary";
+import { RecoverySummary } from "@/components/dashboard/recovery-summary";
 import { TwinStats } from "@/components/dashboard/twin-stats";
 import {
   ApplicationsList,
@@ -31,6 +34,12 @@ export interface AlertRecord {
 }
 import { INDUSTRY_OPTIONS, LEVEL_OPTIONS } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { mapPersistedProfileToApplicantDraft } from "@/lib/platform/applicant";
+import {
+  buildPortalApplyReadinessSummary,
+  getApplyReadinessIssues,
+  summarizeReadinessBuckets,
+} from "@/lib/platform/apply-readiness";
 import {
   extractResumeFromProfileRow,
   mapProfileRowToPersistedProfile,
@@ -38,15 +47,19 @@ import {
   type PersistedProfile,
 } from "@/lib/platform/profile";
 
+type SystemStateTone = "green" | "amber" | "blue" | "orange" | "red" | "slate";
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<PersistedProfile | null>(null);
+  const [userEmail, setUserEmail] = useState("");
   const [resume, setResume] = useState<AnnotatedResume | null>(null);
   const [applications, setApplications] = useState<DashboardApplicationRecord[]>([]);
   const [applyRuns, setApplyRuns] = useState<ApplyRunRecord[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -63,6 +76,9 @@ export default function DashboardPage() {
         router.replace("/onboarding");
         return;
       }
+
+      setUserEmail(session.user.email ?? "");
+      setIsAnonymous(Boolean((session.user as { is_anonymous?: boolean }).is_anonymous));
 
       const { data, error } = await supabase
         .from("profiles")
@@ -153,6 +169,73 @@ export default function DashboardPage() {
   const failedRuns = applications.filter(
     (application) => application.status === "failed"
   ).length;
+  const authBlockedApplications = applications.filter(
+    (application) => application.status === "requires_auth"
+  ).length;
+  const pendingAlerts = alerts.filter((alert) => alert.status === "pending").length;
+  const matchedJobs = alerts.length;
+  const latestActivityAt = [
+    alerts[0]?.alerted_at,
+    applications[0]?.updated_at,
+    applyRuns[0]?.created_at,
+  ]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  const systemStates: Array<{
+    label: string;
+    value: string;
+    tone: SystemStateTone;
+    description: string;
+  }> = [
+    queuedApplications > 0
+      ? {
+          label: "Queue",
+          value: `${queuedApplications} active`,
+          tone: "blue",
+          description: "Twin is working through confirmed applications.",
+        }
+      : {
+          label: "Queue",
+          value: "Idle",
+          tone: "slate",
+          description: "No application jobs are running right now.",
+        },
+    pendingAlerts > 0
+      ? {
+          label: "Approval",
+          value: `${pendingAlerts} waiting`,
+          tone: "amber",
+          description: "New matches are waiting on a yes before apply.",
+        }
+      : {
+          label: "Approval",
+          value: "Clear",
+          tone: "green",
+          description: "No confirmations are waiting right now.",
+        },
+    authBlockedApplications > 0
+      ? {
+          label: "Portal access",
+          value: `${authBlockedApplications} blocked`,
+          tone: "orange",
+          description: "A portal sign-in or auth wall needs attention.",
+        }
+      : failedRuns > 0
+        ? {
+            label: "Portal access",
+            value: `${failedRuns} failed`,
+            tone: "red",
+            description: "Some runs failed and need review before retrying.",
+          }
+        : {
+            label: "Portal access",
+            value: "Healthy",
+            tone: "green",
+            description: "No portal blockers detected in recent runs.",
+          },
+  ];
 
   const industryLabels = profile.industries
     .map((v) => INDUSTRY_OPTIONS.find((o) => o.value === v)?.label ?? v)
@@ -166,6 +249,105 @@ export default function DashboardPage() {
     ...profile.locations,
     ...(profile.remote_ok ? ["Remote"] : []),
   ].join(", ") || "Flexible";
+  const applicantDraft = mapPersistedProfileToApplicantDraft(
+    profile,
+    userEmail
+  );
+  const readinessIssues = getApplyReadinessIssues(applicantDraft);
+  const readinessCounts = summarizeReadinessBuckets(readinessIssues);
+  const portalReadiness = [
+    buildPortalApplyReadinessSummary(applicantDraft, "greenhouse", applyRuns),
+    buildPortalApplyReadinessSummary(applicantDraft, "lever", applyRuns),
+    buildPortalApplyReadinessSummary(applicantDraft, "workday", applyRuns),
+  ];
+  const topBlockedFamilies = Array.from(
+    applyRuns.reduce<
+      Map<
+        string,
+        {
+          family: string;
+          count: number;
+          automationCount: number;
+          profileDataCount: number;
+          mixedCount: number;
+        }
+      >
+    >((accumulator, run) => {
+      const family = run.summary?.blocked_field_family;
+      if (!family || family === "unknown") {
+        return accumulator;
+      }
+
+      const current = accumulator.get(family) ?? {
+        family,
+        count: 0,
+        automationCount: 0,
+        profileDataCount: 0,
+        mixedCount: 0,
+      };
+
+      current.count += 1;
+      if (run.summary?.failure_source === "automation") {
+        current.automationCount += 1;
+      } else if (run.summary?.failure_source === "profile_data") {
+        current.profileDataCount += 1;
+      } else if (run.summary?.failure_source === "mixed") {
+        current.mixedCount += 1;
+      }
+
+      accumulator.set(family, current);
+      return accumulator;
+    }, new Map())
+  )
+    .map((entry) => entry[1])
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 4);
+  const topRecoveryPatterns = Array.from(
+    applyRuns.reduce<
+      Map<
+        string,
+        {
+          key: string;
+          portal: string;
+          family: string;
+          count: number;
+          appliedCount: number;
+          failedCount: number;
+          authCount: number;
+        }
+      >
+    >((accumulator, run) => {
+      if (!run.summary?.recovery_attempted || !run.summary.recovery_family || !run.portal) {
+        return accumulator;
+      }
+
+      const key = `${run.portal}:${run.summary.recovery_family}`;
+      const current = accumulator.get(key) ?? {
+        key,
+        portal: run.portal,
+        family: run.summary.recovery_family,
+        count: 0,
+        appliedCount: 0,
+        failedCount: 0,
+        authCount: 0,
+      };
+
+      current.count += 1;
+      if (run.status === "applied") {
+        current.appliedCount += 1;
+      } else if (run.status === "requires_auth") {
+        current.authCount += 1;
+      } else {
+        current.failedCount += 1;
+      }
+
+      accumulator.set(key, current);
+      return accumulator;
+    }, new Map())
+  )
+    .map((entry) => entry[1])
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -190,12 +372,31 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         {/* Twin status */}
         <div className="space-y-3">
+          {isAnonymous && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-amber-950">
+                  Your session is temporary
+                </p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Save this Twin with Google or email before you switch devices.
+                </p>
+              </div>
+              <Link
+                href="/auth"
+                className="inline-flex items-center justify-center rounded-full bg-amber-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-900"
+              >
+                Save account
+              </Link>
+            </div>
+          )}
+
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Your Twin is configured{profile.name ? `, ${profile.name.split(" ")[0]}` : ""}.
+            Your Twin is live{profile.name ? `, ${profile.name.split(" ")[0]}` : ""}.
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">
-              Profile ready
+              Monitoring profile
               {profile.industries.length > 0 && ` · ${profile.industries.length} industr${profile.industries.length === 1 ? "y" : "ies"}`}
               {queuedApplications > 0 && ` · ${queuedApplications} queued`}
               {appliedRuns > 0 && ` · ${appliedRuns} submitted`}
@@ -222,12 +423,128 @@ export default function DashboardPage() {
           `}</style>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-3">
+          {systemStates.map((state) => (
+            <SystemStateCard
+              key={state.label}
+              label={state.label}
+              value={state.value}
+              tone={state.tone}
+              description={state.description}
+            />
+          ))}
+        </div>
+
         {/* Stats */}
         <TwinStats
           applied={appliedRuns}
-          queued={queuedApplications}
-          failed={failedRuns}
+          pending={pendingAlerts + queuedApplications}
+          matched={matchedJobs}
         />
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Apply readiness
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                High-value profile fields that reduce blocked submissions.
+              </p>
+            </div>
+            <Link
+              href="/onboarding"
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+            >
+              Complete profile →
+            </Link>
+          </div>
+          <p className="text-sm text-gray-600">
+            {readinessIssues.length === 0
+              ? "Profile looks ready for common autofill flows."
+              : `${readinessIssues.length} fields still weaken automated coverage.`}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {portalReadiness.map((summary) => (
+              <div
+                key={summary.portal}
+                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+              >
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gray-500">
+                  {summary.portal}
+                </p>
+                <p className="mt-1 text-sm text-gray-700">
+                  {summary.risk_level}
+                  {" · "}
+                  {summary.likely_issue_count} likely
+                </p>
+                <p className="mt-1 text-[11px] text-gray-500 line-clamp-2">
+                  {summary.likely_issues.length > 0
+                    ? summary.likely_issues.map((issue) => issue.label).join(", ")
+                    : "No likely blockers surfaced"}
+                </p>
+                {summary.historical_issue_count > 0 ? (
+                  <p className="mt-1 text-[11px] text-amber-700 line-clamp-2">
+                    Recent runs reinforce:{" "}
+                    {summary.historical_issues.map((issue) => issue.label).join(", ")}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500">
+            {readinessCounts.contact} contact · {readinessCounts.resume} resume ·{" "}
+            {readinessCounts.authorization} auth · {readinessCounts.education} education ·{" "}
+            {readinessCounts.availability} availability · {readinessCounts.eeo} eeo
+          </p>
+          {readinessIssues.length > 0 ? (
+            <p className="text-xs text-gray-500">
+              Missing: {readinessIssues.map((issue) => issue.label).join(", ")}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Top blockers
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Repeated failure families from recent runs.
+              </p>
+            </div>
+          </div>
+          <BlockersSummary blockers={topBlockedFamilies} />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Recovery patterns
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Which retry families Twin is using most, and whether they recover the run.
+              </p>
+            </div>
+          </div>
+          <RecoverySummary recoveries={topRecoveryPatterns} />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Pending follow-ups
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Required application questions Twin still needs a user answer for before submit.
+              </p>
+            </div>
+          </div>
+          <FollowupsSummary runs={applyRuns} />
+        </div>
 
         {/* Alerts */}
         <div className="space-y-3">
@@ -259,7 +576,7 @@ export default function DashboardPage() {
                 Recent apply runs
               </h2>
               <p className="mt-1 text-xs text-gray-400">
-                Internal plan and submit attempts captured from the apply engine.
+                Planner and submit activity captured from the apply engine.
               </p>
             </div>
             <Link
@@ -284,6 +601,21 @@ export default function DashboardPage() {
             >
               Edit →
             </Link>
+          </div>
+
+          <div className="grid gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 sm:grid-cols-3">
+            <SettingRow
+              label="Last activity"
+              value={latestActivityAt ? formatShortDateTime(latestActivityAt) : "No activity yet"}
+            />
+            <SettingRow
+              label="Notifications"
+              value={profile.phone ? "SMS + dashboard" : "Dashboard only"}
+            />
+            <SettingRow
+              label="Session"
+              value={isAnonymous ? "Temporary" : "Saved account"}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -319,6 +651,15 @@ export default function DashboardPage() {
   );
 }
 
+function formatShortDateTime(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-0.5">
@@ -326,6 +667,49 @@ function SettingRow({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="text-sm text-gray-800">{value}</p>
+    </div>
+  );
+}
+
+function SystemStateCard({
+  label,
+  value,
+  tone,
+  description,
+}: {
+  label: string;
+  value: string;
+  tone: SystemStateTone;
+  description: string;
+}) {
+  const toneStyles: Record<typeof tone, string> = {
+    green: "border-green-200 bg-green-50 text-green-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    blue: "border-blue-200 bg-blue-50 text-blue-950",
+    orange: "border-orange-200 bg-orange-50 text-orange-950",
+    red: "border-red-200 bg-red-50 text-red-900",
+    slate: "border-gray-200 bg-white text-gray-900",
+  };
+
+  const dotStyles: Record<typeof tone, string> = {
+    green: "bg-green-500",
+    amber: "bg-amber-500",
+    blue: "bg-blue-500",
+    orange: "bg-orange-500",
+    red: "bg-red-500",
+    slate: "bg-gray-400",
+  };
+
+  return (
+    <div className={`rounded-2xl border px-5 py-4 ${toneStyles[tone]}`}>
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${dotStyles[tone]}`} />
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
+          {label}
+        </p>
+      </div>
+      <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-2 text-sm opacity-80">{description}</p>
     </div>
   );
 }

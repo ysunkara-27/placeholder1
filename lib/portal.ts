@@ -2,6 +2,7 @@ export type PortalKind =
   | "greenhouse"
   | "lever"
   | "workday"
+  | "ashby"
   | "handshake"
   | "vision";
 
@@ -41,6 +42,10 @@ export function detectPortalFromUrl(url: string): PortalKind {
     return "workday";
   }
 
+  if (normalized.includes("ashbyhq.com")) {
+    return "ashby";
+  }
+
   if (
     normalized.includes("handshake.com") ||
     normalized.includes("joinhandshake.com")
@@ -55,8 +60,15 @@ export function detectJobPortalFromUrl(url: string): JobPortalKind {
   const normalized = url.toLowerCase();
   const applyEnginePortal = detectPortalFromUrl(normalized);
 
-  if (applyEnginePortal !== "vision") {
+  if (
+    applyEnginePortal !== "vision" &&
+    applyEnginePortal !== "ashby"
+  ) {
     return applyEnginePortal;
+  }
+
+  if (applyEnginePortal === "ashby") {
+    return "company_website";
   }
 
   if (normalized.includes("linkedin.com")) {

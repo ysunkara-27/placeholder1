@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from apply_engine.agents.greenhouse import GreenhouseAgent
 from apply_engine.agents.lever import LeverAgent
+from apply_engine.browser import SubmissionBlockedError
 from apply_engine.models import ApplicantProfile, ApplyRequest
 from apply_engine.portal_specs import (
     GREENHOUSE_CUSTOM_SELECTORS,
@@ -32,6 +33,12 @@ def make_request(url: str) -> ApplyRequest:
             graduation_window="2027",
             commute_preference="Within 45 minutes",
             sponsorship_required=False,
+            eeo={
+                "gender": "Woman",
+                "race_ethnicity": "Asian",
+                "veteran_status": "I am not a protected veteran",
+                "disability_status": "No, I do not have a disability",
+            },
             custom_answers={
                 "school": "Stanford University",
                 "degree": "BS Computer Science",
@@ -159,6 +166,22 @@ class AgentPlanningTests(unittest.TestCase):
                 for action in actions
             )
         )
+        self.assertTrue(
+            any(
+                action.action == "select"
+                and action.selector == GREENHOUSE_CUSTOM_SELECTORS["gender"]["select_selector"]
+                and action.value == "Woman"
+                for action in actions
+            )
+        )
+        self.assertTrue(
+            any(
+                action.action == "select"
+                and action.selector == GREENHOUSE_CUSTOM_SELECTORS["race_ethnicity"]["select_selector"]
+                and action.value == "Asian"
+                for action in actions
+            )
+        )
 
     def test_lever_builds_expected_actions(self) -> None:
         agent = LeverAgent()
@@ -267,6 +290,22 @@ class AgentPlanningTests(unittest.TestCase):
                 action.action == "fill"
                 and action.selector
                 == LEVER_CUSTOM_SELECTORS["commute_preference"]["fill_selector"]
+                for action in actions
+            )
+        )
+        self.assertTrue(
+            any(
+                action.action == "select"
+                and action.selector == LEVER_CUSTOM_SELECTORS["gender"]["select_selector"]
+                and action.value == "Woman"
+                for action in actions
+            )
+        )
+        self.assertTrue(
+            any(
+                action.action == "select"
+                and action.selector == LEVER_CUSTOM_SELECTORS["race_ethnicity"]["select_selector"]
+                and action.value == "Asian"
                 for action in actions
             )
         )
@@ -411,11 +450,83 @@ class AgentPlanningTests(unittest.TestCase):
         actions = agent.build_actions(request)
         page = FakePage(missing_selectors={agent.next_selector})
 
-        confirmation, screenshots = asyncio.run(agent.execute(page, actions))
+        confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
+            agent.execute(page, request.profile, actions)
+        )
 
         self.assertEqual(confirmation, "Applied successfully")
         self.assertEqual(screenshots, [])
+        self.assertEqual(inferred_answers, [])
+        self.assertEqual(unresolved_questions, [])
         self.assertEqual(page.calls[-1], ("click", agent.submit_selector, ""))
+
+    def test_greenhouse_execute_retries_after_targeted_authorization_recovery(self) -> None:
+        class FakeLocator:
+            def __init__(self, inner_text: str = "Review your application details", count: int = 1) -> None:
+                self._inner_text = inner_text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._inner_text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def wait_for_timeout(self, _: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"greenhouse-recovery"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator()
+                return FakeLocator(count=1)
+
+        agent = GreenhouseAgent()
+        request = make_request("https://job-boards.greenhouse.io/scaleai/jobs/4606014005")
+        actions = agent.build_actions(request)
+        page = FakePage()
+        flow_results = [
+            SubmissionBlockedError("work_authorization: Work authorization is required"),
+            "Applied successfully",
+        ]
+
+        async def fake_complete_submission_flow(*args, **kwargs):
+            result = flow_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("apply_engine.agents.greenhouse.complete_submission_flow", fake_complete_submission_flow):
+            confirmation, screenshots, _, unresolved_questions = asyncio.run(
+                agent.execute(page, request.profile, actions)
+            )
+
+        self.assertEqual(confirmation, "Applied successfully")
+        self.assertEqual(unresolved_questions, [])
+        self.assertTrue(any(call == ("select", GREENHOUSE_SELECTORS["work_authorization"], "US Citizen") for call in page.calls))
+        self.assertTrue(any(call == ("check", GREENHOUSE_SELECTORS["authorized_yes"], "") for call in page.calls))
+        self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
 
     def test_greenhouse_apply_returns_applied_when_runner_succeeds(self) -> None:
         agent = GreenhouseAgent()
@@ -465,9 +576,10 @@ class AgentPlanningTests(unittest.TestCase):
             result.confirmation_snippet,
             "Application submitted successfully confirmation #ABC123",
         )
-        self.assertEqual(len(result.screenshots), 2)
+        self.assertEqual(len(result.screenshots), 3)
         self.assertEqual(result.screenshots[0].label, "form_filled")
-        self.assertEqual(result.screenshots[1].label, "final_state")
+        self.assertTrue(result.screenshots[1].label.startswith("step_0_"))
+        self.assertEqual(result.screenshots[2].label, "final_state")
 
     def test_greenhouse_apply_returns_requires_auth_when_runner_needs_login(self) -> None:
         agent = GreenhouseAgent()
@@ -528,9 +640,32 @@ class AgentPlanningTests(unittest.TestCase):
 
         self.assertEqual(result.status, "requires_auth")
         self.assertIn("Sign in to continue your application", result.error)
-        self.assertEqual(len(result.screenshots), 2)
+        self.assertEqual(len(result.screenshots), 3)
         self.assertEqual(result.screenshots[0].label, "form_filled")
-        self.assertEqual(result.screenshots[1].label, "failure_state")
+        self.assertTrue(result.screenshots[1].label.startswith("step_0_"))
+        self.assertEqual(result.screenshots[2].label, "failure_state")
+
+    def test_greenhouse_apply_returns_failed_when_execution_times_out(self) -> None:
+        agent = GreenhouseAgent()
+        agent.execution_timeout_seconds = 0.01
+        request = ApplyRequest(
+            url="https://job-boards.greenhouse.io/scaleai/jobs/4606014005",
+            profile=make_request("https://job-boards.greenhouse.io/scaleai/jobs/4606014005").profile,
+            dry_run=False,
+        )
+
+        async def fake_runner(_: str, _worker):
+            await asyncio.sleep(0.05)
+            return ("never reached", [], [], [])
+
+        with patch("apply_engine.agents.greenhouse.run_with_chromium", fake_runner):
+            result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(
+            result.error,
+            "Greenhouse execution timed out after 0.01s",
+        )
 
     def test_lever_execute_submits_after_actions(self) -> None:
         class FakeLocator:
@@ -588,11 +723,83 @@ class AgentPlanningTests(unittest.TestCase):
         actions = agent.build_actions(request)
         page = FakePage(missing_selectors={agent.next_selector})
 
-        confirmation, screenshots = asyncio.run(agent.execute(page, actions))
+        confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
+            agent.execute(page, request.profile, actions)
+        )
 
         self.assertEqual(confirmation, "Applied successfully")
         self.assertEqual(screenshots, [])
+        self.assertEqual(inferred_answers, [])
+        self.assertEqual(unresolved_questions, [])
         self.assertEqual(page.calls[-1], ("click", agent.submit_selector, ""))
+
+    def test_lever_execute_retries_after_targeted_authorization_recovery(self) -> None:
+        class FakeLocator:
+            def __init__(self, inner_text: str = "Review your application details", count: int = 1) -> None:
+                self._inner_text = inner_text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._inner_text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def wait_for_timeout(self, _: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"lever-recovery"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator()
+                return FakeLocator(count=1)
+
+        agent = LeverAgent()
+        request = make_request("https://jobs.lever.co/weride/8f84c602-8a79-43f6-b662-74a92ef761f5")
+        actions = agent.build_actions(request)
+        page = FakePage()
+        flow_results = [
+            SubmissionBlockedError("work_authorization: Work authorization is required"),
+            "Applied successfully",
+        ]
+
+        async def fake_complete_submission_flow(*args, **kwargs):
+            result = flow_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("apply_engine.agents.lever.complete_submission_flow", fake_complete_submission_flow):
+            confirmation, screenshots, _, unresolved_questions = asyncio.run(
+                agent.execute(page, request.profile, actions)
+            )
+
+        self.assertEqual(confirmation, "Applied successfully")
+        self.assertEqual(unresolved_questions, [])
+        self.assertTrue(any(call == ("select", LEVER_SELECTORS["work_authorization"], "US Citizen") for call in page.calls))
+        self.assertTrue(any(call == ("check", LEVER_SELECTORS["authorized_yes"], "") for call in page.calls))
+        self.assertTrue(any(screenshot.label == "recovery_authorization" for screenshot in screenshots))
 
     def test_lever_apply_returns_applied_when_runner_succeeds(self) -> None:
         agent = LeverAgent()
@@ -642,9 +849,10 @@ class AgentPlanningTests(unittest.TestCase):
             result.confirmation_snippet,
             "Lever application submitted successfully confirmation #XYZ789",
         )
-        self.assertEqual(len(result.screenshots), 2)
+        self.assertEqual(len(result.screenshots), 3)
         self.assertEqual(result.screenshots[0].label, "form_filled")
-        self.assertEqual(result.screenshots[1].label, "final_state")
+        self.assertTrue(result.screenshots[1].label.startswith("step_0_"))
+        self.assertEqual(result.screenshots[2].label, "final_state")
 
 
 class WorkdayAgentTests(unittest.TestCase):
@@ -833,6 +1041,240 @@ class WorkdayAgentTests(unittest.TestCase):
             a.action == "check" and a.selector == WORKDAY_SELECTORS["sponsorship_no"]
             for a in actions
         ))
+
+    def test_workday_extracts_step_label_from_body_text(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+
+        self.assertEqual(
+            WorkdayAgent._extract_step_label("My Information\nStep 1 of 5"),
+            "my_information",
+        )
+        self.assertEqual(
+            WorkdayAgent._extract_step_label("Review and Submit\nPlease verify your details"),
+            "review_and_submit",
+        )
+
+    def test_workday_execute_fails_when_navigation_stalls(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-4")
+        request.dry_run = False
+        actions = agent.build_actions(request)
+
+        class FakeLocator:
+            def __init__(self, *, text: str = "", count: int = 1) -> None:
+                self._text = text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.clicks = 0
+
+            async def fill(self, selector: str, value: str) -> None:
+                return None
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                return None
+
+            async def select_option(self, selector: str, value: str) -> None:
+                return None
+
+            async def check(self, selector: str) -> None:
+                return None
+
+            async def click(self, selector: str) -> None:
+                self.clicks += 1
+
+            async def wait_for_timeout(self, timeout: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"workday-stalled"
+
+            @property
+            def url(self) -> str:
+                return "https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-4"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    return FakeLocator(text="My Information\nStep 1 of 5")
+                return FakeLocator(count=1)
+
+        with self.assertRaisesRegex(Exception, "navigation stalled"):
+            asyncio.run(agent.execute(FakePage(), request.profile, actions))
+
+    def test_workday_execute_retries_after_targeted_authorization_recovery(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+        from apply_engine.portal_specs import WORKDAY_SELECTORS
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-5")
+        request.dry_run = False
+        actions = agent.build_actions(request)
+
+        class FakeLocator:
+            def __init__(self, *, text: str = "", count: int = 1) -> None:
+                self._text = text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.clicks = 0
+                self.authorization_resolved = False
+                self.authorization_select_count = 0
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+                if selector == WORKDAY_SELECTORS["work_authorization"]:
+                    self.authorization_select_count += 1
+                    if self.authorization_select_count >= 2:
+                        self.authorization_resolved = True
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+                self.clicks += 1
+
+            async def wait_for_timeout(self, timeout: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"workday-recovery"
+
+            @property
+            def url(self) -> str:
+                if self.clicks >= 1:
+                    return "https://company.myworkdayjobs.com/en-US/careers/job/thankYou"
+                return "https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-5"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    if self.clicks >= 1:
+                        return FakeLocator(text="Thank you for applying to this role.")
+                    if self.authorization_resolved:
+                        return FakeLocator(text="My Information\nStep 1 of 5")
+                    return FakeLocator(
+                        text="Work Authorization\nWork authorization is required"
+                    )
+                return FakeLocator(count=1)
+
+        confirmation, screenshots, _, unresolved_questions = asyncio.run(
+            agent.execute(FakePage(), request.profile, actions)
+        )
+
+        self.assertIn("Thank you", confirmation)
+        self.assertEqual(unresolved_questions, [])
+        self.assertTrue(
+            any(
+                screenshot.label.startswith("recovery_authorization_")
+                for screenshot in screenshots
+            )
+        )
+
+    def test_workday_execute_retries_after_targeted_eeo_recovery(self) -> None:
+        from apply_engine.agents.workday import WorkdayAgent
+        from apply_engine.portal_specs import WORKDAY_CUSTOM_SELECTORS
+
+        agent = WorkdayAgent()
+        request = make_request("https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-6")
+        request.dry_run = False
+        actions = agent.build_actions(request)
+
+        class FakeLocator:
+            def __init__(self, *, text: str = "", count: int = 1) -> None:
+                self._text = text
+                self._count = count
+
+            async def count(self) -> int:
+                return self._count
+
+            async def inner_text(self) -> str:
+                return self._text
+
+        class FakePage:
+            def __init__(self) -> None:
+                self.clicks = 0
+                self.gender_select_count = 0
+                self.eeo_resolved = False
+                self.calls: list[tuple[str, str, str]] = []
+
+            async def fill(self, selector: str, value: str) -> None:
+                self.calls.append(("fill", selector, value))
+
+            async def set_input_files(self, selector: str, value: str) -> None:
+                self.calls.append(("upload", selector, value))
+
+            async def select_option(self, selector: str, value: str) -> None:
+                self.calls.append(("select", selector, value))
+                if selector == WORKDAY_CUSTOM_SELECTORS["gender"]["select_selector"]:
+                    self.gender_select_count += 1
+                    if self.gender_select_count >= 2:
+                        self.eeo_resolved = True
+
+            async def check(self, selector: str) -> None:
+                self.calls.append(("check", selector, ""))
+
+            async def click(self, selector: str) -> None:
+                self.calls.append(("click", selector, ""))
+                self.clicks += 1
+
+            async def wait_for_timeout(self, timeout: int) -> None:
+                return None
+
+            async def screenshot(self, **_: object) -> bytes:
+                return b"workday-eeo-recovery"
+
+            @property
+            def url(self) -> str:
+                if self.clicks >= 1:
+                    return "https://company.myworkdayjobs.com/en-US/careers/job/thankYou"
+                return "https://company.myworkdayjobs.com/en-US/careers/job/NYC/Eng_JR-6"
+
+            def locator(self, selector: str) -> FakeLocator:
+                if selector == "body":
+                    if self.clicks >= 1:
+                        return FakeLocator(text="Thank you for applying to this role.")
+                    if self.eeo_resolved:
+                        return FakeLocator(text="Voluntary Disclosures\nStep 4 of 5")
+                    return FakeLocator(
+                        text="Voluntary Disclosures\nPlease select gender"
+                    )
+                return FakeLocator(count=1)
+
+        confirmation, screenshots, _, unresolved_questions = asyncio.run(
+            agent.execute(FakePage(), request.profile, actions)
+        )
+
+        self.assertIn("Thank you", confirmation)
+        self.assertEqual(unresolved_questions, [])
+        self.assertTrue(
+            any(
+                screenshot.label.startswith("recovery_eeo_")
+                for screenshot in screenshots
+            )
+        )
 
 
 if __name__ == "__main__":

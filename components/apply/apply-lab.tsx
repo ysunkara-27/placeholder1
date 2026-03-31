@@ -10,7 +10,16 @@ import {
   mapProfileRowToPersistedProfile,
   type ProfileRow,
 } from "@/lib/platform/profile";
-import { mapPersistedProfileToApplicantDraft } from "@/lib/platform/applicant";
+import {
+  mapPersistedProfileToApplicantDraft,
+  type ApplicantProfileDraft,
+} from "@/lib/platform/applicant";
+import {
+  buildUrlApplyReadinessSummary,
+  getCriticalReadinessIssues,
+  getApplyReadinessIssues,
+  summarizeReadinessBuckets,
+} from "@/lib/platform/apply-readiness";
 
 interface SeedJob {
   id: string;
@@ -42,7 +51,14 @@ interface QueueApplicationState {
 
 interface ApplyLabResult {
   mode: "plan" | "queue" | "process";
-  portal: "greenhouse" | "lever" | "workday" | "handshake" | "vision" | null;
+  portal:
+    | "greenhouse"
+    | "lever"
+    | "workday"
+    | "ashby"
+    | "handshake"
+    | "vision"
+    | null;
   status: string;
   confirmation_snippet: string;
   actions: ApplyPlanAction[];
@@ -52,6 +68,18 @@ interface ApplyLabResult {
     mime_type: string;
     data_base64: string;
   }>;
+  inferred_answers: string[];
+  recovery_attempted: boolean;
+  recovery_family:
+    | "contact"
+    | "resume"
+    | "authorization"
+    | "education"
+    | "availability"
+    | "eeo"
+    | "custom"
+    | "unknown"
+    | null;
   message?: string;
   queued?: boolean;
   processed?: boolean;
@@ -59,6 +87,38 @@ interface ApplyLabResult {
   application?: QueueApplicationState | null;
   saved?: boolean;
   run_id?: string | null;
+  readiness?: {
+    portal: string;
+    risk_level: "ready" | "risky" | "blocked";
+    ready: boolean;
+    likely_issue_count: number;
+    critical_issue_count: number;
+    issue_count: number;
+    bucket_counts: Record<string, number>;
+    likely_bucket_counts: Record<string, number>;
+    historical_issue_count: number;
+    historical_bucket_counts: Record<string, number>;
+    critical_issues: Array<{
+      bucket: string;
+      field: string;
+      label: string;
+    }>;
+    likely_issues: Array<{
+      bucket: string;
+      field: string;
+      label: string;
+    }>;
+    historical_issues: Array<{
+      bucket: string;
+      field: string;
+      label: string;
+    }>;
+    issues: Array<{
+      bucket: string;
+      field: string;
+      label: string;
+    }>;
+  };
 }
 
 interface ApplyRunRecord {
@@ -78,6 +138,34 @@ interface ApplyRunRecord {
       by_type: Record<string, number>;
     };
     screenshot_count: number;
+    latest_screenshot_label: string | null;
+    blocked_step: string | null;
+    blocked_field_family:
+      | "contact"
+      | "resume"
+      | "authorization"
+      | "education"
+      | "availability"
+      | "eeo"
+      | "custom"
+      | "unknown"
+      | null;
+    failure_source: "profile_data" | "automation" | "mixed" | "unknown" | null;
+    missing_profile_fields: string[];
+    inferred_answers_count: number;
+    inferred_answers: string[];
+    error_kind: "none" | "auth" | "validation" | "execution";
+    recovery_attempted: boolean;
+    recovery_family:
+      | "contact"
+      | "resume"
+      | "authorization"
+      | "education"
+      | "availability"
+      | "eeo"
+      | "custom"
+      | "unknown"
+      | null;
   } | null;
 }
 
@@ -111,6 +199,24 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [recentRuns, setRecentRuns] = useState<ApplyRunRecord[]>([]);
+
+  let readinessIssues = [] as ReturnType<typeof getApplyReadinessIssues>;
+  let criticalReadinessIssues = [] as ReturnType<typeof getCriticalReadinessIssues>;
+  let readinessCounts = summarizeReadinessBuckets([]);
+  let portalReadiness: ApplyLabResult["readiness"] | null = null;
+
+  try {
+    const parsedProfile = JSON.parse(profileJson) as ApplicantProfileDraft;
+    readinessIssues = getApplyReadinessIssues(parsedProfile);
+    criticalReadinessIssues = getCriticalReadinessIssues(parsedProfile);
+    readinessCounts = summarizeReadinessBuckets(readinessIssues);
+    portalReadiness = buildUrlApplyReadinessSummary(parsedProfile, selectedUrl, recentRuns);
+  } catch {
+    readinessIssues = [];
+    criticalReadinessIssues = [];
+    readinessCounts = summarizeReadinessBuckets([]);
+    portalReadiness = null;
+  }
 
   useEffect(() => {
     let active = true;
@@ -210,6 +316,17 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
       screenshots: Array.isArray(payload.screenshots)
         ? (payload.screenshots as ApplyLabResult["screenshots"])
         : [],
+      inferred_answers: Array.isArray(payload.inferred_answers)
+        ? (payload.inferred_answers as string[])
+        : [],
+      recovery_attempted:
+        typeof payload.recovery_attempted === "boolean"
+          ? payload.recovery_attempted
+          : false,
+      recovery_family:
+        typeof payload.recovery_family === "string"
+          ? (payload.recovery_family as ApplyLabResult["recovery_family"])
+          : null,
       message: typeof payload.message === "string" ? payload.message : undefined,
       queued: typeof payload.queued === "boolean" ? payload.queued : undefined,
       processed:
@@ -229,6 +346,10 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
           : typeof payload.runId === "string"
           ? payload.runId
           : null,
+      readiness:
+        payload.readiness && typeof payload.readiness === "object"
+          ? (payload.readiness as ApplyLabResult["readiness"])
+          : undefined,
     };
   }
 
@@ -346,7 +467,7 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
               className="w-full"
               variant="secondary"
               onClick={() => void handleRequest("queue")}
-              disabled={loading}
+              disabled={loading || criticalReadinessIssues.length > 0}
             >
               Queue apply
             </Button>
@@ -358,6 +479,49 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
             >
               Process next queued
             </Button>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
+              Readiness
+            </p>
+            <p className="mt-2 text-sm text-gray-700">
+              {readinessIssues.length === 0
+                ? "Profile looks ready for common application flows."
+                : `${readinessIssues.length} high-value fields are missing before apply.`}
+            </p>
+            {portalReadiness ? (
+              <p className="mt-2 text-xs text-gray-600">
+                {portalReadiness.portal} risk: {portalReadiness.risk_level}
+                {" · "}
+                {portalReadiness.likely_issue_count} likely blocker
+                {portalReadiness.likely_issue_count === 1 ? "" : "s"}
+                {" · "}
+                {portalReadiness.historical_issue_count} history-weighted
+              </p>
+            ) : null}
+            {criticalReadinessIssues.length > 0 ? (
+              <p className="mt-2 text-xs font-medium text-amber-700">
+                Queueing is blocked until critical fields are filled:{" "}
+                {criticalReadinessIssues.map((issue) => issue.label).join(", ")}
+              </p>
+            ) : null}
+            {portalReadiness && portalReadiness.risk_level === "risky" ? (
+              <p className="mt-2 text-xs text-amber-700 line-clamp-2">
+                Likely blockers for this {portalReadiness.portal} flow:{" "}
+                {portalReadiness.likely_issues.map((issue) => issue.label).join(", ")}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-gray-500">
+              {readinessCounts.contact} contact · {readinessCounts.resume} resume ·{" "}
+              {readinessCounts.authorization} auth · {readinessCounts.education} education ·{" "}
+              {readinessCounts.availability} availability · {readinessCounts.eeo} eeo
+            </p>
+            {readinessIssues.length > 0 ? (
+              <p className="mt-2 text-[11px] text-gray-500 line-clamp-3">
+                Missing: {readinessIssues.map((issue) => issue.label).join(", ")}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -388,18 +552,55 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
                 <p className="mt-1 break-all text-xs text-gray-500">{run.url}</p>
                 {run.summary && (
                   <p className="mt-2 text-xs text-gray-500">
-                    {run.summary.stage.replaceAll("_", " ")} · {run.summary.actions.total} actions
-                    {" · "}
-                    {run.summary.actions.required} required
-                    {" · "}
-                    {run.summary.actions.optional} optional
-                    {" · "}
-                    {run.summary.screenshot_count} screenshots
-                  </p>
-                )}
-                {run.error && (
-                  <p className="mt-2 text-xs text-red-600">{run.error}</p>
-                )}
+                {run.summary.stage.replaceAll("_", " ")} · {run.summary.actions.total} actions
+                {" · "}
+                {run.summary.actions.required} required
+                {" · "}
+                {run.summary.actions.optional} optional
+                {" · "}
+                {run.summary.screenshot_count} screenshots
+                {" · "}
+                {run.summary.inferred_answers_count} inferred
+              </p>
+            )}
+            {run.summary?.latest_screenshot_label && (
+              <p className="mt-1 text-[11px] text-gray-400">
+                last frame: {run.summary.latest_screenshot_label.replaceAll("_", " ")}
+              </p>
+            )}
+            {(run.summary?.blocked_step || run.summary?.blocked_field_family) && (
+              <p className="mt-1 text-[11px] text-gray-400">
+                {run.summary.blocked_step
+                  ? `blocked step: ${run.summary.blocked_step.replaceAll("_", " ")}`
+                  : "blocked step: unknown"}
+                {run.summary.blocked_field_family
+                  ? ` · family: ${run.summary.blocked_field_family.replaceAll("_", " ")}`
+                  : ""}
+              </p>
+            )}
+            {(run.summary?.failure_source || run.summary?.missing_profile_fields.length) && (
+              <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                {run.summary.failure_source
+                  ? `source: ${run.summary.failure_source.replaceAll("_", " ")}`
+                  : "source: unknown"}
+                {run.summary.missing_profile_fields.length
+                  ? ` · missing: ${run.summary.missing_profile_fields.join(", ")}`
+                  : ""}
+              </p>
+            )}
+            {run.summary?.inferred_answers.length ? (
+              <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                inferred: {run.summary.inferred_answers.join(", ")}
+              </p>
+            ) : null}
+            {run.summary?.recovery_attempted ? (
+              <p className="mt-1 text-[11px] text-gray-400">
+                recovery: {run.summary.recovery_family?.replaceAll("_", " ") ?? "attempted"}
+              </p>
+            ) : null}
+            {run.error && (
+              <p className="mt-2 text-xs text-red-600">{run.error}</p>
+            )}
               </div>
             ))}
           </div>
@@ -466,6 +667,49 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
                 {result.actions.filter((action) => !action.required).length} optional
                 {" · "}
                 {result.screenshots.length} screenshots
+                {" · "}
+                {result.inferred_answers.length} inferred
+                {result.recovery_attempted
+                  ? ` · recovery ${result.recovery_family?.replaceAll("_", " ") ?? "attempted"}`
+                  : ""}
+              </div>
+            )}
+
+            {result.readiness && (
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
+                {result.readiness.portal} · {result.readiness.risk_level}
+                {" · "}
+                {result.readiness.ready
+                  ? "readiness clear"
+                  : `${result.readiness.critical_issue_count} critical readiness issues`}
+                {" · "}
+                {result.readiness.issue_count} total issues
+                {" · "}
+                {result.readiness.likely_issue_count} likely
+                {" · "}
+                {result.readiness.historical_issue_count} historical
+                {" · "}
+                {result.readiness.bucket_counts.contact} contact
+                {" · "}
+                {result.readiness.bucket_counts.resume} resume
+                {" · "}
+                {result.readiness.bucket_counts.authorization} auth
+                {" · "}
+                {result.readiness.bucket_counts.education} education
+                {" · "}
+                {result.readiness.bucket_counts.availability} availability
+                {" · "}
+                {result.readiness.bucket_counts.eeo} eeo
+                {result.readiness.critical_issues.length > 0
+                  ? ` · critical: ${result.readiness.critical_issues
+                      .map((issue) => issue.label)
+                      .join(", ")}`
+                  : ""}
+                {result.readiness.likely_issues.length > 0
+                  ? ` · likely: ${result.readiness.likely_issues
+                      .map((issue) => issue.label)
+                      .join(", ")}`
+                  : ""}
               </div>
             )}
 
@@ -550,6 +794,17 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {result.inferred_answers.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-900">
+                  Inferred answers
+                </p>
+                <p className="mt-2 text-sm text-amber-900">
+                  {result.inferred_answers.join(", ")}
+                </p>
               </div>
             )}
           </div>

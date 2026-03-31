@@ -1,0 +1,66 @@
+[
+  {
+    "id": "aaaa-1111-bbbb-2222",
+    "text": "Software Engineering Intern",
+    "hostedUrl": "https://jobs.lever.co/beta-inc/aaaa-1111-bbbb-2222",
+    "applyUrl": "https://jobs.lever.co/beta-inc/aaaa-1111-bbbb-2222/apply",
+    "createdAt": 1711720800000,
+    "categories": {
+      "team": "Engineering",
+      "commitment": "Internship",
+      "location": "San Francisco, CA",
+      "department": "Engineering"
+    },
+    "tags": ["internship", "engineering"],
+    "description": "<p>Join Beta Inc as a software engineering intern this summer.</p>",
+    "descriptionPlain": "Join Beta Inc as a software engineering intern this summer."
+  },
+  {
+    "id": "cccc-3333-dddd-4444",
+    "text": "Infrastructure Co-op, Fall 2026",
+    "hostedUrl": "https://jobs.lever.co/beta-inc/cccc-3333-dddd-4444",
+    "applyUrl": "https://jobs.lever.co/beta-inc/cccc-3333-dddd-4444/apply",
+    "createdAt": 1714399200000,
+    "categories": {
+      "team": "Infrastructure",
+      "commitment": "Co-op",
+      "location": "Remote - US",
+      "department": "Engineering"
+    },
+    "tags": ["co-op", "infrastructure"],
+    "description": "<p>6-month co-op on the infrastructure team.</p>",
+    "descriptionPlain": "6-month co-op on the infrastructure team."
+  },
+  {
+    "id": "eeee-5555-ffff-6666",
+    "text": "New Grad Software Engineer",
+    "hostedUrl": "https://jobs.lever.co/beta-inc/eeee-5555-ffff-6666",
+    "applyUrl": "https://jobs.lever.co/beta-inc/eeee-5555-ffff-6666/apply",
+    "createdAt": 1717077600000,
+    "categories": {
+      "team": "Engineering",
+      "commitment": "Full-time",
+      "location": "New York, NY",
+      "department": "Engineering"
+    },
+    "tags": ["new-grad", "engineering"],
+    "description": "<p>Entry-level new grad engineer position.</p>",
+    "descriptionPlain": "Entry-level new grad engineer position."
+  },
+  {
+    "id": "gggg-7777-hhhh-8888",
+    "text": "Senior Backend Engineer",
+    "hostedUrl": "https://jobs.lever.co/beta-inc/gggg-7777-hhhh-8888",
+    "applyUrl": "https://jobs.lever.co/beta-inc/gggg-7777-hhhh-8888/apply",
+    "createdAt": 1719756000000,
+    "categories": {
+      "team": "Backend",
+      "commitment": "Full-time",
+      "location": "Austin, TX",
+      "department": "Engineering"
+    },
+    "tags": ["senior", "backend"],
+    "description": "<p>5+ years of backend engineering experience required.</p>",
+    "descriptionPlain": "5+ years of backend engineering experience required."
+  }
+]

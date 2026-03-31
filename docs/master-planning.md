@@ -1,6 +1,6 @@
 # Twin Master Planning Document
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 This document is the source of truth for building `Twin` into a fully functional product.
 
@@ -15,7 +15,7 @@ If this document and the code disagree, the code wins first, then this document 
 
 ## Planning Rules
 
-1. `docs/master-planning.md` is the primary planning document.
+1. `docs/master-planning.md` leyts r the primary planning document.
 2. `docs/platform-roadmap.md` is legacy and should only exist as a pointer to this file.
 3. Research from Claude belongs in `twinmegaresearch.md` or `docs/research/*.md`.
 4. Actionable conclusions from research must be translated into this file.
@@ -34,14 +34,6 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Next.js frontend with landing, onboarding, resume flow, dashboard, and internal apply lab
 - Supabase-backed onboarding/profile persistence
 - Supabase-backed apply run audit trail
-- On-demand materialization of seeded job URLs into real `jobs` rows
-- Real `applications` records used as the first queue primitive for apply execution
-- Queue-backed apply submission with stored request payloads, per-user manual processing, and secret-backed worker processing
-- Worker-authenticated `/api/jobs/ingest` endpoint with typed payload validation and a Python batch ingest script
-- Basic scoring-based matching and alert creation on ingest
-- Dashboard recent applications fed from DB-backed `applications` + `jobs`
-- Dashboard recent applications now reflect `queued`, `running`, `applied`, `requires_auth`, and `failed` states from DB truth
-- Apply runs now capture inline screenshots for filled, final, and failure states
 - Apply engine service scaffold in Python with FastAPI endpoints
 - Portal detector for Greenhouse, Lever, Workday, Handshake, and fallback vision classification
 - Greenhouse and Lever planning/execution flow with:
@@ -50,26 +42,34 @@ As of this update, the repo already has meaningful platform scaffolding.
   - start date, location preference, and salary expectation
   - work authorization and sponsorship
   - normalized custom answer mappings for education/relocation/source
-  - recurring screening families for onsite preference, weekly availability, graduation window, and commute preference
   - multi-step next/review/submit flow
   - auth wall detection
   - validation error detection
   - confirmation text and confirmation URL detection
 - Fixture-backed tests for selectors and browser behavior
 - Internal `/apply-lab` page for planning and dry submit inspection
+- Daily follow-up reporting for unresolved required application questions
+- Internal daily follow-up SMS send path for opted-in users
 
 ### Still Not Fully Real
 
-- No broad-source always-on ingestion scheduler yet beyond repo-seed scheduled ingestion
-- No sufficiently hardened matching engine yet
+- No production job ingestion pipeline yet
+- No real matching engine yet
 - No live alerting or inbound SMS reply loop yet
-- No always-on scheduler / retry / dead-letter pipeline yet
+- Inbound follow-up answers now parse from SMS and persist onto the profile, but still need repeated live validation against real blocked applications
+- No queue worker / scheduler / retry pipeline yet
 - No Workday or Handshake real agent yet
 - No real Claude vision fallback execution yet
-- No screenshot storage separation or replay tooling yet
+- No screenshot persistence or replay tooling yet
 - No billing, plan caps, or Stripe
-- Seeded jobs are only materialized when touched by plan/submit routes, not via a full import/sync pipeline
 - Dashboard still overstates some platform readiness relative to backend reality
+
+### Immediate Production Priorities
+
+- Harden `/api/jobs/ingest` so external scraper runs do not fail at the Next.js edge
+- Keep scraper ingest config compatible with both app env names and standalone env names
+- Finish auth/account durability after onboarding
+- Replace remaining dashboard placeholders with DB-backed truth
 
 ### Research Input Status
 
@@ -109,8 +109,7 @@ Twin should let a student:
 - Runtime split:
   - Vercel for frontend/api routes by default
   - Supabase for auth and Postgres
-  - GitHub Actions for low-frequency scheduled ingestion/maintenance
-  - Railway for Python apply engine later if unattended Playwright execution becomes necessary
+  - Railway for Python apply engine initially
 
 ### Apply Engine
 
@@ -137,7 +136,6 @@ Twin should let a student:
 
 - Product/master plan: `docs/master-planning.md`
 - Claude research intake: `twinmegaresearch.md`
-- Claude scraper build spec: `docs/claude-internship-scraper-build-spec.md`
 - Lightweight legacy roadmap: `docs/platform-roadmap.md`
 - Apply engine implementation notes: `apply_engine/README.md`
 - Seed jobs: `data/job-seeds/live-openings-2026.json`
@@ -215,7 +213,7 @@ Deliverables:
 Open items:
 
 - verify anonymous auth flow against actual project config
-- verify sign-out/session reset against live Supabase session behavior
+- add sign-out behavior
 - move more dashboard data loading server-side or shared-helper based
 
 Exit criteria:
@@ -253,9 +251,9 @@ Deliverables:
 
 Open items:
 
-- dashboard still lacks real worker/provider health indicators
-- no last queue run / next worker poll visibility yet
-- provider/system health states are still missing
+- add realtime alert feed instead of fetch-only hydration
+- finish account durability flow for anonymous users after onboarding
+- expose clearer worker/provider status once scheduled processing is live
 
 Exit criteria:
 
@@ -287,9 +285,9 @@ Deliverables:
 
 Open items:
 
-- seeded jobs are persisted on demand and there is now a worker-authenticated ingest API for external batches
-- GitHub Actions now schedules repo-seed ingestion, but future external sources still need their own sync jobs
-- canonicalization/dedupe now exists for ingested `jobs.url`, but broader source normalization still needs expansion
+- `/api/jobs/ingest` still needs a real end-to-end curl verification against a running app
+- source lists are noisy and need a vetted enabled subset for reliable daily runs
+- live listing scrapers exist only in partial form; source quality is still the bigger issue than raw ingestion
 
 Exit criteria:
 
@@ -304,74 +302,9 @@ Required tests:
 - portal classification
 - import idempotency
 
-### Session Update: 2026-03-29
-
-- Workstream: Job intake and normalization
-- Feature batch: Supabase-backed jobs ingest API and Python batcher
-- Status before: jobs were only materialized on demand from local seeds and there was no typed external ingest path
-- Status after: Twin has a worker-authenticated `/api/jobs/ingest` endpoint with typed payload validation, DB-backed upsert/dedupe behavior, matching + alert fanout, and a repo-local Python batch script for concurrent ingestion
-- Files changed:
-  - `app/api/jobs/ingest/route.ts`
-  - `lib/job-ingest.ts`
-  - `lib/jobs.ts`
-  - `lib/portal.ts`
-  - `apply_engine/scripts/ingest_jobs.py`
-  - `apply_engine/tests/test_job_ingest_script.py`
-  - `apply_engine/requirements.txt`
-  - `package.json`
-  - `README.md`
-  - `apply_engine/README.md`
-  - `supabase/migrations/20260329233000_jobs_url_uniqueness.sql`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `./.venv/bin/python -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-- Tests passed:
-  - 45 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-- Known gaps:
-  - no scheduled source sync yet
-  - no route-level integration test harness on the Next side yet
-  - standalone `npx tsc --noEmit` is still unreliable because this repo’s `tsconfig` depends on generated `.next/types`
-- Next recommended step:
-  - connect one real source export into the batcher, then move into scheduled ingest and alert operations
-
-### Session Update: 2026-03-29
-
-- Workstream: Operations and deployment
-- Feature batch: Low-cost deployment shape using Vercel, GitHub Actions, and local Playwright workers
-- Status before: the repo still assumed Vercel cron-style scheduling and did not include scheduler automation for job ingest
-- Status after: GitHub Actions now drives twice-daily repo-seed job ingestion and 6-hour alert expiry, the internal cron routes are documented as external-scheduler endpoints, and the README reflects the actual low-cost deployment model
-- Files changed:
-  - `.github/workflows/twin-operations.yml`
-  - `.gitignore`
-  - `README.md`
-  - `apply_engine/README.md`
-  - `apply_engine/scripts/ingest_seed_jobs.py`
-  - `apply_engine/tests/test_ingest_seed_jobs.py`
-  - `app/api/internal/cron/process-queue/route.ts`
-  - `app/api/internal/cron/expire-alerts/route.ts`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `./.venv/bin/python -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-- Tests passed:
-  - 47 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-- Known gaps:
-  - queue processing is still manual/local unless a separate worker host is added
-  - repo-seed ingestion is operational, but real external source feeds still need to be connected
-  - standalone `npx tsc --noEmit` remains unreliable because this repo’s `tsconfig` includes generated `.next/types`
-- Next recommended step:
-  - connect one real source feed into the GitHub Actions ingest path, then harden scheduled alert and queue operations
-
 ### Phase 4: Matching Engine
 
-Status: `partial`
+Status: `not started`
 
 Objective:
 
@@ -383,12 +316,6 @@ Deliverables:
 - hard constraint filters
 - explainable match metadata
 - `alerts` creation for qualifying jobs
-
-Open items:
-
-- a basic scoring model exists in code, but match explanations are not persisted
-- ingest-time alert fanout exists, but there is no operator-facing match review surface
-- gray-area, sponsorship, and graduation-window handling need stronger coverage
 
 Matching dimensions:
 
@@ -459,7 +386,6 @@ Already implemented:
 
 - detector
 - plan/apply endpoints
-- queue-backed submit path with application-backed deferred execution
 - Greenhouse/Lever selector maps
 - normalized profile fields
 - custom-answer mapping path
@@ -469,11 +395,12 @@ Already implemented:
 
 Still needed before `implemented`:
 
+- real screenshots attached to failures and optionally success
 - request/response correlation IDs
+- job-backed application records tied to `applications`
 - stronger real-world fixture coverage from live portals
 - safer stop conditions on ambiguous/custom questions
 - better replay tooling for failed runs
-- always-on queue scheduling and retry rules
 
 Exit criteria:
 
@@ -493,7 +420,7 @@ Required tests:
 
 ### Phase 7: Portal Expansion
 
-Status: `partial`
+Status: `scaffolded`
 
 Objective:
 
@@ -557,7 +484,7 @@ Required tests:
 
 ### Phase 9: Safety, Observability, and Operations
 
-Status: `partial`
+Status: `scaffolded`
 
 Objective:
 
@@ -654,9 +581,18 @@ If the engine cannot safely determine an answer or portal state, it should:
 
 This is the current recommended order of execution from today.
 
-1. Add queue-backed apply execution.
-2. Implement outbound/inbound messaging loop.
-3. Add Workday agent.
+1. Tie seeded jobs to real `jobs` rows and real `applications` records.
+2. Replace dashboard placeholder application list with DB-backed records.
+3. Implement sign-out/session reset.
+4. Add screenshot capture to apply runs.
+5. Add recurring screening families:
+   - onsite preference
+   - weekly availability / minimum hours
+   - graduation window
+   - relocation / commute
+6. Add queue-backed apply execution.
+7. Implement outbound/inbound messaging loop.
+8. Add Workday agent.
 
 ## Full Test Strategy
 
@@ -818,281 +754,6 @@ Use this exact template at the end of a feature batch:
 - Next recommended step:
 ```
 
-### Session Update: 2026-03-28
-
-- Workstream: Initial scaffold
-- Feature batch: Next.js app skeleton — onboarding, resume builder, Claude API routes, landing page
-- Status before: empty repo with only basicidea.md
-- Status after: full Next.js 15 + Tailwind + TypeScript app with working dev server and zero build errors
-- Files changed:
-  - `package.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`
-  - `lib/types.ts` — ResumeProfile, UserPreferences, GrayAreaSuggestion, ChatMessage, Job, Alert
-  - `lib/utils.ts` — cn(), generateId(), INDUSTRY_OPTIONS, LEVEL_OPTIONS, POPULAR_CITIES
-  - `lib/claude.ts` — getClaudeClient() singleton, RESUME_SYSTEM_PROMPT, GRAY_AREAS_SYSTEM_PROMPT
-  - `components/ui/` — Button, Input, Textarea, Badge, Progress
-  - `components/onboarding/` — step-industries, step-level, step-locations, step-notifications, step-gray-areas
-  - `components/resume/` — chat-interface, resume-preview, pdf-uploader
-  - `app/onboarding/page.tsx` — 5-step animated flow (Framer Motion)
-  - `app/resume/page.tsx` — split-pane chat + live preview
-  - `app/page.tsx` — landing page
-  - `app/api/resume/chat/route.ts` — SSE streaming Claude chat
-  - `app/api/resume/parse/route.ts` — PDF → raw text (pdf-parse)
-  - `app/api/onboarding/gray-areas/route.ts` — Claude-suggested salary/visa/company size
-- Tests run: `npm run build`, `npx tsc --noEmit`
-- Tests passed: Next production build passed, zero TypeScript errors
-- Known gaps:
-  - no Supabase auth or DB — all state in localStorage
-  - no apply engine
-  - no alerting/messaging
-  - brand was still "AutoApply"
-- Next recommended step: integrate Supabase, redesign onboarding with profile-first flow and resume annotation
-
-### Session Update: 2026-03-29
-
-- Workstream: Onboarding v2 + resume annotation UX + dashboard scaffold
-- Feature batch: 4-step onboarding, locked/flexible resume annotator, Twin dashboard, landing page rebrand
-- Status before: 5-step localStorage-only onboarding, chat-driven resume builder, no dashboard, "AutoApply" branding
-- Status after: 4-step onboarding wired to Supabase (anonymous auth → profiles upsert), resume annotator with per-bullet lock/flexible toggle, dashboard scaffold reading from DB, brand renamed to "Twin"
-- Files changed:
-  - `lib/types.ts` — added LockState, AnnotatedBullet, AnnotatedSkill, AnnotatedExperience, AnnotatedResume, PersonalInfo
-  - `lib/claude.ts` — added STRUCTURE_SYSTEM_PROMPT
-  - `app/api/resume/structure/route.ts` — Claude structures raw PDF text → AnnotatedResume JSON (all bullets/skills default to "flexible")
-  - `components/resume/lock-toggle.tsx` — animated sliding pill (indigo = locked, amber = flexible), framer-motion layout spring
-  - `components/resume/annotated-bullet.tsx` — border-l-4 color bar for visual scan, inline edit on hover, commit/cancel
-  - `components/resume/annotated-skill.tsx` — chip grid, click-to-toggle, add-skill inline input
-  - `components/resume/resume-annotator.tsx` — explainer callout, bulk lock/flexible/reset, collapsible experience blocks
-  - `components/onboarding/step-profile.tsx` — name, email, school, degree, graduation, GPA
-  - `components/onboarding/step-preferences.tsx` — industries + role type + locations + gray areas in one scrollable step (debounced Claude fetch, AbortController)
-  - `components/onboarding/step-resume.tsx` — upload → structuring loading state → annotator phases
-  - `components/onboarding/step-phone.tsx` — phone input + SMS mockup preview, optional skip
-  - `app/onboarding/page.tsx` — full rewrite: Supabase anonymous auth on mount, profile upsert on finish, numbered circle step progress, 4-step STEPS config
-  - `app/dashboard/page.tsx` — reads from Supabase session + profiles table, redirect guard, shimmer bar, Twin stats, settings summary
-  - `components/dashboard/twin-stats.tsx` — Applied/Queued/Failed stat cards (later updated by Codex to match real queue states)
-  - `components/dashboard/applications-list.tsx` — empty state with pulsing rings, status badge row
-  - `app/page.tsx` — new headline "While you sleep, your Twin is applying.", single CTA "Build my Twin", portal routing section, renamed to Twin
-  - `README.md` — setup guide with env vars, Supabase migrations, apply engine, queue processing
-- Tests run: `npm run build`, `npx tsc --noEmit`
-- Tests passed: Next production build passed, zero TypeScript errors
-- Known gaps:
-  - lib/platform/profile.ts, lib/supabase/client.ts not yet written (Codex added later)
-  - no apply engine yet
-  - no queue execution yet
-  - no messaging loop yet
-- Next recommended step: wire Supabase helpers and platform profile layer, then apply engine
-
-### Session Update: 2026-03-29
-
-- Workstream: Dashboard truth + job intake bridge
-- Feature batch: Materialize seeded jobs on demand, create/update real applications on submit, and load recent applications from DB on the dashboard
-- Status before: apply runs were real, but jobs/applications were still mostly disconnected from the visible product
-- Status after: plan/submit can attach to real `jobs`, submit can create/update `applications`, and the dashboard recent applications card is DB-backed
-- Files changed:
-  - `lib/jobs.ts`
-  - `lib/applications.ts`
-  - `lib/apply-runs.ts`
-  - `app/api/apply/plan/route.ts`
-  - `app/api/apply/submit/route.ts`
-  - `app/api/applications/recent/route.ts`
-  - `app/dashboard/page.tsx`
-  - `components/dashboard/applications-list.tsx`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `python3 -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-- Tests passed:
-  - 36 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-- Known gaps:
-  - no screenshot capture yet
-  - no queue-backed execution yet
-  - no live sign-out/session reset verification yet
-  - seeded jobs are still created on demand instead of via a true import/sync pipeline
-- Next recommended step:
-  - implement sign-out/session reset, then screenshot capture for apply runs
-
-### Session Update: 2026-03-29
-
-- Workstream: Platform truth
-- Feature batch: Real dashboard sign-out/session reset control
-- Status before: dashboard had a dead sign-out button with no auth behavior
-- Status after: dashboard sign-out now calls Supabase sign-out, clears the current session, and redirects to `/`
-- Files changed:
-  - `components/auth/sign-out-button.tsx`
-  - `app/dashboard/page.tsx`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run build`
-  - `npm run test:apply-engine`
-  - `python3 -m py_compile $(find apply_engine -name '*.py')`
-- Tests passed:
-  - Next production build passed
-  - 36 Python tests passed
-  - Python bytecode compile passed
-- Known gaps:
-  - no live browser auth integration test yet
-  - no queue-backed execution yet
-- Next recommended step:
-  - add screenshot capture to apply runs
-
-### Session Update: 2026-03-29
-
-- Workstream: Apply engine hardening
-- Feature batch: Screenshot capture for apply runs and lab previews
-- Status before: apply runs stored only textual evidence and action summaries
-- Status after: apply results include inline screenshots for filled/final/failure states, run summaries count screenshots, and the apply lab can preview captured screenshots
-- Files changed:
-  - `apply_engine/models.py`
-  - `apply_engine/schemas.py`
-  - `apply_engine/serialize.py`
-  - `apply_engine/browser.py`
-  - `apply_engine/agents/greenhouse.py`
-  - `apply_engine/agents/lever.py`
-  - `apply_engine/tests/test_agents.py`
-  - `apply_engine/tests/test_browser.py`
-  - `apply_engine/tests/test_serialize.py`
-  - `lib/apply-engine.ts`
-  - `lib/apply-runs.ts`
-  - `components/apply/apply-lab.tsx`
-  - `components/dashboard/apply-runs-list.tsx`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `python3 -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-- Tests passed:
-  - 37 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-- Known gaps:
-  - screenshots are stored inline in run payloads rather than in dedicated storage
-  - no replay tooling yet
-  - no queue-backed execution yet
-- Next recommended step:
-  - add recurring screening families, then move to queue-backed execution
-
-### Session Update: 2026-03-29
-
-- Workstream: Apply engine hardening
-- Feature batch: Add recurring screening families for onsite preference, weekly availability, graduation window, and commute preference
-- Status before: Twin covered core contact, authorization, sponsorship, and some custom education/source fields, but not several common internship gating questions
-- Status after: the normalized applicant profile, selector specs, and action planner now support onsite preference, weekly availability hours, graduation window, and commute preference across Greenhouse and Lever
-- Files changed:
-  - `apply_engine/models.py`
-  - `apply_engine/schemas.py`
-  - `apply_engine/agents/common.py`
-  - `apply_engine/portal_specs.py`
-  - `apply_engine/tests/test_agents.py`
-  - `apply_engine/tests/test_schemas.py`
-  - `apply_engine/tests/fixtures/greenhouse_form.html`
-  - `apply_engine/tests/fixtures/lever_form.html`
-  - `lib/apply-engine.ts`
-  - `lib/platform/applicant.ts`
-  - `components/apply/apply-lab.tsx`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `python3 -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-- Tests passed:
-  - 37 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-- Known gaps:
-- no queue-backed execution yet
-- no screenshot storage separation yet
-- no Workday agent yet
-- Next recommended step:
-  - add always-on queue scheduling, then move into messaging and approval loop
-
-### Session Update: 2026-03-29
-
-- Workstream: Apply engine operations
-- Feature batch: Queue-backed apply execution using `applications` as the first queue record
-- Status before: apply submission executed inline from the user-facing route, and the dashboard had no truthful queued/running execution state
-- Status after: apply submission now queues deterministic request payloads onto `applications`, queued jobs can be processed through a per-user manual route or a secret-backed worker route, worker execution persists apply runs and updates final application state, and the dashboard/apply lab reflect queued and running truth
-- Files changed:
-  - `supabase/migrations/20260329180000_application_queue.sql`
-  - `lib/supabase/database.types.ts`
-  - `lib/env.ts`
-  - `.env.local.example`
-  - `lib/portal.ts`
-  - `lib/application-queue.ts`
-  - `app/api/apply/submit/route.ts`
-  - `app/api/apply/process-next/route.ts`
-  - `app/api/internal/apply-queue/process/route.ts`
-  - `app/api/applications/recent/route.ts`
-  - `app/dashboard/page.tsx`
-  - `app/apply-lab/page.tsx`
-  - `components/apply/apply-lab.tsx`
-  - `components/dashboard/applications-list.tsx`
-  - `components/dashboard/twin-stats.tsx`
-  - `docs/master-planning.md`
-- Tests run:
-  - `npm run test:apply-engine`
-  - `python3 -m py_compile $(find apply_engine -name '*.py')`
-  - `npm run build`
-  - `npx tsc --noEmit`
-- Tests passed:
-  - 37 Python tests passed
-  - Python bytecode compile passed
-  - Next production build passed
-  - standalone TypeScript check passed
-- Known gaps:
-  - queue processing still needs an always-on scheduler / cron trigger in deployment
-  - no retry policy or dead-letter handling yet
-  - no request correlation IDs yet
-- Next recommended step:
-  - add always-on queue scheduling and operational visibility, then build the messaging and approval loop
-
-### Session Update: 2026-03-28
-
-- Workstream: Phase 5 — Messaging and Approval Loop
-- Feature batch: Outbound SMS alerts + inbound YES/NO/STOP webhook
-- Status before: messaging provider abstraction scaffolded (getSmsProviderSelection), no actual send or receive
-- Status after: full outbound+inbound SMS loop implemented — sendSms dispatches via Plivo or Twilio REST API, inbound webhook parses replies, YES queues an application, STOP opts user out
-- Files changed:
-  - `lib/messaging/send.ts` — sendSms() with Plivo and Twilio HTTP calls, Basic auth, returns messageId
-  - `lib/messaging/reply.ts` — normalizeReplyText() (confirm/skip/stop/unknown), extractPhoneNumber() (E.164 normalization)
-  - `lib/alerts.ts` — createAlert, sendAlertSms, confirmAlert, skipAlert, expireAlertsForUser, findLatestPendingAlert, findProfileByPhone
-  - `app/api/messaging/send-alert/route.ts` — internal route (bearer auth) to send outbound alert SMS for alert_id
-  - `app/api/messaging/reply/route.ts` — Plivo/Twilio inbound webhook; YES → confirmAlert + queueApplication; NO → skipAlert; STOP → sms_opt_in=false + expireAlerts; Twilio returns TwiML, Plivo returns empty 200
-- Tests run: `npx tsc --noEmit`, `npm run build`
-- Tests passed: zero TypeScript errors, Next production build passed (20 routes)
-- Known gaps:
-  - no alert expiry cron — expires_at is set but nothing enforces it yet
-  - no job matching engine to create alerts automatically — alerts must be created manually for now
-  - Plivo webhook signature verification not yet implemented (trust IP allowlist in production)
-  - no START/re-subscribe handling after STOP
-- Next recommended step:
-  - add always-on queue scheduler / cron trigger, then Phase 7 Workday agent
-
-### Session Update: 2026-03-29 (Phase 7 + Phase 9)
-
-- Workstream: Phase 7 (Portal Expansion) + Phase 9 (Safety, Observability, Operations)
-- Feature batch: Workday agent + always-on queue cron scheduler + alert expiry cron
-- Status before: Workday detected by URL but routed to VisionAgent (no real execution); queue required manual trigger or Railway cron call; alert expiry not enforced
-- Status after: Workday has a deterministic multi-step agent using data-automation-id selectors; queue drains automatically every minute via Vercel Cron; alerts expire automatically every hour
-- Files changed:
-  - `apply_engine/portal_specs.py` — WORKDAY_SELECTORS (data-automation-id based: first_name, last_name, email, phone, resume_upload, work_authorization, sponsorship_yes/no, next, submit) + WORKDAY_CUSTOM_SELECTORS (school, degree, graduation_date, gpa, onsite_preference, heard_about_us)
-  - `apply_engine/agents/workday.py` — WorkdayAgent: build_actions() fills step-1 fields, execute() multi-step loop advancing via bottom-navigation-next-btn, detects confirmation/auth-wall per step, captures screenshots at each navigation step
-  - `apply_engine/registry.py` — WorkdayAgent registered alongside Greenhouse/Lever/Vision
-  - `apply_engine/tests/fixtures/workday_form.html` — Workday-style HTML fixture with data-automation-id attributes
-  - `apply_engine/tests/test_agents.py` — 5 new Workday tests (build_actions, dry_run, applied_on_confirmation, requires_auth_on_login_wall, sponsorship_yes_when_required)
-  - `app/api/internal/cron/process-queue/route.ts` — drains up to 5 queued applications per cron tick (maxDuration=300s, bearer auth)
-  - `app/api/internal/cron/expire-alerts/route.ts` — expires pending alerts past expires_at
-  - `vercel.json` — Vercel Cron config: process-queue every minute, expire-alerts every hour
-- Tests run: `npm run test:apply-engine`, `python3 -m py_compile`, `npx tsc --noEmit`, `npm run build`
-- Tests passed: 42 Python tests passed, zero TypeScript errors, 22 Next.js routes
-- Known gaps:
-  - Workday forms often lazy-load fields — wait_for_load_state not yet used between steps (only wait_for_timeout)
-  - Workday Education section (step 2) requires clicking an "Add" button before fields appear — not yet handled
-  - No Handshake agent yet
-  - No replay tooling for failed runs
-  - CRON_SECRET not separately managed — uses APPLY_QUEUE_WORKER_SECRET for both cron and manual triggers
-- Next recommended step:
-  - Workday Education section step handling, then Handshake strategy decision, then job matching engine (Phase 4)
-
 ## Launch Gates
 
 Twin should not be treated as a launchable MVP until all of these are true:
@@ -1115,3 +776,181 @@ When `twinmegaresearch.md` is populated, the first things to update here should 
 3. selector clues worth encoding first
 4. hard stop conditions for ambiguous questions
 5. fallback trigger rules for vision
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Portal-aware readiness and app/worker portal contract alignment
+- Status before: Generic readiness existed, but it did not distinguish queueable vs risky by ATS, and the app-side portal contract did not include Ashby even though the Python engine did.
+- Status after: Plan/submit preflight is now portal-aware, the lab and dashboard expose likely blockers for Greenhouse/Lever/Workday-style runs, and the app-side portal contract now includes Ashby.
+- Files changed:
+  - `lib/platform/apply-readiness.ts`
+  - `lib/portal.ts`
+  - `lib/apply-engine.ts`
+  - `app/api/apply/plan/route.ts`
+  - `app/api/apply/submit/route.ts`
+  - `components/apply/apply-lab.tsx`
+  - `app/dashboard/page.tsx`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `python3 -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 65 passing tests
+  - Python compile check passed
+  - Next production build passed
+- Known gaps:
+  - portal-aware readiness is heuristic; it is not yet learned from aggregate run history
+  - dashboard still shows only Greenhouse/Lever/Workday risk cards, not Ashby/Handshake
+  - no dedicated TS unit tests exist yet for the readiness helper
+- Next recommended step: Use recent run history to rank likely blockers per portal, then feed that back into selector/retry hardening instead of using one static bucket map for every account.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: History-weighted portal readiness
+- Status before: Portal-aware readiness existed, but it relied only on static ATS heuristics.
+- Status after: Plan/submit readiness now incorporates recent apply-run history for the current user, and the dashboard/lab surface when recent failures reinforce likely blocker families for a portal.
+- Files changed:
+  - `lib/platform/apply-readiness.ts`
+  - `lib/apply-runs.ts`
+  - `app/api/apply/plan/route.ts`
+  - `app/api/apply/submit/route.ts`
+  - `components/apply/apply-lab.tsx`
+  - `app/dashboard/page.tsx`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 65 passing tests
+  - Next production build passed
+- Known gaps:
+  - history weighting is still per-user and recent-run based, not globally aggregated
+  - blocked family history is bucket-level, not selector-level
+  - readiness helper still has no dedicated TS unit tests
+- Next recommended step: Use the repeated historical blocker families to prioritize selector/retry hardening per portal, starting with the highest recurring family in Greenhouse, Lever, and Workday run history.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Runtime recovery hints for ambiguous portal validation failures
+- Status before: Recent run history influenced preflight, but the apply engine still failed on generic “this field is required” style validation blocks because they classified as `custom`.
+- Status after: The app now sends runtime hints with likely and historical blocked families, and Greenhouse, Lever, and Workday can use those hints to choose a targeted recovery family when the raw error text is ambiguous.
+- Files changed:
+  - `apply_engine/models.py`
+  - `apply_engine/schemas.py`
+  - `apply_engine/main.py`
+  - `apply_engine/agents/common.py`
+  - `apply_engine/agents/greenhouse.py`
+  - `apply_engine/agents/lever.py`
+  - `apply_engine/agents/workday.py`
+  - `apply_engine/tests/test_common.py`
+  - `apply_engine/tests/test_schemas.py`
+  - `lib/apply-engine.ts`
+  - `app/api/apply/plan/route.ts`
+  - `app/api/apply/submit/route.ts`
+  - `app/api/messaging/reply/route.ts`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 67 passing tests
+  - Next production build passed
+- Known gaps:
+  - runtime hints are still bucket-level, not selector-level
+  - only current-user recent history is used; there is no cross-user portal learning yet
+  - no explicit UI surface yet for showing which runtime hint was used during recovery
+- Next recommended step: Add run-summary metadata for which recovery family was actually chosen, then use that to harden the top ambiguous-failure paths per portal.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Recovery-family observability
+- Status before: Twin could use runtime hints to choose a targeted recovery family, but the chosen recovery path was not surfaced in result payloads or run summaries.
+- Status after: Apply results and persisted run summaries now record whether recovery was attempted and which family was used, and the lab/dashboard show that metadata directly.
+- Files changed:
+  - `apply_engine/models.py`
+  - `apply_engine/schemas.py`
+  - `apply_engine/serialize.py`
+  - `apply_engine/agents/greenhouse.py`
+  - `apply_engine/agents/lever.py`
+  - `apply_engine/agents/workday.py`
+  - `lib/apply-engine.ts`
+  - `lib/apply-runs.ts`
+  - `lib/application-queue.ts`
+  - `components/apply/apply-lab.tsx`
+  - `components/dashboard/apply-runs-list.tsx`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 67 passing tests
+  - Next production build passed
+- Known gaps:
+  - recovery metadata is family-level, not selector-level
+  - the dashboard does not yet aggregate “successful recovery vs failed recovery” by portal/family
+  - no cross-user learning exists for ambiguous validation paths
+- Next recommended step: Aggregate recovery-family outcomes by portal and use them to prioritize the next selector/retry hardening pass, starting with the most frequent failed recovery families in Greenhouse, Lever, and Workday.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Recovery outcome aggregation
+- Status before: Individual runs exposed recovery metadata, but the dashboard did not aggregate whether recovery attempts were actually helping by portal/family.
+- Status after: The dashboard now shows recovery patterns by portal/family, including how many retries ended in applied, failed, or auth-blocked outcomes.
+- Files changed:
+  - `components/dashboard/recovery-summary.tsx`
+  - `app/dashboard/page.tsx`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 67 passing tests
+  - Next production build passed
+- Known gaps:
+  - recovery aggregation is still dashboard-only and not fed back automatically into selector strategy
+  - no per-selector or per-question recovery outcome tracking exists yet
+  - no dedicated component tests exist for the new dashboard recovery summary
+- Next recommended step: Use the top failed recovery patterns to tighten portal-specific selectors and retry logic, starting with the highest-frequency failed family in Greenhouse, Lever, and Workday.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Semantic option matching hardening for availability and EEO flows
+- Status before: Selector coverage was decent, but dropdown/radio recovery still depended too heavily on near-exact option labels, which is brittle for availability and EEO questions.
+- Status after: Semantic option matching now handles common wording variants for onsite/hybrid, weekly hours, veteran status, and disability status more reliably.
+- Files changed:
+  - `apply_engine/agents/common.py`
+  - `apply_engine/tests/test_common.py`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 68 passing tests
+  - Next production build passed
+- Known gaps:
+  - option matching is still heuristic and not per-portal tuned
+  - no live portal outcome data is yet being fed back to refine specific selector variants
+  - education-family option normalization is still weaker than availability/EEO normalization
+- Next recommended step: Apply the same semantic hardening to education-family dropdowns and then tighten the highest-frequency failed recovery family per portal using live run outcomes.
+
+### Session Update: 2026-03-30
+
+- Workstream: Apply engine MVP
+- Feature batch: Education-family semantic option matching
+- Status before: Education answers like degree, graduation year, and major were still more brittle than availability/EEO flows when portals used inconsistent dropdown wording.
+- Status after: Option matching now handles common education variants such as `BS Computer Science`, `Bachelor's Degree`, and `Class of 2027` more reliably.
+- Files changed:
+  - `apply_engine/agents/common.py`
+  - `apply_engine/tests/test_common.py`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `npm run build`
+- Tests passed:
+  - apply engine suite: 69 passing tests
+  - Next production build passed
+- Known gaps:
+  - semantic option matching is still global, not portal-tuned
+  - no selector-level recovery analytics yet exist
+  - real live-run data still needs to shape which portal families get hardened next
+- Next recommended step: Use recovery outcome aggregation to target the highest-frequency failed recovery family per portal, then add portal-specific option-label aliases where the generic semantic matcher still falls short.

@@ -47,7 +47,11 @@ export function ApplicationsList({ applications }: Props) {
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
       <div className="divide-y divide-gray-100">
         {applications.map((application) => {
-          const style = STATUS_STYLES[application.status] ?? STATUS_STYLES.pending;
+          const style = STATUS_STYLES[application.status] ?? {
+            dot: "bg-gray-300",
+            label: application.status.replaceAll("_", " "),
+            text: "text-gray-600",
+          };
           return (
             <div
               key={application.id}
@@ -137,16 +141,16 @@ function EmptyState() {
           No applications yet
         </p>
         <p className="text-sm text-gray-400 max-w-xs">
-          Real submitted or blocked application attempts will appear here after
-          you run them through Twin.
+          Queued, blocked, and submitted application attempts show up here once
+          Twin starts working through matches.
         </p>
       </div>
 
       <Link
-        href="/onboarding"
+        href="/apply-lab"
         className="text-sm text-indigo-600 hover:text-indigo-700 font-medium underline underline-offset-2 transition-colors"
       >
-        Adjust preferences →
+        Open apply lab →
       </Link>
     </div>
   );

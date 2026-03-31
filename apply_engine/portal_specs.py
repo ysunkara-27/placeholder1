@@ -166,6 +166,9 @@ LEVER_SELECTORS = {
         'input[name="future_sponsorship_required"][value="no"]',
     ),
     "submit": selector_union(
+        'button[data-qa="btn-submit"]',
+        'button[id="btn-submit"]',
+        'button.postings-btn.template-btn-submit',
         'button[type="submit"]',
         'input[type="submit"]',
     ),
@@ -182,6 +185,11 @@ GREENHOUSE_CUSTOM_SELECTORS = {
             'input[name="school"]',
             'input[name="education[school]"]',
             'input[name="questions[school]"]',
+            'input[id="school-name--0"]',
+            'input[id^="school-name--"]',
+            'input[id*="school-name--"]',
+            'input[id^="school--"]',
+            'input[id*="school--"]',
         ),
     },
     "degree": {
@@ -189,6 +197,57 @@ GREENHOUSE_CUSTOM_SELECTORS = {
             'input[name="degree"]',
             'input[name="education[degree]"]',
             'input[name="questions[degree]"]',
+            'input[id^="degree--"]',
+            'input[id*="degree--"]',
+        ),
+    },
+    "discipline": {
+        "fill_selector": selector_union(
+            'input[name="discipline"]',
+            'input[name="education[discipline]"]',
+            'input[name="questions[discipline]"]',
+            'input[id^="discipline--"]',
+            'input[id*="discipline--"]',
+        ),
+    },
+    "start_month": {
+        "fill_selector": selector_union(
+            'input[name="start_month"]',
+            'input[name="education[start_month]"]',
+            'input[name="questions[start_month]"]',
+            'input[id="start-month--0"]',
+            'input[id^="start-month--"]',
+            'input[id*="start-month--"]',
+        ),
+    },
+    "start_year": {
+        "fill_selector": selector_union(
+            'input[name="start_year"]',
+            'input[name="education[start_year]"]',
+            'input[name="questions[start_year]"]',
+            'input[id="start-year--0"]',
+            'input[id^="start-year--"]',
+            'input[id*="start-year--"]',
+        ),
+    },
+    "end_month": {
+        "fill_selector": selector_union(
+            'input[name="end_month"]',
+            'input[name="education[end_month]"]',
+            'input[name="questions[end_month]"]',
+            'input[id="end-month--0"]',
+            'input[id^="end-month--"]',
+            'input[id*="end-month--"]',
+        ),
+    },
+    "end_year": {
+        "fill_selector": selector_union(
+            'input[name="end_year"]',
+            'input[name="education[end_year]"]',
+            'input[name="questions[end_year]"]',
+            'input[id="end-year--0"]',
+            'input[id^="end-year--"]',
+            'input[id*="end-year--"]',
         ),
     },
     "graduation_date": {
@@ -258,6 +317,71 @@ GREENHOUSE_CUSTOM_SELECTORS = {
             'input[name="commute_radius"]',
         ),
     },
+    "gender": {
+        "select_selector": selector_union(
+            'select[name="gender"]',
+            'select[name="questions[gender]"]',
+            'select[name*="gender"]',
+        ),
+    },
+    "race_ethnicity": {
+        "select_selector": selector_union(
+            'select[name="race_ethnicity"]',
+            'select[name="questions[race_ethnicity]"]',
+            'select[name*="race"]',
+            'select[name*="ethnicity"]',
+        ),
+    },
+    "veteran_status": {
+        "select_selector": selector_union(
+            'select[name="veteran_status"]',
+            'select[name="questions[veteran_status]"]',
+            'select[name*="veteran"]',
+        ),
+    },
+    "disability_status": {
+        "select_selector": selector_union(
+            'select[name="disability_status"]',
+            'select[name="questions[disability_status]"]',
+            'select[name*="disability"]',
+        ),
+    },
+}
+
+GREENHOUSE_HINT_ALIASES = {
+    "work_authorization": [
+        "authorized for employment in the united states",
+        "eligible to work in the united states",
+    ],
+    "sponsorship_required": [
+        "require immigration sponsorship",
+        "need visa sponsorship in the future",
+    ],
+    "heard_about_us": [
+        "how did you hear about this opportunity",
+        "applicant source",
+    ],
+    "onsite_preference": [
+        "preferred work arrangement",
+        "work setup preference",
+        "office cadence preference",
+    ],
+    "weekly_availability_hours": [
+        "how many hours can you work each week",
+        "hours available per week",
+    ],
+    "gender": [
+        "voluntary self identification of gender",
+    ],
+    "race_ethnicity": [
+        "voluntary self identification of race ethnicity",
+    ],
+    "veteran_status": [
+        "voluntary self identification of veteran status",
+    ],
+    "disability_status": [
+        "voluntary self identification of disability",
+    ],
 }
 
 
@@ -362,6 +486,17 @@ WORKDAY_CUSTOM_SELECTORS = {
             'select[data-automation-id="degree"]',
         ),
     },
+    "discipline": {
+        "fill_selector": selector_union(
+            '[data-automation-id="discipline"] input',
+            '[data-automation-id="fieldOfStudy"] input',
+            'input[data-automation-id="discipline"]',
+        ),
+        "select_selector": selector_union(
+            '[data-automation-id="discipline"] [data-automation-id="combobox"]',
+            '[data-automation-id="fieldOfStudy"] [data-automation-id="combobox"]',
+        ),
+    },
     "graduation_date": {
         "fill_selector": selector_union(
             '[data-automation-id="dateReceived"] input',
@@ -374,6 +509,18 @@ WORKDAY_CUSTOM_SELECTORS = {
             'input[data-automation-id="gpa"]',
         ),
     },
+    "relocation": {
+        "yes_selector": selector_union(
+            '[data-automation-id="relocation"] [data-automation-id="Yes"]',
+            'input[data-automation-id="relocation"][value="Yes"]',
+            'input[name="relocation"][value="Yes"]',
+        ),
+        "no_selector": selector_union(
+            '[data-automation-id="relocation"] [data-automation-id="No"]',
+            'input[data-automation-id="relocation"][value="No"]',
+            'input[name="relocation"][value="No"]',
+        ),
+    },
     "onsite_preference": {
         "select_selector": selector_union(
             '[data-automation-id="workStyle"] [data-automation-id="combobox"]',
@@ -381,6 +528,30 @@ WORKDAY_CUSTOM_SELECTORS = {
         ),
         "fill_selector": selector_union(
             '[data-automation-id="workStyle"] input',
+        ),
+    },
+    "weekly_availability_hours": {
+        "fill_selector": selector_union(
+            '[data-automation-id="hoursPerWeek"] input',
+            '[data-automation-id="weeklyAvailability"] input',
+            'input[data-automation-id="hoursPerWeek"]',
+            'input[name="hoursPerWeek"]',
+        ),
+    },
+    "graduation_window": {
+        "fill_selector": selector_union(
+            '[data-automation-id="classYear"] input',
+            '[data-automation-id="graduationWindow"] input',
+            'input[data-automation-id="classYear"]',
+            'input[name="classYear"]',
+        ),
+    },
+    "commute_preference": {
+        "fill_selector": selector_union(
+            '[data-automation-id="commutePreference"] input',
+            '[data-automation-id="commuteRadius"] input',
+            'input[data-automation-id="commutePreference"]',
+            'input[name="commutePreference"]',
         ),
     },
     "heard_about_us": {
@@ -392,6 +563,138 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="howDidYouHearAboutUs"] input',
         ),
     },
+    "gender": {
+        "select_selector": selector_union(
+            '[data-automation-id="gender"] [data-automation-id="combobox"]',
+            'select[data-automation-id="gender"]',
+            'select[name="gender"]',
+        ),
+    },
+    "race_ethnicity": {
+        "select_selector": selector_union(
+            '[data-automation-id="ethnicity"] [data-automation-id="combobox"]',
+            '[data-automation-id="raceEthnicity"] [data-automation-id="combobox"]',
+            'select[name="race_ethnicity"]',
+            'select[name="ethnicity"]',
+        ),
+    },
+    "veteran_status": {
+        "select_selector": selector_union(
+            '[data-automation-id="veteranStatus"] [data-automation-id="combobox"]',
+            'select[data-automation-id="veteranStatus"]',
+            'select[name="veteran_status"]',
+        ),
+    },
+    "disability_status": {
+        "select_selector": selector_union(
+            '[data-automation-id="disabilityStatus"] [data-automation-id="combobox"]',
+            'select[data-automation-id="disabilityStatus"]',
+            'select[name="disability_status"]',
+        ),
+    },
+}
+
+WORKDAY_HINT_ALIASES = {
+    "work_authorization": [
+        "are you legally authorized to work",
+        "employment eligibility status",
+    ],
+    "sponsorship_required": [
+        "will you now or in the future require employment based visa sponsorship",
+        "require employer sponsorship",
+    ],
+    "onsite_preference": [
+        "work arrangement preference",
+        "work style preference",
+    ],
+    "weekly_availability_hours": [
+        "hours available each week",
+        "weekly hours available",
+    ],
+    "graduation_window": [
+        "anticipated graduation year",
+        "expected class year",
+    ],
+    "commute_preference": [
+        "maximum commute distance",
+    ],
+    "gender": [
+        "gender identity voluntary disclosure",
+    ],
+    "race_ethnicity": [
+        "race ethnicity voluntary disclosure",
+    ],
+    "veteran_status": [
+        "protected veteran voluntary disclosure",
+    ],
+    "disability_status": [
+        "disability voluntary disclosure",
+    ],
+}
+
+
+ASHBY_SELECTORS = {
+    "apply_button": selector_union(
+        "[data-testid='apply-button']",
+        "button:has-text('Apply')",
+        "a:has-text('Apply')",
+    ),
+    "full_name": selector_union(
+        "input[name='_systemfield_name']",
+        "input[placeholder*='Name']",
+        "input[placeholder*='name']",
+    ),
+    "first_name": selector_union(
+        "input[placeholder*='First']",
+        "input[placeholder*='first']",
+    ),
+    "last_name": selector_union(
+        "input[placeholder*='Last']",
+        "input[placeholder*='last']",
+    ),
+    "email": selector_union(
+        "input[name='_systemfield_email']",
+        "input[type='email']",
+    ),
+    "phone": selector_union(
+        "input[name='_systemfield_phone']",
+        "input[type='tel']",
+    ),
+    "location": selector_union(
+        "input[name='_systemfield_location']",
+        "input[placeholder*='Location']",
+        "input[placeholder*='location']",
+    ),
+    "linkedin": selector_union(
+        "input[name*='linkedin']",
+        "input[placeholder*='LinkedIn']",
+        "input[placeholder*='linkedin']",
+    ),
+    "website": selector_union(
+        "input[name*='website']",
+        "input[placeholder*='website']",
+        "input[placeholder*='Website']",
+        "input[placeholder*='portfolio']",
+    ),
+    "github": selector_union(
+        "input[name*='github']",
+        "input[placeholder*='GitHub']",
+        "input[placeholder*='github']",
+    ),
+    "resume_upload": selector_union(
+        "input[type='file'][name*='resume']",
+        "input[type='file'][data-testid*='resume']",
+        "input[type='file']",
+    ),
+    "submit": selector_union(
+        "button[type='submit']",
+        "button:has-text('Submit Application')",
+        "button:has-text('Submit')",
+    ),
+    "next": selector_union(
+        "button:has-text('Next')",
+        "button:has-text('Continue')",
+    ),
 }
 
 
@@ -408,6 +711,13 @@ LEVER_CUSTOM_SELECTORS = {
             'input[name="degree"]',
             'input[name="candidate[degree]"]',
             'input[name="education[degree]"]',
+        ),
+    },
+    "discipline": {
+        "fill_selector": selector_union(
+            'input[name="discipline"]',
+            'input[name="candidate[discipline]"]',
+            'input[name="education[discipline]"]',
         ),
     },
     "graduation_date": {
@@ -477,4 +787,69 @@ LEVER_CUSTOM_SELECTORS = {
             'input[name="commute_radius"]',
         ),
     },
+    "gender": {
+        "select_selector": selector_union(
+            'select[name="gender"]',
+            'select[name="candidate[gender]"]',
+            'select[name*="gender"]',
+        ),
+    },
+    "race_ethnicity": {
+        "select_selector": selector_union(
+            'select[name="race_ethnicity"]',
+            'select[name="candidate[race_ethnicity]"]',
+            'select[name*="race"]',
+            'select[name*="ethnicity"]',
+        ),
+    },
+    "veteran_status": {
+        "select_selector": selector_union(
+            'select[name="veteran_status"]',
+            'select[name="candidate[veteran_status]"]',
+            'select[name*="veteran"]',
+        ),
+    },
+    "disability_status": {
+        "select_selector": selector_union(
+            'select[name="disability_status"]',
+            'select[name="candidate[disability_status]"]',
+            'select[name*="disability"]',
+        ),
+    },
+}
+
+LEVER_HINT_ALIASES = {
+    "work_authorization": [
+        "authorized for employment in the country of hire",
+        "legally eligible for employment",
+    ],
+    "sponsorship_required": [
+        "require visa sponsorship now or in the future",
+        "need immigration sponsorship",
+    ],
+    "heard_about_us": [
+        "how did you hear about this job",
+        "candidate source",
+    ],
+    "onsite_preference": [
+        "preferred work environment",
+        "work arrangement preference",
+        "office cadence preference",
+    ],
+    "weekly_availability_hours": [
+        "how many hours per week can you work",
+        "weekly availability in hours",
+    ],
+    "gender": [
+        "gender voluntary self identification",
+    ],
+    "race_ethnicity": [
+        "race ethnicity voluntary self identification",
+    ],
+    "veteran_status": [
+        "protected veteran classification",
+    ],
+    "disability_status": [
+        "voluntary disability self identification",
+    ],
 }
