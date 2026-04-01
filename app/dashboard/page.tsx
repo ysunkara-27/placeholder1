@@ -21,6 +21,7 @@ import {
   LiveApplicationPanel,
   type LiveApplication,
 } from "@/components/dashboard/live-application-panel";
+import { PortalAccountsCard } from "@/components/dashboard/portal-accounts-card";
 import type { AnnotatedResume } from "@/lib/types";
 
 export interface AlertRecord {
@@ -746,6 +747,8 @@ export default function DashboardPage() {
           </div>
           <ApplyRunsList runs={applyRuns} />
         </div>
+
+        <PortalAccountsCard />
 
         {/* Settings summary */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-5">

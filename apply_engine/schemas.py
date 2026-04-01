@@ -32,6 +32,32 @@ def _expect_bool(value: Any, field_name: str, *, default: bool | None = None) ->
     return value
 
 
+def _expect_portal_accounts(
+    value: Any,
+    field_name: str,
+) -> dict[str, dict[str, str]]:
+    """Validate portal_accounts: {portal_name: {email: str, password: str}}"""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise SchemaValidationError(f"{field_name} must be an object")
+    result: dict[str, dict[str, str]] = {}
+    for portal_key, creds in value.items():
+        if not isinstance(portal_key, str):
+            raise SchemaValidationError(f"{field_name} keys must be strings")
+        if not isinstance(creds, dict):
+            raise SchemaValidationError(f"{field_name}.{portal_key} must be an object")
+        parsed_creds: dict[str, str] = {}
+        for k, v in creds.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise SchemaValidationError(
+                    f"{field_name}.{portal_key} must only contain string keys and values"
+                )
+            parsed_creds[k.strip()] = v
+        result[portal_key.strip()] = parsed_creds
+    return result
+
+
 def _expect_str_dict(
     value: Any,
     field_name: str,
@@ -86,6 +112,7 @@ class ApplicantProfilePayload:
     visa_type: str = ""
     eeo: dict[str, str] | None = None
     custom_answers: dict[str, str] | None = None
+    portal_accounts: dict[str, dict[str, str]] | None = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ApplicantProfilePayload":
@@ -122,6 +149,7 @@ class ApplicantProfilePayload:
           "visa_type",
           "eeo",
           "custom_answers",
+          "portal_accounts",
       }
       extra = set(payload.keys()) - allowed
       if extra:
@@ -220,6 +248,10 @@ class ApplicantProfilePayload:
               "profile.custom_answers",
               default={},
           ),
+          portal_accounts=_expect_portal_accounts(
+              payload.get("portal_accounts"),
+              "profile.portal_accounts",
+          ),
       )
 
     def to_dict(self) -> dict[str, Any]:
@@ -256,6 +288,7 @@ class ApplicantProfilePayload:
             "visa_type": self.visa_type,
             "eeo": self.eeo or {},
             "custom_answers": self.custom_answers or {},
+            "portal_accounts": self.portal_accounts or {},
         }
 
 

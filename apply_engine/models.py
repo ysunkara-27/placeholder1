@@ -56,6 +56,7 @@ class ApplicantProfile:
     eeo: dict[str, str] = field(default_factory=dict)
     resume_text: str = ""
     custom_answers: dict[str, str] = field(default_factory=dict)
+    portal_accounts: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

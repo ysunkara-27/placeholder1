@@ -443,13 +443,31 @@ async function processQueueRun(supabase, env, attempt) {
     `[Twin direct queue] ${claimed.id}: portal=${detectPortalFromUrl(normalizeUrl(requestPayload?.url))} timeout_ms=${timeoutMs} attempt=${attempt}`
   );
 
-  // Enrich payload with application_id + Supabase credentials so the
-  // apply engine can stream live logs and pause for user confirmation.
+  // Fetch portal accounts (stored credentials) fresh from the DB.
+  // These are NOT stored in request_payload to keep passwords out of the DB.
+  let portalAccounts = {};
+  try {
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("portal_accounts")
+      .eq("id", claimed.user_id)
+      .maybeSingle();
+    portalAccounts = profileRow?.portal_accounts ?? {};
+  } catch {
+    // Non-fatal — proceed without portal credentials
+  }
+
+  // Enrich payload with application_id, Supabase credentials (for live logs +
+  // confirmation gate), and portal_accounts (for auth-wall auto-login).
   const enrichedPayload = {
     ...requestPayload,
     application_id: claimed.id,
     supabase_url: env.supabaseUrl,
     supabase_key: env.serviceRoleKey,
+    profile: {
+      ...(requestPayload.profile ?? {}),
+      portal_accounts: portalAccounts,
+    },
   };
 
   try {

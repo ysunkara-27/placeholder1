@@ -1127,10 +1127,95 @@ async def complete_submission_flow(
     return final_body_text
 
 
+async def attempt_portal_login(page: Any, email: str, password: str) -> bool:
+    """
+    Detect a login form on the current page and fill it with the given credentials.
+
+    Strategy:
+    1. If no password field is visible, try clicking a "Sign In" / "Log In" link first.
+    2. Fill email/username and password inputs.
+    3. Click the submit button.
+    4. Return True if the page no longer looks like an auth wall after 3 seconds.
+    """
+    # Click "Sign In" link/button if the password field isn't immediately visible
+    if not await selector_exists(page, "input[type='password']"):
+        sign_in_targets = [
+            "[data-automation-id='signIn']",
+            "[data-automation-id='signInButton']",
+            "a:text-is('Sign In')", "a:text-is('Sign in')",
+            "a:text-is('Log In')", "a:text-is('Log in')",
+            "button:text-is('Sign In')", "button:text-is('Sign in')",
+            "button:text-is('Log In')", "button:text-is('Log in')",
+            "#sign-in", ".sign-in-btn",
+        ]
+        for sel in sign_in_targets:
+            if await selector_exists(page, sel):
+                try:
+                    await page.click(sel)
+                    await page.wait_for_timeout(2000)
+                except Exception:
+                    pass
+                break
+
+    # Locate email / username field
+    email_input: str | None = None
+    for sel in [
+        "input[type='email']",
+        "input[name='email']",
+        "input[name='username']",
+        "input[name='user_email']",
+        "input[id='email']",
+        "input[id='username']",
+        "input[id='emailAddress']",
+        "[data-automation-id='email']",
+        "[data-automation-id='username']",
+        "[data-automation-id='emailAddress']",
+        "input[autocomplete='email']",
+        "input[autocomplete='username']",
+    ]:
+        if await selector_exists(page, sel):
+            email_input = sel
+            break
+
+    password_sel = "input[type='password']" if await selector_exists(page, "input[type='password']") else None
+
+    if not email_input or not password_sel:
+        return False
+
+    try:
+        await page.fill(email_input, email)
+        await page.fill(password_sel, password)
+    except Exception:
+        return False
+
+    # Click submit
+    for sel in [
+        "button[type='submit']",
+        "input[type='submit']",
+        "[data-automation-id='submit']",
+        "button:text-is('Sign In')", "button:text-is('Sign in')",
+        "button:text-is('Log In')", "button:text-is('Log in')",
+        "button:text-is('Continue')", "button:text-is('Next')",
+    ]:
+        if await selector_exists(page, sel):
+            try:
+                await page.click(sel)
+            except Exception:
+                pass
+            break
+
+    await page.wait_for_timeout(3000)
+
+    body_text = await extract_body_text(page)
+    return not looks_like_auth_wall(body_text)
+
+
 async def run_with_chromium(
     url: str,
     worker: Callable[[Any], Awaitable[str]],
 ) -> str:
+    from apply_engine.event_emitter import get_pre_auth as _get_pre_auth
+
     try:
         from playwright.async_api import async_playwright
     except ImportError as exc:  # pragma: no cover
@@ -1138,11 +1223,19 @@ async def run_with_chromium(
             "playwright is not installed. Install apply_engine/requirements.txt and run `playwright install chromium`."
         ) from exc
 
+    pre_auth = _get_pre_auth()
+
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
         page = await browser.new_page()
         try:
             await emit_log(f"Browser launched — opening application page")
+            if pre_auth is not None:
+                await emit_log("Logging in with saved portal credentials")
+                try:
+                    await pre_auth(page)
+                except Exception as exc:
+                    await emit_log(f"Login attempt failed: {exc!s:.120}", level="warn")
             await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
             await emit_log("Page loaded — starting form fill")
             confirmation = await worker(page)

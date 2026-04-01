@@ -41,6 +41,28 @@ _current_emitter: ContextVar["SupabaseEventEmitter | None"] = ContextVar(
     "_current_emitter", default=None
 )
 
+# ── Pre-auth context variable ─────────────────────────────────────────────────
+# Set by the registry before a login-retry attempt.  run_with_chromium() reads
+# this and executes it before navigating to the apply URL.
+
+from typing import Callable, Awaitable  # noqa: E402
+
+_pre_auth_fn: ContextVar["Callable | None"] = ContextVar("_pre_auth_fn", default=None)
+
+
+def get_pre_auth() -> "Callable | None":
+    return _pre_auth_fn.get()
+
+
+def set_pre_auth(fn: "Callable | None") -> "Token[Callable | None]":
+    return _pre_auth_fn.set(fn)
+
+
+def reset_pre_auth(token: "Token[Callable | None]") -> None:
+    _pre_auth_fn.reset(token)
+
+
+# ── Emitter context helpers ───────────────────────────────────────────────────
 
 def get_emitter() -> "SupabaseEventEmitter | None":
     return _current_emitter.get()
