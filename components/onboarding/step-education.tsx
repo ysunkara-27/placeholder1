@@ -15,6 +15,7 @@ interface Props {
   authorized_to_work: boolean;
   visa_type: string;
   earliest_start_date: string;
+  weekly_availability_hours: string;
   onChange: (patch: Partial<{
     school: string;
     major: string;
@@ -25,6 +26,7 @@ interface Props {
     authorized_to_work: boolean;
     visa_type: string;
     earliest_start_date: string;
+    weekly_availability_hours: string;
   }>) => void;
 }
 
@@ -42,7 +44,7 @@ const VISA_OPTIONS = [
 
 export function StepEducation({
   school, major, major2, degree, gpa, graduation,
-  authorized_to_work, visa_type, earliest_start_date,
+  authorized_to_work, visa_type, earliest_start_date, weekly_availability_hours,
   onChange,
 }: Props) {
   return (
@@ -199,6 +201,14 @@ export function StepEducation({
           value={earliest_start_date}
           onChange={(e) => onChange({ earliest_start_date: e.target.value })}
           required
+        />
+
+        <Input
+          label="Hours available per week"
+          placeholder="40"
+          value={weekly_availability_hours}
+          onChange={(e) => onChange({ weekly_availability_hours: e.target.value })}
+          hint="For co-op and part-time roles"
         />
       </div>
     </div>

@@ -102,7 +102,7 @@ export function mapPersistedProfileToApplicantDraft(
           : `$${profile.gray_areas.salary_min}/year`
         : "",
     onsite_preference: profile.remote_ok ? "Remote or hybrid preferred" : "Open to onsite",
-    weekly_availability_hours: "",
+    weekly_availability_hours: profile.weekly_availability_hours ?? "",
     graduation_window: profile.graduation,
     commute_preference: profile.remote_ok ? "Prefer remote-friendly roles" : "",
     eeo: Object.fromEntries(

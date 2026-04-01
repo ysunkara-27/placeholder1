@@ -1,0 +1,136 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { matchJobToProfile } from "@/lib/matching";
+import type { Database } from "@/lib/supabase/database.types";
+
+export const runtime = "nodejs";
+
+type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+
+export interface JobWithMatch extends JobRow {
+  match: {
+    matched: boolean;
+    score: number;
+    reasons: string[];
+    rejections: string[];
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profileRow = profileData as ProfileRow | null;
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") ?? "";
+    const industriesParam = searchParams.get("industries") ?? "";
+    const levelsParam = searchParams.get("levels") ?? "";
+    const remoteParam = searchParams.get("remote") ?? "";
+    const portal = searchParams.get("portal") ?? "";
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "30", 10), 100);
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+
+    // Build query
+    let query = supabase
+      .from("jobs")
+      .select("*")
+      .eq("status", "active")
+      .order("posted_at", { ascending: false });
+
+    if (search) {
+      query = query.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
+    }
+
+    if (industriesParam) {
+      const industries = industriesParam.split(",").map((s) => s.trim()).filter(Boolean);
+      if (industries.length > 0) {
+        query = query.overlaps("industries", industries);
+      }
+    }
+
+    if (levelsParam) {
+      const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
+      if (levels.length > 0) {
+        query = query.in("level", levels);
+      }
+    }
+
+    if (remoteParam === "true") {
+      query = query.eq("remote", true);
+    }
+
+    if (portal) {
+      query = query.eq("portal", portal);
+    }
+
+    // Count query
+    let countQuery = supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active");
+
+    if (search) {
+      countQuery = countQuery.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
+    }
+    if (industriesParam) {
+      const industries = industriesParam.split(",").map((s) => s.trim()).filter(Boolean);
+      if (industries.length > 0) {
+        countQuery = countQuery.overlaps("industries", industries);
+      }
+    }
+    if (levelsParam) {
+      const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
+      if (levels.length > 0) {
+        countQuery = countQuery.in("level", levels);
+      }
+    }
+    if (remoteParam === "true") {
+      countQuery = countQuery.eq("remote", true);
+    }
+    if (portal) {
+      countQuery = countQuery.eq("portal", portal);
+    }
+
+    const [jobsResponse, countResponse] = await Promise.all([
+      query.range(offset, offset + limit - 1),
+      countQuery,
+    ]);
+
+    if (jobsResponse.error) throw jobsResponse.error;
+
+    const jobs = (jobsResponse.data ?? []) as JobRow[];
+    const total = countResponse.count ?? 0;
+
+    // Score and sort
+    const jobsWithMatch: JobWithMatch[] = jobs.map((job) => ({
+      ...job,
+      match: profileRow ? matchJobToProfile(job, profileRow) : { matched: false, score: 0, reasons: [], rejections: [] },
+    }));
+
+    jobsWithMatch.sort((a, b) => {
+      if (a.match.matched && !b.match.matched) return -1;
+      if (!a.match.matched && b.match.matched) return 1;
+      return b.match.score - a.match.score;
+    });
+
+    return NextResponse.json({ jobs: jobsWithMatch, total });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch jobs";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

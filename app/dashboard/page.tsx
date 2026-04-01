@@ -7,7 +7,6 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BlockersSummary } from "@/components/dashboard/blockers-summary";
 import { FollowupsSummary } from "@/components/dashboard/followups-summary";
 import { RecoverySummary } from "@/components/dashboard/recovery-summary";
-import { TwinStats } from "@/components/dashboard/twin-stats";
 import { FollowupAnswersEditor } from "@/components/dashboard/followup-answers-editor";
 import { NotificationScheduleCard } from "@/components/dashboard/notification-schedule-card";
 import {
@@ -48,8 +47,6 @@ import {
   type ProfileRow,
   type PersistedProfile,
 } from "@/lib/platform/profile";
-
-type SystemStateTone = "green" | "amber" | "blue" | "orange" | "red" | "slate";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -185,60 +182,6 @@ export default function DashboardPage() {
     .sort()
     .at(-1);
 
-  const systemStates: Array<{
-    label: string;
-    value: string;
-    tone: SystemStateTone;
-    description: string;
-  }> = [
-    queuedApplications > 0
-      ? {
-          label: "Queue",
-          value: `${queuedApplications} active`,
-          tone: "blue",
-          description: "Twin is working through confirmed applications.",
-        }
-      : {
-          label: "Queue",
-          value: "Idle",
-          tone: "slate",
-          description: "No application jobs are running right now.",
-        },
-    pendingAlerts > 0
-      ? {
-          label: "Approval",
-          value: `${pendingAlerts} waiting`,
-          tone: "amber",
-          description: "New matches are waiting on a yes before apply.",
-        }
-      : {
-          label: "Approval",
-          value: "Clear",
-          tone: "green",
-          description: "No confirmations are waiting right now.",
-        },
-    authBlockedApplications > 0
-      ? {
-          label: "Portal access",
-          value: `${authBlockedApplications} blocked`,
-          tone: "orange",
-          description: "A portal sign-in or auth wall needs attention.",
-        }
-      : failedRuns > 0
-        ? {
-            label: "Portal access",
-            value: `${failedRuns} failed`,
-            tone: "red",
-            description: "Some runs failed and need review before retrying.",
-          }
-        : {
-            label: "Portal access",
-            value: "Healthy",
-            tone: "green",
-            description: "No portal blockers detected in recent runs.",
-          },
-  ];
-
   const industryLabels = profile.industries
     .map((v) => INDUSTRY_OPTIONS.find((o) => o.value === v)?.label ?? v)
     .join(", ");
@@ -351,6 +294,90 @@ export default function DashboardPage() {
     .sort((left, right) => right.count - left.count)
     .slice(0, 5);
 
+  // ── Profile completion fields ──────────────────────────────────────────────
+  const PROFILE_FIELDS: Array<{
+    label: string;
+    filled: boolean;
+    reason: string;
+    step: string;
+  }> = [
+    { label: "Email", filled: !!userEmail, reason: "Required on every application form", step: "step 1" },
+    { label: "Phone", filled: !!profile.phone, reason: "SMS alerts + required on many portals", step: "step 1 → Personal" },
+    { label: "LinkedIn URL", filled: !!profile.linkedin_url, reason: "Some portals make this required, not optional", step: "step 1 → Personal" },
+    { label: "Resume PDF", filled: !!profile.resume_url, reason: "No resume file = application blocked immediately", step: "step 4 → Resume" },
+    { label: "Cover letter", filled: !!((profile as any).cover_letter_template), reason: "Portals that require a cover letter will skip it otherwise", step: "step 4 → Resume" },
+    { label: "School", filled: !!profile.school, reason: "Greenhouse and Workday pull this for the education section", step: "step 2 → Education" },
+    { label: "Graduation date", filled: !!profile.graduation, reason: "90% of ATS forms ask for this in the education section", step: "step 2 → Education" },
+    { label: "Start date", filled: !!profile.earliest_start_date, reason: "'When can you start?' is asked on every form", step: "step 2 → Education" },
+    { label: "Hours/week", filled: !!((profile as any).weekly_availability_hours), reason: "Co-op and part-time portals require this in the availability section", step: "step 2 → Education" },
+    { label: "Work authorization", filled: !!profile.visa_type, reason: "ITAR and export control questions need this to auto-answer", step: "step 2 → Education" },
+    { label: "EEO data", filled: !!(profile.eeo?.gender), reason: "Optional but pre-fills diversity sections — most portals ask", step: "step 5 → Extras" },
+  ];
+  const filledCount = PROFILE_FIELDS.filter((f) => f.filled).length;
+  const missingFields = PROFILE_FIELDS.filter((f) => !f.filled);
+
+  // ── Unified activity feed ──────────────────────────────────────────────────
+  type FeedItem = {
+    id: string;
+    ts: string;
+    icon: string;
+    label: string;
+    sub: string;
+    tone: "green" | "amber" | "red" | "blue" | "gray";
+  };
+
+  const activityFeed: FeedItem[] = [
+    ...alerts.slice(0, 5).map((a) => ({
+      id: `alert-${a.id}`,
+      ts: a.alerted_at,
+      icon: a.status === "applied" ? "✅" : a.status === "skipped" || a.status === "expired" ? "⏭️" : "🔔",
+      label:
+        a.status === "applied"
+          ? `Applied — ${a.job?.title ?? "Unknown"} @ ${a.job?.company ?? ""}`
+          : a.status === "skipped"
+          ? `Skipped — ${a.job?.title ?? ""}`
+          : `Match found — ${a.job?.title ?? "Unknown"} @ ${a.job?.company ?? ""}`,
+      sub: a.job?.company ?? "",
+      tone: (a.status === "applied" ? "green" : a.status === "pending" ? "amber" : "gray") as FeedItem["tone"],
+    })),
+    ...applications.slice(0, 5).map((ap) => ({
+      id: `app-${ap.id}`,
+      ts: ap.updated_at,
+      icon:
+        ap.status === "applied"
+          ? "✅"
+          : ap.status === "failed"
+          ? "❌"
+          : ap.status === "requires_auth"
+          ? "🔒"
+          : ap.status === "running"
+          ? "⚙️"
+          : "📋",
+      label:
+        ap.status === "applied"
+          ? `Applied — ${ap.job?.title ?? "Unknown"} @ ${ap.job?.company ?? ""}`
+          : ap.status === "failed"
+          ? `Blocked — ${ap.job?.title ?? ""} (${ap.last_error?.slice(0, 40) ?? "error"})`
+          : ap.status === "requires_auth"
+          ? `Auth wall — ${ap.job?.title ?? ""}`
+          : ap.status === "running"
+          ? `Applying — ${ap.job?.title ?? ""}`
+          : `Queued — ${ap.job?.title ?? ""}`,
+      sub: ap.job?.company ?? "",
+      tone: (
+        ap.status === "applied"
+          ? "green"
+          : ap.status === "failed" || ap.status === "requires_auth"
+          ? "red"
+          : ap.status === "running"
+          ? "blue"
+          : "gray"
+      ) as FeedItem["tone"],
+    })),
+  ]
+    .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+    .slice(0, 8);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -360,6 +387,12 @@ export default function DashboardPage() {
             Twin
           </span>
           <div className="flex items-center gap-4">
+            <Link
+              href="/jobs"
+              className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              Browse jobs
+            </Link>
             <Link
               href="/onboarding"
               className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
@@ -372,139 +405,139 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
-        {/* Twin status */}
-        <div className="space-y-3">
-          {isAnonymous && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-amber-950">
-                  Your session is temporary
-                </p>
-                <p className="mt-1 text-sm text-amber-800">
-                  Save this Twin with Google or email before you switch devices.
-                </p>
-              </div>
-              <Link
-                href="/auth"
-                className="inline-flex items-center justify-center rounded-full bg-amber-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-900"
-              >
-                Save account
-              </Link>
-            </div>
-          )}
-
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Your Twin is live{profile.name ? `, ${profile.name.split(" ")[0]}` : ""}.
-          </h1>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
-              Monitoring profile
-              {profile.industries.length > 0 && ` · ${profile.industries.length} industr${profile.industries.length === 1 ? "y" : "ies"}`}
-              {queuedApplications > 0 && ` · ${queuedApplications} queued`}
-              {appliedRuns > 0 && ` · ${appliedRuns} submitted`}
-              {locationDisplay && ` · ${locationDisplay}`}
-            </span>
-          </div>
-
-          {/* Animated shimmer bar */}
-          <div className="h-1 w-full rounded-full bg-indigo-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-indigo-600 to-indigo-400"
-              style={{
-                backgroundSize: "200% 100%",
-                animation: "shimmer 2s linear infinite",
-              }}
-            />
-          </div>
-
-          <style jsx>{`
-            @keyframes shimmer {
-              0%   { background-position: 200% 0; }
-              100% { background-position: -200% 0; }
-            }
-          `}</style>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {systemStates.map((state) => (
-            <SystemStateCard
-              key={state.label}
-              label={state.label}
-              value={state.value}
-              tone={state.tone}
-              description={state.description}
-            />
-          ))}
-        </div>
-
-        {/* Stats */}
-        <TwinStats
-          applied={appliedRuns}
-          pending={pendingAlerts + queuedApplications}
-          matched={matchedJobs}
-        />
-
-        <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
-          <div className="flex items-center justify-between gap-4">
+        {isAnonymous && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">
-                Apply readiness
-              </h2>
-              <p className="mt-1 text-xs text-gray-400">
-                High-value profile fields that reduce blocked submissions.
+              <p className="text-sm font-semibold text-amber-950">
+                Your session is temporary
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                Save this Twin with Google or email before you switch devices.
               </p>
             </div>
             <Link
-              href="/onboarding"
-              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+              href="/auth"
+              className="inline-flex items-center justify-center rounded-full bg-amber-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-900"
             >
-              Complete profile →
+              Save account
             </Link>
           </div>
-          <p className="text-sm text-gray-600">
-            {readinessIssues.length === 0
-              ? "Profile looks ready for common autofill flows."
-              : `${readinessIssues.length} fields still weaken automated coverage.`}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {portalReadiness.map((summary) => (
-              <div
-                key={summary.portal}
-                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
-              >
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gray-500">
-                  {summary.portal}
-                </p>
-                <p className="mt-1 text-sm text-gray-700">
-                  {summary.risk_level}
-                  {" · "}
-                  {summary.likely_issue_count} likely
-                </p>
-                <p className="mt-1 text-[11px] text-gray-500 line-clamp-2">
-                  {summary.likely_issues.length > 0
-                    ? summary.likely_issues.map((issue) => issue.label).join(", ")
-                    : "No likely blockers surfaced"}
-                </p>
-                {summary.historical_issue_count > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-700 line-clamp-2">
-                    Recent runs reinforce:{" "}
-                    {summary.historical_issues.map((issue) => issue.label).join(", ")}
-                  </p>
-                ) : null}
+        )}
+
+        {/* Pipeline hero */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                {profile.name ? `Hey ${profile.name.split(" ")[0]}.` : "Your Twin is live."}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Watching job boards {profile.industries.length > 0
+                  ? `for ${profile.industries.slice(0, 2).join(", ")}${profile.industries.length > 2 ? ` +${profile.industries.length - 2}` : ""}`
+                  : "across all industries"}.
+              </p>
+            </div>
+            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${queuedApplications > 0 ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${queuedApplications > 0 ? "bg-blue-500 animate-pulse" : "bg-green-500"}`} />
+              {queuedApplications > 0 ? `${queuedApplications} applying now` : "Monitoring"}
+            </div>
+          </div>
+
+          {/* 4-stage pipeline */}
+          <div className="grid grid-cols-4 gap-px bg-gray-100 rounded-xl overflow-hidden">
+            {[
+              { label: "In database", value: "—", sub: "jobs tracked", color: "text-gray-900" },
+              { label: "Matched you", value: matchedJobs.toString(), sub: "alerts created", color: "text-indigo-700" },
+              { label: "Queued", value: queuedApplications.toString(), sub: "applying now", color: queuedApplications > 0 ? "text-blue-700" : "text-gray-400" },
+              { label: "Applied", value: appliedRuns.toString(), sub: "submitted", color: appliedRuns > 0 ? "text-green-700" : "text-gray-400" },
+            ].map((stage, i) => (
+              <div key={i} className="bg-white px-4 py-4">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{stage.label}</p>
+                <p className={`mt-1 text-2xl font-bold tabular-nums ${stage.color}`}>{stage.value}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">{stage.sub}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500">
-            {readinessCounts.contact} contact · {readinessCounts.resume} resume ·{" "}
-            {readinessCounts.authorization} auth · {readinessCounts.education} education ·{" "}
-            {readinessCounts.availability} availability · {readinessCounts.eeo} eeo
-          </p>
-          {readinessIssues.length > 0 ? (
-            <p className="text-xs text-gray-500">
-              Missing: {readinessIssues.map((issue) => issue.label).join(", ")}
-            </p>
-          ) : null}
+
+          {/* Shimmer bar */}
+          <div className="h-0.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-indigo-600 to-indigo-400"
+              style={{ backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite" }}
+            />
+          </div>
+          <style jsx>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
         </div>
+
+        {/* Profile completion card */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Profile completeness</h2>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {filledCount === PROFILE_FIELDS.length
+                  ? "All fields filled — your Twin can handle the full application range."
+                  : `${filledCount} of ${PROFILE_FIELDS.length} fields filled. Missing fields cause blocked applications.`}
+              </p>
+            </div>
+            <Link href="/onboarding" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+              Fill in onboarding →
+            </Link>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+              style={{ width: `${(filledCount / PROFILE_FIELDS.length) * 100}%` }}
+            />
+          </div>
+
+          {/* Field grid */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {PROFILE_FIELDS.map((field) => (
+              <div
+                key={field.label}
+                className={`flex items-start gap-2 rounded-lg px-3 py-2 ${field.filled ? "bg-gray-50" : "bg-red-50 border border-red-100"}`}
+              >
+                <span className={`mt-0.5 text-sm shrink-0 ${field.filled ? "text-green-500" : "text-red-400"}`}>
+                  {field.filled ? "✓" : "✗"}
+                </span>
+                <div className="min-w-0">
+                  <p className={`text-xs font-medium truncate ${field.filled ? "text-gray-700" : "text-red-700"}`}>{field.label}</p>
+                  {!field.filled && (
+                    <p className="text-[10px] text-red-500 mt-0.5 leading-tight">{field.reason}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {missingFields.length === 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              <span className="font-semibold">One thing only runs can reveal:</span>{" "}
+              When Twin hits a question it can&apos;t answer on a specific portal (e.g. &quot;Describe your leadership style&quot;), it adds it to the Follow-ups section below. Review those after your first runs.
+            </div>
+          )}
+        </div>
+
+        {/* Activity feed */}
+        {activityFeed.length > 0 && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-1">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent activity</h2>
+            {activityFeed.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{item.label}</p>
+                </div>
+                <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
+                  {formatShortDateTime(item.ts)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -692,49 +725,6 @@ function SettingRow({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="text-sm text-gray-800">{value}</p>
-    </div>
-  );
-}
-
-function SystemStateCard({
-  label,
-  value,
-  tone,
-  description,
-}: {
-  label: string;
-  value: string;
-  tone: SystemStateTone;
-  description: string;
-}) {
-  const toneStyles: Record<typeof tone, string> = {
-    green: "border-green-200 bg-green-50 text-green-900",
-    amber: "border-amber-200 bg-amber-50 text-amber-950",
-    blue: "border-blue-200 bg-blue-50 text-blue-950",
-    orange: "border-orange-200 bg-orange-50 text-orange-950",
-    red: "border-red-200 bg-red-50 text-red-900",
-    slate: "border-gray-200 bg-white text-gray-900",
-  };
-
-  const dotStyles: Record<typeof tone, string> = {
-    green: "bg-green-500",
-    amber: "bg-amber-500",
-    blue: "bg-blue-500",
-    orange: "bg-orange-500",
-    red: "bg-red-500",
-    slate: "bg-gray-400",
-  };
-
-  return (
-    <div className={`rounded-2xl border px-5 py-4 ${toneStyles[tone]}`}>
-      <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${dotStyles[tone]}`} />
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
-          {label}
-        </p>
-      </div>
-      <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-sm opacity-80">{description}</p>
     </div>
   );
 }

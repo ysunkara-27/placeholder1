@@ -27,6 +27,7 @@ export interface PersistedProfile {
   resume_url: string | null;
   major2: string;
   cover_letter_template: string;
+  weekly_availability_hours: string;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -59,6 +60,7 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     resume_url: row.resume_url ?? null,
     major2: (row as any).major2 ?? "",
     cover_letter_template: (row as any).cover_letter_template ?? "",
+    weekly_availability_hours: (row as any).weekly_availability_hours ?? "",
   };
 }
 
@@ -99,6 +101,7 @@ export function mapProfileToUpsertInput(args: {
     resume_url: profile.resume_url ?? null,
     major2: (profile as any).major2 || null,
     cover_letter_template: (profile as any).cover_letter_template || null,
+    weekly_availability_hours: (profile as any).weekly_availability_hours || null,
     notification_pref: profile.phone ? "sms" : "email",
     sms_provider: profile.phone ? "plivo" : null,
     sms_opt_in: Boolean(profile.phone),

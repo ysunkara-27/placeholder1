@@ -59,6 +59,7 @@ interface FormState {
   authorized_to_work: boolean;
   visa_type: string;
   earliest_start_date: string;
+  weekly_availability_hours: string;
   // Step 3: preferences
   industries: Industry[];
   levels: JobLevel[];
@@ -77,7 +78,7 @@ const INITIAL: FormState = {
   name: "", phone: "", city: "", state_region: "", country: "United States",
   linkedin_url: "", website_url: "", github_url: "",
   school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
-  authorized_to_work: true, visa_type: "", earliest_start_date: "",
+  authorized_to_work: true, visa_type: "", earliest_start_date: "", weekly_availability_hours: "",
   industries: [], levels: [], locations: [], remote_ok: false, gray_areas: null,
   annotatedResume: null,
   resumeUrl: null,
@@ -229,6 +230,7 @@ export default function OnboardingPage() {
             resumeUrl: mapped.resume_url,
             major2: mapped.major2,
             cover_letter_template: mapped.cover_letter_template,
+            weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
           }));
 
           // Restore draft for fields not in Supabase yet
@@ -299,7 +301,7 @@ export default function OnboardingPage() {
       const payload = mapProfileToUpsertInput({
         userId: session.user.id,
         userEmail: session.user.email ?? "",
-        profile: { ...profileFields, resume_url: form.resumeUrl, major2: form.major2, cover_letter_template: form.cover_letter_template },
+        profile: { ...profileFields, resume_url: form.resumeUrl, major2: form.major2, cover_letter_template: form.cover_letter_template, weekly_availability_hours: form.weekly_availability_hours } as any,
         resume: annotatedResume,
       });
 
@@ -380,6 +382,7 @@ export default function OnboardingPage() {
                   authorized_to_work={form.authorized_to_work}
                   visa_type={form.visa_type}
                   earliest_start_date={form.earliest_start_date}
+                  weekly_availability_hours={form.weekly_availability_hours}
                   onChange={(patch) => update(patch)}
                 />
               )}
