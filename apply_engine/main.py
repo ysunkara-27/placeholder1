@@ -19,6 +19,7 @@ from apply_engine.models import ApplicantProfile, ApplyRequest
 from apply_engine.schemas import ApplyPayload, ApplyResultPayload, SchemaValidationError
 from apply_engine.registry import route_application
 from apply_engine.serialize import serialize_apply_result
+from apply_engine.event_emitter import SupabaseEventEmitter, set_emitter, reset_emitter
 
 
 def _resolve_resume_path(resume_pdf_path: str) -> str:
@@ -85,13 +86,30 @@ def create_app() -> FastAPI:
             profile_dict.get("resume_pdf_path", "")
         )
         profile = ApplicantProfile(**profile_dict)
-        request = ApplyRequest(
-            url=parsed.url,
-            profile=profile,
-            dry_run=parsed.dry_run,
-            runtime_hints=parsed.runtime_hints or {},
-        )
-        result = await route_application(request)
+
+        # Build emitter if the caller supplied Supabase credentials + application_id
+        emitter: SupabaseEventEmitter | None = None
+        if parsed.application_id and parsed.supabase_url and parsed.supabase_key:
+            emitter = SupabaseEventEmitter(
+                application_id=parsed.application_id,
+                supabase_url=parsed.supabase_url,
+                supabase_key=parsed.supabase_key,
+            )
+
+        token = set_emitter(emitter)
+        try:
+            request = ApplyRequest(
+                url=parsed.url,
+                profile=profile,
+                dry_run=parsed.dry_run,
+                runtime_hints=parsed.runtime_hints or {},
+                application_id=parsed.application_id,
+                emitter=emitter,
+            )
+            result = await route_application(request)
+        finally:
+            reset_emitter(token)
+
         return serialize_apply_result(result).to_dict()
 
     return app

@@ -480,16 +480,25 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="school"] input',
             '[data-automation-id="schoolName"] input',
             'input[data-automation-id="school"]',
+            '[data-automation-id*="school"] input',
+            '[data-automation-id*="university"] input',
+            '[data-automation-id*="institution"] input',
         ),
     },
     "degree": {
         "fill_selector": selector_union(
             '[data-automation-id="degree"] input',
             '[data-automation-id="degreeReceived"] input',
+            '[data-automation-id*="degree"] input',
+            '[data-automation-id*="levelOfEducation"] input',
+            '[data-automation-id*="educationLevel"] input',
         ),
         "select_selector": selector_union(
             '[data-automation-id="degree"] [data-automation-id="combobox"]',
             'select[data-automation-id="degree"]',
+            '[data-automation-id*="degree"] [data-automation-id="combobox"]',
+            '[data-automation-id*="levelOfEducation"] [data-automation-id="combobox"]',
+            '[data-automation-id*="educationLevel"] [data-automation-id="combobox"]',
         ),
     },
     "discipline": {
@@ -497,22 +506,66 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="discipline"] input',
             '[data-automation-id="fieldOfStudy"] input',
             'input[data-automation-id="discipline"]',
+            '[data-automation-id*="fieldOfStudy"] input',
+            '[data-automation-id*="major"] input',
+            '[data-automation-id*="discipline"] input',
+            '[data-automation-id*="concentration"] input',
         ),
         "select_selector": selector_union(
             '[data-automation-id="discipline"] [data-automation-id="combobox"]',
             '[data-automation-id="fieldOfStudy"] [data-automation-id="combobox"]',
+            '[data-automation-id*="fieldOfStudy"] [data-automation-id="combobox"]',
+            '[data-automation-id*="major"] [data-automation-id="combobox"]',
+            '[data-automation-id*="discipline"] [data-automation-id="combobox"]',
         ),
     },
     "graduation_date": {
         "fill_selector": selector_union(
             '[data-automation-id="dateReceived"] input',
             '[data-automation-id="graduationDate"] input',
+            '[data-automation-id*="graduationDate"] input',
+            '[data-automation-id*="endDate"] input',
+            '[data-automation-id*="expectedGraduation"] input',
         ),
     },
     "gpa": {
         "fill_selector": selector_union(
             '[data-automation-id="gpa"] input',
             'input[data-automation-id="gpa"]',
+            '[data-automation-id*="gpa"] input',
+            '[data-automation-id*="gradePointAverage"] input',
+        ),
+    },
+    "start_month": {
+        "fill_selector": selector_union(
+            '[data-automation-id="startMonth"] input',
+            '[data-automation-id*="startMonth"] input',
+        ),
+        "select_selector": selector_union(
+            '[data-automation-id="startMonth"] [data-automation-id="combobox"]',
+            '[data-automation-id*="startMonth"] [data-automation-id="combobox"]',
+        ),
+    },
+    "start_year": {
+        "fill_selector": selector_union(
+            '[data-automation-id="startYear"] input',
+            '[data-automation-id*="startYear"] input',
+        ),
+    },
+    "end_month": {
+        "fill_selector": selector_union(
+            '[data-automation-id="endMonth"] input',
+            '[data-automation-id*="endMonth"] input',
+        ),
+        "select_selector": selector_union(
+            '[data-automation-id="endMonth"] [data-automation-id="combobox"]',
+            '[data-automation-id*="endMonth"] [data-automation-id="combobox"]',
+        ),
+    },
+    "end_year": {
+        "fill_selector": selector_union(
+            '[data-automation-id="endYear"] input',
+            '[data-automation-id*="endYear"] input',
         ),
     },
     "relocation": {
@@ -574,6 +627,7 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="gender"] [data-automation-id="combobox"]',
             'select[data-automation-id="gender"]',
             'select[name="gender"]',
+            '[data-automation-id*="gender"] [data-automation-id="combobox"]',
         ),
     },
     "race_ethnicity": {
@@ -582,6 +636,8 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="raceEthnicity"] [data-automation-id="combobox"]',
             'select[name="race_ethnicity"]',
             'select[name="ethnicity"]',
+            '[data-automation-id*="ethnicity"] [data-automation-id="combobox"]',
+            '[data-automation-id*="race"] [data-automation-id="combobox"]',
         ),
     },
     "veteran_status": {
@@ -589,6 +645,7 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="veteranStatus"] [data-automation-id="combobox"]',
             'select[data-automation-id="veteranStatus"]',
             'select[name="veteran_status"]',
+            '[data-automation-id*="veteran"] [data-automation-id="combobox"]',
         ),
     },
     "disability_status": {
@@ -596,45 +653,91 @@ WORKDAY_CUSTOM_SELECTORS = {
             '[data-automation-id="disabilityStatus"] [data-automation-id="combobox"]',
             'select[data-automation-id="disabilityStatus"]',
             'select[name="disability_status"]',
+            '[data-automation-id*="disability"] [data-automation-id="combobox"]',
+            '[data-automation-id*="disabilityStatus"] [data-automation-id="combobox"]',
         ),
     },
 }
 
-WORKDAY_HINT_ALIASES = {
+WORKDAY_HINT_ALIASES: dict[str, list[str]] = {
     "work_authorization": [
         "are you legally authorized to work",
         "employment eligibility status",
+        "authorized to work",
+        "legally authorized",
+        "eligible to work",
+        "work in the united states",
+        "employment authorization",
+        "itar",
+        "u.s. person",
+        "export control",
     ],
     "sponsorship_required": [
         "will you now or in the future require employment based visa sponsorship",
         "require employer sponsorship",
+        "require visa sponsorship",
+        "sponsorship now",
+        "sponsorship in the future",
+        "work visa",
+    ],
+    "school": ["university", "college", "institution", "school name", "where did you attend"],
+    "degree": ["degree", "level of education", "highest level", "degree type", "educational level"],
+    "discipline": ["field of study", "major", "concentration", "area of study", "program of study"],
+    "graduation_date": ["graduation", "expected graduation", "degree date", "completion date"],
+    "gpa": ["grade point", "gpa", "cumulative gpa"],
+    "start_date": ["start date", "available to start", "earliest start", "when can you start"],
+    "weekly_availability_hours": [
+        "hours available each week",
+        "weekly hours available",
+        "hours per week",
+        "weekly hours",
+        "hours available",
+        "work per week",
     ],
     "onsite_preference": [
         "work arrangement preference",
         "work style preference",
+        "onsite",
+        "on-site",
+        "hybrid",
+        "remote or onsite",
+        "work arrangement",
     ],
-    "weekly_availability_hours": [
-        "hours available each week",
-        "weekly hours available",
-    ],
+    "relocation": ["willing to relocate", "open to relocation", "relocation"],
+    "salary_expectation": ["salary", "compensation", "pay expectation", "desired salary"],
+    "heard_about_us": ["how did you hear", "how did you find", "referral source"],
     "graduation_window": [
         "anticipated graduation year",
         "expected class year",
     ],
     "commute_preference": [
         "maximum commute distance",
+        "commute",
+        "willing to commute",
     ],
     "gender": [
         "gender identity voluntary disclosure",
+        "gender",
+        "gender identity",
     ],
     "race_ethnicity": [
         "race ethnicity voluntary disclosure",
+        "race",
+        "ethnicity",
+        "racial",
+        "ethnic",
     ],
     "veteran_status": [
         "protected veteran voluntary disclosure",
+        "veteran",
+        "military service",
+        "protected veteran",
     ],
     "disability_status": [
         "disability voluntary disclosure",
+        "disability",
+        "disabled",
+        "accommodation",
     ],
 }
 
@@ -858,4 +961,141 @@ LEVER_HINT_ALIASES = {
     "disability_status": [
         "voluntary disability self identification",
     ],
+}
+
+
+# ─── Ashby ────────────────────────────────────────────────────────────────────
+
+ASHBY_HINT_ALIASES: dict[str, list[str]] = {
+    "work_authorization": [
+        "authorized to work",
+        "legally authorized",
+        "eligible to work",
+        "work in the united states",
+        "employment authorization",
+        "sponsorship",
+    ],
+    "sponsorship_required": [
+        "require sponsorship",
+        "visa sponsorship",
+        "need sponsorship",
+        "sponsor your visa",
+    ],
+    "school": ["university", "college", "institution", "school", "where did you study", "alma mater"],
+    "degree": ["degree", "level of education", "degree type", "highest degree"],
+    "discipline": ["field of study", "major", "concentration", "area of study"],
+    "graduation_date": ["graduation", "expected graduation", "when did you graduate"],
+    "gpa": ["gpa", "grade point", "cumulative gpa"],
+    "start_date": ["start date", "available to start", "when can you start", "earliest start"],
+    "weekly_availability_hours": ["hours per week", "weekly hours", "hours available"],
+    "onsite_preference": ["onsite", "hybrid", "remote", "work arrangement", "work location preference"],
+    "relocation": ["relocate", "relocation", "willing to move"],
+    "salary_expectation": ["salary", "compensation", "pay expectation", "desired pay"],
+    "heard_about_us": ["how did you hear", "how did you find", "referral"],
+    "gender": ["gender", "gender identity"],
+    "race_ethnicity": ["race", "ethnicity", "racial", "ethnic background"],
+    "veteran_status": ["veteran", "military", "protected veteran"],
+    "disability_status": ["disability", "disabled", "accommodation"],
+    "linkedin": ["linkedin", "linkedin url", "linkedin profile"],
+    "website": ["website", "portfolio", "personal website"],
+    "github": ["github", "github url", "github profile"],
+}
+
+ASHBY_CUSTOM_SELECTORS: dict[str, str] = {
+    # Contact
+    "first_name": "[data-testid='firstName-input'], input[name='firstName'], input[placeholder*='First']",
+    "last_name": "[data-testid='lastName-input'], input[name='lastName'], input[placeholder*='Last']",
+    "full_name": "[data-testid='name-input'], input[name='name'], input[placeholder*='Full name'], input[placeholder*='Name']",
+    "email": "[data-testid='email-input'], input[type='email'], input[name='email']",
+    "phone": "[data-testid='phone-input'], input[type='tel'], input[name='phone']",
+    "linkedin_url": "[data-testid='linkedin-input'], input[name='linkedin'], input[placeholder*='linkedin.com']",
+    "website_url": "[data-testid='website-input'], input[name='website'], input[placeholder*='portfolio'], input[placeholder*='website']",
+    "github_url": "[data-testid='github-input'], input[name='github'], input[placeholder*='github.com']",
+    "location": "[data-testid='location-input'], input[name='location'], input[placeholder*='City']",
+    # Resume
+    "resume": "input[type='file'][name*='resume'], input[type='file'][accept*='pdf']",
+    # Work auth (radio/select)
+    "authorized_yes": "input[type='radio'][value*='yes'][name*='authorized'], input[type='radio'][value*='true'][name*='authorized']",
+    "authorized_no": "input[type='radio'][value*='no'][name*='authorized'], input[type='radio'][value*='false'][name*='authorized']",
+    "sponsorship_yes": "input[type='radio'][value*='yes'][name*='sponsor'], input[type='radio'][value*='true'][name*='sponsor']",
+    "sponsorship_no": "input[type='radio'][value*='no'][name*='sponsor'], input[type='radio'][value*='false'][name*='sponsor']",
+    # Education
+    "school": "input[name*='school'], input[name*='university'], input[placeholder*='School'], input[placeholder*='University']",
+    "degree": "select[name*='degree'], input[name*='degree'], input[placeholder*='Degree']",
+    "discipline": "input[name*='major'], input[name*='field'], input[placeholder*='Major'], input[placeholder*='Field of study']",
+    "graduation_date": "input[name*='graduation'], input[placeholder*='Graduation'], input[placeholder*='Expected graduation']",
+    "gpa": "input[name*='gpa'], input[placeholder*='GPA']",
+}
+
+
+# ─── iCIMS ────────────────────────────────────────────────────────────────────
+
+ICIMS_HINT_ALIASES: dict[str, list[str]] = {
+    "work_authorization": [
+        "authorized to work",
+        "legally authorized",
+        "eligible to work",
+        "employment authorization",
+        "right to work",
+        "itar",
+        "u.s. person",
+        "export control",
+        "work in the united states",
+        "work in the us",
+    ],
+    "sponsorship_required": [
+        "require sponsorship",
+        "visa sponsorship",
+        "require a visa",
+        "employer sponsorship",
+        "need sponsorship",
+        "future sponsorship",
+    ],
+    "school": ["university", "college", "institution", "school", "where did you attend", "alma mater"],
+    "degree": ["degree", "level of education", "degree type", "highest degree", "educational attainment", "degree earned"],
+    "discipline": ["field of study", "major", "concentration", "area of study", "program", "course of study"],
+    "graduation_date": ["graduation", "expected graduation", "degree date", "completion date", "graduated"],
+    "gpa": ["gpa", "grade point average", "cumulative gpa", "academic gpa"],
+    "start_date": ["start date", "available to start", "earliest start", "when can you start", "when are you available"],
+    "weekly_availability_hours": ["hours per week", "weekly hours", "hours available", "how many hours"],
+    "onsite_preference": ["onsite", "on-site", "hybrid", "remote", "work arrangement", "work location"],
+    "relocation": ["willing to relocate", "open to relocation", "able to relocate"],
+    "salary_expectation": ["salary", "compensation", "pay expectation", "desired salary", "expected salary"],
+    "heard_about_us": ["how did you hear", "how did you find", "referral source", "how did you learn"],
+    "gender": ["gender", "gender identity", "sex"],
+    "race_ethnicity": ["race", "ethnicity", "racial", "ethnic"],
+    "veteran_status": ["veteran", "military service", "protected veteran", "military status"],
+    "disability_status": ["disability", "disabled", "physical or mental impairment"],
+    "linkedin": ["linkedin", "linkedin profile", "linkedin url"],
+    "website": ["website", "portfolio", "personal website", "personal url"],
+    "github": ["github", "github profile", "github url"],
+    "cover_letter": ["cover letter", "cover letter text", "letter of interest"],
+}
+
+ICIMS_SELECTORS: dict[str, str] = {
+    # iCIMS Classic selectors (id-based)
+    "first_name": "#iCIMS_MainColumn input[id*='firstname'], #iCIMS_MainColumn input[id*='FirstName'], input[name='applicant.field.required.Name.first'], input[name*='firstName']",
+    "last_name": "#iCIMS_MainColumn input[id*='lastname'], #iCIMS_MainColumn input[id*='LastName'], input[name='applicant.field.required.Name.last'], input[name*='lastName']",
+    "email": "#iCIMS_MainColumn input[type='email'], input[name*='email'], input[id*='email']",
+    "phone": "#iCIMS_MainColumn input[id*='phone'], input[name*='phone'], input[type='tel']",
+    "linkedin_url": "input[name*='linkedin'], input[id*='linkedin'], input[placeholder*='linkedin.com']",
+    "website_url": "input[name*='website'], input[name*='portfolio'], input[placeholder*='website']",
+    "resume_upload": "input[type='file'][name*='resume'], input[type='file'][id*='resume'], input[type='file'][accept*='pdf'], #iCIMS_MainColumn input[type='file']",
+    "cover_letter": "textarea[name*='coverLetter'], textarea[id*='cover'], textarea[placeholder*='cover letter']",
+    # Work auth (iCIMS uses radio buttons or dropdowns)
+    "authorized_yes": "input[type='radio'][value*='Yes'][name*='authorized'], input[type='radio'][value*='yes'][name*='authorized'], input[type='radio'][value='1'][name*='authorized']",
+    "authorized_no": "input[type='radio'][value*='No'][name*='authorized'], input[type='radio'][value*='no'][name*='authorized'], input[type='radio'][value='0'][name*='authorized']",
+    "sponsorship_yes": "input[type='radio'][value*='Yes'][name*='sponsor'], input[type='radio'][value*='yes'][name*='sponsor']",
+    "sponsorship_no": "input[type='radio'][value*='No'][name*='sponsor'], input[type='radio'][value*='no'][name*='sponsor']",
+    # Education
+    "school": "input[name*='school'], input[name*='university'], input[id*='school'], input[placeholder*='School']",
+    "degree": "select[name*='degree'], input[name*='degree'], select[id*='degree']",
+    "discipline": "input[name*='major'], input[name*='field'], input[name*='discipline']",
+    "graduation_date": "input[name*='graduation'], input[id*='graduation']",
+    "gpa": "input[name*='gpa'], input[id*='gpa']",
+    # Modern iCIMS (React-based Talent Cloud)
+    "first_name_modern": "input[data-field-id='firstName'], input[aria-label*='First Name'], input[placeholder*='First Name']",
+    "last_name_modern": "input[data-field-id='lastName'], input[aria-label*='Last Name'], input[placeholder*='Last Name']",
+    "email_modern": "input[data-field-id='email'], input[aria-label*='Email']",
+    "phone_modern": "input[data-field-id='phone'], input[aria-label*='Phone']",
 }

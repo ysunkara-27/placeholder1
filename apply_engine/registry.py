@@ -3,6 +3,7 @@ from __future__ import annotations
 from apply_engine.agents.ashby import AshbyAgent
 from apply_engine.agents.detector import detect_portal
 from apply_engine.agents.greenhouse import GreenhouseAgent
+from apply_engine.agents.icims import IcimsAgent
 from apply_engine.agents.lever import LeverAgent
 from apply_engine.agents.vision import VisionAgent
 from apply_engine.agents.workday import WorkdayAgent
@@ -14,6 +15,7 @@ AGENTS = {
     "lever": LeverAgent(),
     "workday": WorkdayAgent(),
     "ashby": AshbyAgent(),
+    "icims": IcimsAgent(),
     "vision": VisionAgent(),
 }
 

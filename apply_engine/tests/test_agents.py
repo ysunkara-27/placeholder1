@@ -1561,5 +1561,81 @@ class WorkdayAgentTests(unittest.TestCase):
         )
 
 
+class AshbyAgentTests(unittest.TestCase):
+    def test_ashby_dry_run_returns_unsupported_with_actions(self) -> None:
+        from apply_engine.agents.ashby import AshbyAgent
+
+        agent = AshbyAgent()
+        request = make_request("https://jobs.ashbyhq.com/company/abc123")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.portal, "ashby")
+        self.assertEqual(result.status, "unsupported")
+        self.assertGreater(len(result.actions), 0)
+
+    def test_ashby_dry_run_includes_name_email_actions(self) -> None:
+        from apply_engine.agents.ashby import AshbyAgent
+
+        agent = AshbyAgent()
+        request = make_request("https://jobs.ashbyhq.com/company/abc123")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertTrue(any(action.action == "fill" for action in result.actions))
+        self.assertTrue(
+            any(
+                action.value == "test@example.com"
+                for action in result.actions
+                if action.action == "fill"
+            )
+        )
+
+    def test_ashby_dry_run_includes_resume_upload_when_provided(self) -> None:
+        from apply_engine.agents.ashby import AshbyAgent
+
+        agent = AshbyAgent()
+        request = make_request("https://jobs.ashbyhq.com/company/abc123")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertTrue(any(action.action == "upload" for action in result.actions))
+
+
+class IcimsAgentTests(unittest.TestCase):
+    def test_icims_dry_run_returns_unsupported_with_actions(self) -> None:
+        from apply_engine.agents.icims import IcimsAgent
+
+        agent = IcimsAgent()
+        request = make_request("https://careers.icims.com/jobs/1234/software-engineer-intern")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertEqual(result.portal, "icims")
+        self.assertEqual(result.status, "unsupported")
+        self.assertGreater(len(result.actions), 0)
+
+    def test_icims_dry_run_includes_name_email_actions(self) -> None:
+        from apply_engine.agents.icims import IcimsAgent
+
+        agent = IcimsAgent()
+        request = make_request("https://careers.icims.com/jobs/1234/software-engineer-intern")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertTrue(any(action.action == "fill" for action in result.actions))
+        self.assertTrue(
+            any(
+                action.value == "test@example.com"
+                for action in result.actions
+                if action.action == "fill"
+            )
+        )
+
+    def test_icims_dry_run_includes_resume_upload_when_provided(self) -> None:
+        from apply_engine.agents.icims import IcimsAgent
+
+        agent = IcimsAgent()
+        request = make_request("https://careers.icims.com/jobs/1234/software-engineer-intern")
+        result = asyncio.run(agent.apply(request))
+
+        self.assertTrue(any(action.action == "upload" for action in result.actions))
+
+
 if __name__ == "__main__":
     unittest.main()

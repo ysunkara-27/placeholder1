@@ -28,6 +28,24 @@ class PortalDetectorTests(unittest.TestCase):
             "handshake",
         )
 
+    def test_detects_icims_careers_subdomain(self) -> None:
+        self.assertEqual(
+            detect_portal("https://careers.icims.com/jobs/1234/software-engineer-intern"),
+            "icims",
+        )
+
+    def test_detects_icims_company_subdomain(self) -> None:
+        self.assertEqual(
+            detect_portal("https://acme.icims.com/jobs/5678/data-analyst"),
+            "icims",
+        )
+
+    def test_detects_icims_recruiting_subdomain(self) -> None:
+        self.assertEqual(
+            detect_portal("https://recruiting.icims.com/jobs/9999/apply"),
+            "icims",
+        )
+
     def test_falls_back_to_vision(self) -> None:
         self.assertEqual(
             detect_portal("https://careers.example.com/apply/software-engineering-intern"),

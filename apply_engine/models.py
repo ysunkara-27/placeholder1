@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-PortalType = Literal["greenhouse", "lever", "workday", "ashby", "handshake", "vision"]
+if TYPE_CHECKING:
+    from apply_engine.event_emitter import SupabaseEventEmitter
+
+PortalType = Literal["greenhouse", "lever", "workday", "ashby", "icims", "handshake", "vision"]
 ActionType = Literal["fill", "click", "select", "upload", "check", "uncheck"]
 ApplyStatus = Literal["applied", "requires_auth", "failed", "unsupported"]
 BlockedFieldFamily = Literal[
@@ -76,6 +79,8 @@ class ApplyRequest:
     profile: ApplicantProfile
     dry_run: bool = False
     runtime_hints: dict[str, object] = field(default_factory=dict)
+    application_id: str = ""
+    emitter: Any = None  # SupabaseEventEmitter | None
 
 
 @dataclass(slots=True)

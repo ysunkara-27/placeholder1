@@ -17,6 +17,10 @@ import {
   ApplyRunsList,
   type ApplyRunRecord,
 } from "@/components/dashboard/apply-runs-list";
+import {
+  LiveApplicationPanel,
+  type LiveApplication,
+} from "@/components/dashboard/live-application-panel";
 import type { AnnotatedResume } from "@/lib/types";
 
 export interface AlertRecord {
@@ -58,6 +62,7 @@ export default function DashboardPage() {
   const [applications, setApplications] = useState<DashboardApplicationRecord[]>([]);
   const [applyRuns, setApplyRuns] = useState<ApplyRunRecord[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [liveApplication, setLiveApplication] = useState<LiveApplication | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -140,6 +145,69 @@ export default function DashboardPage() {
       active = false;
     };
   }, [router]);
+
+  // ── Real-time subscription for live application visibility ─────────────────
+  useEffect(() => {
+    type SupabaseClient = ReturnType<typeof getSupabaseBrowserClient>;
+    let channel: ReturnType<SupabaseClient["channel"]> | null = null;
+
+    async function subscribe() {
+      const supabaseClient = getSupabaseBrowserClient();
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session?.user.id) return;
+      const userId = session.user.id;
+
+      // Fetch initial live application (running or awaiting confirmation)
+      const { data } = await supabaseClient
+        .from("applications")
+        .select("id, status, log_events, preview_screenshot, job:jobs(company, title, application_url)")
+        .eq("user_id", userId)
+        .in("status", ["running", "awaiting_confirmation"])
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) setLiveApplication(data as unknown as LiveApplication);
+
+      // Subscribe to real-time changes
+      channel = supabaseClient
+        .channel(`live-app-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "applications",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown>;
+            const status = String(row?.status ?? "");
+            if (status === "running" || status === "awaiting_confirmation") {
+              setLiveApplication({
+                id: String(row.id ?? ""),
+                status,
+                log_events: (row.log_events as LiveApplication["log_events"]) ?? null,
+                preview_screenshot: (row.preview_screenshot as string | null) ?? null,
+                job: null, // enriched on initial fetch only
+              });
+            } else {
+              // Job finished — clear the panel
+              setLiveApplication((prev) =>
+                prev?.id === String(row.id ?? "") ? null : prev
+              );
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    void subscribe();
+
+    return () => {
+      if (channel) void (channel as { unsubscribe(): Promise<unknown> }).unsubscribe();
+    };
+  }, []);
 
   if (!ready || !profile) {
     return (
@@ -422,6 +490,11 @@ export default function DashboardPage() {
               Save account
             </Link>
           </div>
+        )}
+
+        {/* Live application panel — shown while Twin is filling a form */}
+        {liveApplication && (
+          <LiveApplicationPanel application={liveApplication} />
         )}
 
         {/* Pipeline hero */}

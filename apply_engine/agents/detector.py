@@ -18,6 +18,8 @@ def detect_portal(url: str) -> PortalType:
         return "workday"
     if "ashbyhq.com" in hostname:
         return "ashby"
+    if "icims.com" in hostname:
+        return "icims"
     if "handshake.com" in hostname or "joinhandshake.com" in hostname:
         return "handshake"
     return "vision"

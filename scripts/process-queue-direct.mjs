@@ -53,18 +53,21 @@ function getEnv() {
       process.env.APPLY_ENGINE_BASE_URL ||
       envFile.APPLY_ENGINE_BASE_URL ||
       "http://127.0.0.1:8000",
-    applyEngineTimeoutMs: Number.parseInt(
-      process.env.APPLY_ENGINE_TIMEOUT_MS ||
-        envFile.APPLY_ENGINE_TIMEOUT_MS ||
-        "240000",
-      10
-    ),
-    applyEngineGreenhouseTimeoutMs: Number.parseInt(
-      process.env.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS ||
-        envFile.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS ||
-        "420000",
-      10
-    ),
+    // Add 360s (6 min) confirmation window on top of normal execution budget
+    applyEngineTimeoutMs:
+      Number.parseInt(
+        process.env.APPLY_ENGINE_TIMEOUT_MS ||
+          envFile.APPLY_ENGINE_TIMEOUT_MS ||
+          "240000",
+        10
+      ) + 360_000,
+    applyEngineGreenhouseTimeoutMs:
+      Number.parseInt(
+        process.env.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS ||
+          envFile.APPLY_ENGINE_GREENHOUSE_TIMEOUT_MS ||
+          "420000",
+        10
+      ) + 360_000,
     maxRuns: Math.max(
       1,
       Number.parseInt(process.env.TWIN_MAX_RUNS || "3", 10) || 3
@@ -257,6 +260,17 @@ function buildCompletionUpdate(result, runId) {
     };
   }
 
+  // Cancelled by user — leave the status as-is (already set by confirm/cancel APIs)
+  // but record the run and close out completed_at.
+  if (result.status === "cancelled" || result.status === "confirmation_timeout") {
+    return {
+      confirmation_text: extractConfirmationText(result),
+      last_error: result.error || null,
+      completed_at: completedAt,
+      last_run_id: runId,
+    };
+  }
+
   return {
     status: "failed",
     confirmation_text: extractConfirmationText(result),
@@ -429,12 +443,21 @@ async function processQueueRun(supabase, env, attempt) {
     `[Twin direct queue] ${claimed.id}: portal=${detectPortalFromUrl(normalizeUrl(requestPayload?.url))} timeout_ms=${timeoutMs} attempt=${attempt}`
   );
 
+  // Enrich payload with application_id + Supabase credentials so the
+  // apply engine can stream live logs and pause for user confirmation.
+  const enrichedPayload = {
+    ...requestPayload,
+    application_id: claimed.id,
+    supabase_url: env.supabaseUrl,
+    supabase_key: env.serviceRoleKey,
+  };
+
   try {
     await ensureApplyEngineHealthy(env);
     result = await fetchApplySubmitWithRetry(
       env.applyEngineBaseUrl,
       timeoutMs,
-      requestPayload
+      enrichedPayload
     );
     runId = await persistRun(supabase, claimed, requestPayload, result, result.error || null);
   } catch (error) {
@@ -452,7 +475,7 @@ async function processQueueRun(supabase, env, attempt) {
         result = await fetchApplySubmit(
           env.applyEngineBaseUrl,
           timeoutMs,
-          requestPayload
+          enrichedPayload
         );
         runId = await persistRun(supabase, claimed, requestPayload, result, result.error || null);
       } catch (retryError) {

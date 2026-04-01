@@ -79,6 +79,24 @@ class SchemaTests(unittest.TestCase):
         self.assertTrue(payload.profile.authorized_to_work)
         self.assertEqual(payload.profile.earliest_start_date, "2026-06-01")
 
+    def test_apply_payload_accepts_live_log_fields(self) -> None:
+        payload = ApplyPayload.from_dict(
+            {
+                "url": "https://jobs.lever.co/example/abc",
+                "profile": {
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "test@example.com",
+                },
+                "application_id": "abc-123",
+                "supabase_url": "https://xyz.supabase.co",
+                "supabase_key": "secret-key",
+            }
+        )
+        self.assertEqual(payload.application_id, "abc-123")
+        self.assertEqual(payload.supabase_url, "https://xyz.supabase.co")
+        self.assertEqual(payload.supabase_key, "secret-key")
+
     def test_apply_payload_rejects_extra_fields(self) -> None:
         with self.assertRaises(Exception):
             ApplyPayload.from_dict(

@@ -6,6 +6,7 @@ import re
 from typing import Any, Callable, Awaitable
 
 from apply_engine.models import CapturedScreenshot, PlannedAction
+from apply_engine.event_emitter import emit_log, request_confirmation
 
 
 class ActionExecutionError(RuntimeError):
@@ -647,6 +648,7 @@ def resolve_combobox_option_selector(answer: str, options: list[dict[str, str]])
 
 
 async def execute_actions(page: Any, actions: list[PlannedAction]) -> None:
+    await emit_log("Filling contact info and uploading resume")
     for action in actions:
         exists = await selector_exists(page, action.selector)
 
@@ -769,6 +771,20 @@ async def inspect_missing_required_fields(page: Any) -> list[str]:
         return []
 
     return [normalize_confirmation_text(str(issue), limit=160) for issue in issues if str(issue).strip()]
+
+
+async def _capture_page_screenshot_b64(page: Any) -> str:
+    """Return raw base64 PNG string (no label wrapper). Used for confirmation gate preview."""
+    screenshot = getattr(page, "screenshot", None)
+    if not callable(screenshot):
+        return ""
+    try:
+        data = await screenshot(type="png", full_page=False)
+        if isinstance(data, (bytes, bytearray)):
+            return base64.b64encode(bytes(data)).decode("ascii")
+    except Exception:
+        pass
+    return ""
 
 
 async def capture_page_screenshot(
@@ -951,6 +967,8 @@ async def complete_submission_flow(
     previous_signature: str | None = None
     stalled_steps = 0
 
+    await emit_log("Navigating form — checking for required fields and extra questions")
+
     for step_index in range(max_steps):
         if on_step:
             await run_step_operation(
@@ -1036,6 +1054,19 @@ async def complete_submission_flow(
                         f"{step_label}: " + "; ".join(required_issues[:3])
                     )
 
+            # ── Confirmation gate ─────────────────────────────────────────────
+            # Capture a screenshot of the filled form and ask the user to
+            # confirm before we click Submit. No-ops if no emitter is active.
+            if not submit_attempted:
+                screenshot_b64 = await _capture_page_screenshot_b64(page)
+                confirmed = await request_confirmation(screenshot_b64)
+                if not confirmed:
+                    raise ActionExecutionError(
+                        "Application submission cancelled by user (or confirmation timed out). "
+                        "The form was filled but not submitted."
+                    )
+            # ─────────────────────────────────────────────────────────────────
+
             await run_step_operation(
                 click_preferred_selector(page, submit_selector),
                 step_index=step_index,
@@ -1049,6 +1080,7 @@ async def complete_submission_flow(
                 step_label=step_label,
             )
             submit_attempted = True
+            await emit_log("Submit clicked — waiting for confirmation page")
             body_text = await run_step_operation(
                 extract_body_text(page),
                 step_index=step_index,
@@ -1056,8 +1088,10 @@ async def complete_submission_flow(
                 step_label=step_label,
             )
             if looks_like_confirmation(body_text):
+                await emit_log("Application submitted successfully", level="success")
                 return body_text
             if looks_like_confirmation_url(extract_page_url(page)):
+                await emit_log("Application submitted successfully", level="success")
                 return body_text
             continue
 
@@ -1108,7 +1142,9 @@ async def run_with_chromium(
         browser = await playwright.chromium.launch(headless=True)
         page = await browser.new_page()
         try:
+            await emit_log(f"Browser launched — opening application page")
             await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            await emit_log("Page loaded — starting form fill")
             confirmation = await worker(page)
             return confirmation
         finally:

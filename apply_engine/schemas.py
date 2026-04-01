@@ -265,10 +265,16 @@ class ApplyPayload:
     profile: ApplicantProfilePayload
     dry_run: bool = True
     runtime_hints: dict[str, Any] | None = None
+    application_id: str = ""
+    supabase_url: str = ""
+    supabase_key: str = ""
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ApplyPayload":
-        allowed = {"url", "profile", "dry_run", "runtime_hints"}
+        allowed = {
+            "url", "profile", "dry_run", "runtime_hints",
+            "application_id", "supabase_url", "supabase_key",
+        }
         extra = set(payload.keys()) - allowed
         if extra:
             raise SchemaValidationError(f"Unexpected apply payload fields: {sorted(extra)}")
@@ -285,6 +291,9 @@ class ApplyPayload:
             )
             if payload.get("runtime_hints") is not None
             else {},
+            application_id=_expect_str(payload.get("application_id"), "application_id", default=""),
+            supabase_url=_expect_str(payload.get("supabase_url"), "supabase_url", default=""),
+            supabase_key=_expect_str(payload.get("supabase_key"), "supabase_key", default=""),
         )
 
 
