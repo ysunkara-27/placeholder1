@@ -15,6 +15,7 @@ export interface JobWithMatch extends JobRow {
     reasons: string[];
     rejections: string[];
   };
+  application_status: string | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
       .from("jobs")
       .select("*")
       .eq("status", "active")
+      .not("canonical_url", "is", null)
       .order("posted_at", { ascending: false });
 
     if (search) {
@@ -82,7 +84,8 @@ export async function GET(request: NextRequest) {
     let countQuery = supabase
       .from("jobs")
       .select("*", { count: "exact", head: true })
-      .eq("status", "active");
+      .eq("status", "active")
+      .not("canonical_url", "is", null);
 
     if (search) {
       countQuery = countQuery.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
@@ -115,11 +118,33 @@ export async function GET(request: NextRequest) {
 
     const jobs = (jobsResponse.data ?? []) as JobRow[];
     const total = countResponse.count ?? 0;
+    const jobIds = jobs.map((job) => job.id);
+
+    let applicationStatusByJobId = new Map<string, string>();
+    if (user?.id && jobIds.length > 0) {
+      const { data: applicationRows, error: applicationError } = await supabase
+        .from("applications")
+        .select("job_id,status,updated_at")
+        .eq("user_id", user.id)
+        .in("job_id", jobIds)
+        .order("updated_at", { ascending: false });
+
+      if (applicationError) {
+        throw applicationError;
+      }
+
+      for (const row of applicationRows ?? []) {
+        if (!applicationStatusByJobId.has(row.job_id)) {
+          applicationStatusByJobId.set(row.job_id, row.status);
+        }
+      }
+    }
 
     // Score and sort
     const jobsWithMatch: JobWithMatch[] = jobs.map((job) => ({
       ...job,
       match: profileRow ? matchJobToProfile(job, profileRow) : { matched: false, score: 0, reasons: [], rejections: [] },
+      application_status: applicationStatusByJobId.get(job.id) ?? null,
     }));
 
     jobsWithMatch.sort((a, b) => {

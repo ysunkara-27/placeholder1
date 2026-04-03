@@ -1,27 +1,99 @@
 import type { Database } from "@/lib/supabase/database.types";
-import type { GrayAreaSuggestion, Industry, JobLevel } from "@/lib/types";
+import type {
+  GrayAreaSuggestion,
+  Industry,
+  JobLevel,
+  JobRoleFamily,
+  TargetTerm,
+} from "@/lib/types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 export interface MatchResult {
   matched: boolean;
-  score: number; // 0–100, higher = stronger match
+  score: number;
   reasons: string[];
   rejections: string[];
 }
 
-/**
- * Determines whether a job matches a user profile and returns a scored result.
- *
- * Scoring breakdown (100 pts total):
- *   40 pts — industry overlap
- *   30 pts — level match
- *   20 pts — location / remote match
- *   10 pts — passes gray-area filters (salary, exclusions, company size)
- *
- * A job is considered matched if score >= 50 AND no hard rejections.
- */
+function normalizeRoleFamily(job: JobRow): JobRoleFamily {
+  const raw = job.role_family;
+  if (
+    raw === "internship" ||
+    raw === "co_op" ||
+    raw === "new_grad" ||
+    raw === "associate" ||
+    raw === "part_time"
+  ) {
+    return raw;
+  }
+
+  return (job.level as JobRoleFamily) ?? "internship";
+}
+
+function normalizeTargetTerm(job: JobRow): TargetTerm | null {
+  const raw = job.target_term;
+  if (
+    raw === "spring" ||
+    raw === "summer" ||
+    raw === "fall" ||
+    raw === "winter" ||
+    raw === "any"
+  ) {
+    return raw;
+  }
+
+  return null;
+}
+
+function roleFamilyMatches(
+  targetRoleFamilies: JobRoleFamily[],
+  profileLevels: JobLevel[],
+  jobRoleFamily: JobRoleFamily,
+  jobLevel: JobLevel
+) {
+  if (targetRoleFamilies.length === 0 && profileLevels.length === 0) {
+    return true;
+  }
+
+  if (targetRoleFamilies.includes(jobRoleFamily)) {
+    return true;
+  }
+
+  if (profileLevels.includes(jobLevel)) {
+    return true;
+  }
+
+  if (jobRoleFamily === "associate" && targetRoleFamilies.includes("new_grad")) {
+    return true;
+  }
+
+  return false;
+}
+
+function recruitingWindowMatches(
+  targetTerms: TargetTerm[],
+  targetYears: number[],
+  graduationYear: number | null,
+  jobTargetTerm: TargetTerm | null,
+  jobTargetYear: number | null
+) {
+  const termMatches =
+    targetTerms.length === 0 ||
+    targetTerms.includes("any") ||
+    jobTargetTerm === null ||
+    targetTerms.includes(jobTargetTerm);
+
+  const yearMatches =
+    targetYears.length === 0 ||
+    jobTargetYear === null ||
+    targetYears.includes(jobTargetYear) ||
+    graduationYear === jobTargetYear;
+
+  return termMatches && yearMatches;
+}
+
 export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult {
   const reasons: string[] = [];
   const rejections: string[] = [];
@@ -29,45 +101,61 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
 
   const profileIndustries = (profile.industries ?? []) as Industry[];
   const profileLevels = (profile.levels ?? []) as JobLevel[];
+  const targetRoleFamilies = (profile.target_role_families ?? []) as JobRoleFamily[];
+  const targetTerms = (profile.target_terms ?? []) as TargetTerm[];
+  const targetYears = (profile.target_years ?? []) as number[];
   const profileLocations = (profile.locations ?? []) as string[];
   const remoteOk = profile.remote_ok ?? false;
   const grayAreas = (profile.gray_areas ?? null) as GrayAreaSuggestion | null;
+  const graduationYear = profile.graduation_year ?? null;
 
-  // ── 1. Industry match (40 pts) ─────────────────────────────────────────────
   const jobIndustries = (job.industries ?? []) as string[];
+  const jobLevel = job.level as JobLevel;
+  const jobRoleFamily = normalizeRoleFamily(job);
+  const jobTargetTerm = normalizeTargetTerm(job);
+  const jobTargetYear = job.target_year ?? null;
 
+  // 1. Industry match (40)
   if (profileIndustries.length === 0) {
-    // No preference set — treat as open to all
     score += 40;
     reasons.push("Open to all industries");
   } else if (jobIndustries.length === 0) {
-    // Job didn't specify industry — partial credit
     score += 20;
     reasons.push("Job industry unspecified");
   } else {
-    const overlap = profileIndustries.filter((i) => jobIndustries.includes(i));
+    const overlap = profileIndustries.filter((industry) => jobIndustries.includes(industry));
     if (overlap.length > 0) {
       score += 40;
       reasons.push(`Industry match: ${overlap.join(", ")}`);
     } else {
-      rejections.push(`Industry mismatch (want: ${profileIndustries.join(", ")}, got: ${jobIndustries.join(", ")})`);
+      rejections.push(
+        `Industry mismatch (want: ${profileIndustries.join(", ")}, got: ${jobIndustries.join(", ")})`
+      );
     }
   }
 
-  // ── 2. Level match (30 pts) ───────────────────────────────────────────────
-  const jobLevel = job.level as JobLevel;
-
-  if (profileLevels.length === 0) {
-    score += 30;
-    reasons.push("Open to all levels");
-  } else if (profileLevels.includes(jobLevel)) {
-    score += 30;
-    reasons.push(`Level match: ${jobLevel}`);
+  // 2. Role family / level match (20)
+  if (roleFamilyMatches(targetRoleFamilies, profileLevels, jobRoleFamily, jobLevel)) {
+    score += 20;
+    reasons.push(`Role family match: ${jobRoleFamily}`);
   } else {
-    rejections.push(`Level mismatch (want: ${profileLevels.join(", ")}, got: ${jobLevel})`);
+    const desired = targetRoleFamilies.length > 0 ? targetRoleFamilies : profileLevels;
+    rejections.push(`Level mismatch (want: ${desired.join(", ")}, got: ${jobRoleFamily})`);
   }
 
-  // ── 3. Location match (20 pts) ────────────────────────────────────────────
+  // 3. Recruiting window match (10)
+  if (recruitingWindowMatches(targetTerms, targetYears, graduationYear, jobTargetTerm, jobTargetYear)) {
+    score += 10;
+    reasons.push(
+      `Recruiting window match: ${jobTargetTerm ?? "any term"}${jobTargetYear ? ` ${jobTargetYear}` : ""}`.trim()
+    );
+  } else {
+    rejections.push(
+      `Recruiting window mismatch (want: ${(targetTerms.length ? targetTerms.join(", ") : "any term")}${targetYears.length ? ` / ${targetYears.join(", ")}` : ""}, got: ${(jobTargetTerm ?? "unspecified")}${jobTargetYear ? ` ${jobTargetYear}` : ""})`
+    );
+  }
+
+  // 4. Location match (20)
   if (job.remote && remoteOk) {
     score += 20;
     reasons.push("Remote role, user is open to remote");
@@ -93,30 +181,28 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
     }
   }
 
-  // ── 4. Gray-area filters (10 pts, hard rejections possible) ───────────────
+  // 5. Gray-area filters (10)
   if (grayAreas) {
     let grayPass = true;
 
-    // Excluded companies
-    const excludedCompanies = (grayAreas.excluded_companies ?? []).map((c) =>
-      c.toLowerCase()
+    const excludedCompanies = (grayAreas.excluded_companies ?? []).map((company) =>
+      company.toLowerCase()
     );
     if (
       excludedCompanies.length > 0 &&
-      excludedCompanies.some((c) => job.company.toLowerCase().includes(c))
+      excludedCompanies.some((company) => job.company.toLowerCase().includes(company))
     ) {
       rejections.push(`Company excluded: ${job.company}`);
       grayPass = false;
     }
 
-    // Excluded industries
-    const excludedIndustries = (grayAreas.excluded_industries ?? []).map((i) =>
-      i.toLowerCase()
+    const excludedIndustries = (grayAreas.excluded_industries ?? []).map((industry) =>
+      industry.toLowerCase()
     );
     if (
       excludedIndustries.length > 0 &&
-      jobIndustries.some((i) =>
-        excludedIndustries.some((ex) => i.toLowerCase().includes(ex))
+      jobIndustries.some((industry) =>
+        excludedIndustries.some((excluded) => industry.toLowerCase().includes(excluded))
       )
     ) {
       rejections.push(`Industry excluded: ${jobIndustries.join(", ")}`);

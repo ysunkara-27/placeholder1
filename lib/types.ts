@@ -29,7 +29,23 @@ export type Industry =
   | "Operations"
   | "Sales";
 
-export type JobLevel = "internship" | "new_grad" | "part_time" | "co_op";
+export type JobLevel =
+  | "internship"
+  | "new_grad"
+  | "part_time"
+  | "co_op"
+  | "associate";
+
+export type JobRoleFamily =
+  | "internship"
+  | "co_op"
+  | "new_grad"
+  | "associate"
+  | "part_time";
+
+export type TargetTerm = "spring" | "summer" | "fall" | "winter" | "any";
+
+export type ExperienceBand = "student" | "new_grad" | "early_career";
 
 export type NotificationPref = "sms" | "email";
 
@@ -156,6 +172,10 @@ export interface Job {
   company: string;
   title: string;
   level: JobLevel;
+  role_family?: JobRoleFamily | null;
+  target_term?: TargetTerm | null;
+  target_year?: number | null;
+  experience_band?: ExperienceBand | null;
   location: string;
   remote: boolean;
   industries: string[];
@@ -168,6 +188,7 @@ export interface Job {
 
 export type AlertStatus =
   | "pending"
+  | "sent"
   | "confirmed"
   | "skipped"
   | "expired"

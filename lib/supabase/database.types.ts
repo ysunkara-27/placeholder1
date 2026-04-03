@@ -22,6 +22,7 @@ export interface Database {
           last_error: string | null;
           last_run_id: string | null;
           queued_at: string;
+          request_fingerprint: string | null;
           request_payload: Json;
           started_at: string | null;
           status: string;
@@ -41,6 +42,7 @@ export interface Database {
           last_error?: string | null;
           last_run_id?: string | null;
           queued_at?: string;
+          request_fingerprint?: string | null;
           request_payload?: Json;
           started_at?: string | null;
           status?: string;
@@ -60,6 +62,7 @@ export interface Database {
           last_error?: string | null;
           last_run_id?: string | null;
           queued_at?: string;
+          request_fingerprint?: string | null;
           request_payload?: Json;
           started_at?: string | null;
           status?: string;
@@ -153,10 +156,15 @@ export interface Database {
       jobs: {
         Row: {
           application_url: string;
+          canonical_application_url: string | null;
+          canonical_url: string | null;
           company: string;
           created_at: string;
+          experience_band: string | null;
+          external_job_key: string | null;
           id: string;
           industries: string[];
+          is_early_career: boolean;
           jd_summary: string | null;
           level: string;
           location: string;
@@ -164,18 +172,26 @@ export interface Database {
           portal: string | null;
           posted_at: string;
           remote: boolean;
+          role_family: string | null;
           scraped_at: string;
           status: string;
+          target_term: string | null;
+          target_year: number | null;
           title: string;
           updated_at: string;
           url: string;
         };
         Insert: {
           application_url: string;
+          canonical_application_url?: string | null;
+          canonical_url?: string | null;
           company: string;
           created_at?: string;
+          experience_band?: string | null;
+          external_job_key?: string | null;
           id?: string;
           industries?: string[];
+          is_early_career?: boolean;
           jd_summary?: string | null;
           level: string;
           location: string;
@@ -183,18 +199,26 @@ export interface Database {
           portal?: string | null;
           posted_at: string;
           remote?: boolean;
+          role_family?: string | null;
           scraped_at?: string;
           status?: string;
+          target_term?: string | null;
+          target_year?: number | null;
           title: string;
           updated_at?: string;
           url: string;
         };
         Update: {
           application_url?: string;
+          canonical_application_url?: string | null;
+          canonical_url?: string | null;
           company?: string;
           created_at?: string;
+          experience_band?: string | null;
+          external_job_key?: string | null;
           id?: string;
           industries?: string[];
+          is_early_career?: boolean;
           jd_summary?: string | null;
           level?: string;
           location?: string;
@@ -202,8 +226,11 @@ export interface Database {
           portal?: string | null;
           posted_at?: string;
           remote?: boolean;
+          role_family?: string | null;
           scraped_at?: string;
           status?: string;
+          target_term?: string | null;
+          target_year?: number | null;
           title?: string;
           updated_at?: string;
           url?: string;
@@ -216,6 +243,14 @@ export interface Database {
           city: string | null;
           country: string;
           created_at: string;
+          cover_letter_template: string | null;
+          daily_digest_cutoff_time_local: string;
+          daily_digest_enabled: boolean;
+          daily_digest_goal_submit_time_local: string;
+          daily_digest_shortlist_time_local: string;
+          daily_digest_time_local: string;
+          daily_digest_timezone: string;
+          daily_review_window_minutes: number;
           degree: string | null;
           earliest_start_date: string | null;
           eeo: Json | null;
@@ -224,12 +259,15 @@ export interface Database {
           github_url: string | null;
           gpa: string | null;
           graduation: string | null;
+          graduation_term: string | null;
+          graduation_year: number | null;
           gray_areas: Json | null;
           id: string;
           industries: string[];
           levels: string[];
           linkedin_url: string | null;
           locations: string[];
+          major2: string | null;
           major: string | null;
           notification_pref: string;
           onboarding_completed: boolean;
@@ -242,8 +280,12 @@ export interface Database {
           sms_provider: string | null;
           state_region: string | null;
           subscription_tier: string;
+          target_role_families: string[];
+          target_terms: string[];
+          target_years: number[];
           updated_at: string;
           visa_type: string | null;
+          weekly_availability_hours: string | null;
           website_url: string | null;
         };
         Insert: {
@@ -251,6 +293,14 @@ export interface Database {
           city?: string | null;
           country?: string;
           created_at?: string;
+          cover_letter_template?: string | null;
+          daily_digest_cutoff_time_local?: string;
+          daily_digest_enabled?: boolean;
+          daily_digest_goal_submit_time_local?: string;
+          daily_digest_shortlist_time_local?: string;
+          daily_digest_time_local?: string;
+          daily_digest_timezone?: string;
+          daily_review_window_minutes?: number;
           degree?: string | null;
           earliest_start_date?: string | null;
           eeo?: Json | null;
@@ -259,12 +309,15 @@ export interface Database {
           github_url?: string | null;
           gpa?: string | null;
           graduation?: string | null;
+          graduation_term?: string | null;
+          graduation_year?: number | null;
           gray_areas?: Json | null;
           id: string;
           industries?: string[];
           levels?: string[];
           linkedin_url?: string | null;
           locations?: string[];
+          major2?: string | null;
           major?: string | null;
           notification_pref?: string;
           onboarding_completed?: boolean;
@@ -277,8 +330,12 @@ export interface Database {
           sms_provider?: string | null;
           state_region?: string | null;
           subscription_tier?: string;
+          target_role_families?: string[];
+          target_terms?: string[];
+          target_years?: number[];
           updated_at?: string;
           visa_type?: string | null;
+          weekly_availability_hours?: string | null;
           website_url?: string | null;
         };
         Update: {
@@ -286,6 +343,14 @@ export interface Database {
           city?: string | null;
           country?: string;
           created_at?: string;
+          cover_letter_template?: string | null;
+          daily_digest_cutoff_time_local?: string;
+          daily_digest_enabled?: boolean;
+          daily_digest_goal_submit_time_local?: string;
+          daily_digest_shortlist_time_local?: string;
+          daily_digest_time_local?: string;
+          daily_digest_timezone?: string;
+          daily_review_window_minutes?: number;
           degree?: string | null;
           earliest_start_date?: string | null;
           eeo?: Json | null;
@@ -294,12 +359,15 @@ export interface Database {
           github_url?: string | null;
           gpa?: string | null;
           graduation?: string | null;
+          graduation_term?: string | null;
+          graduation_year?: number | null;
           gray_areas?: Json | null;
           id?: string;
           industries?: string[];
           levels?: string[];
           linkedin_url?: string | null;
           locations?: string[];
+          major2?: string | null;
           major?: string | null;
           notification_pref?: string;
           onboarding_completed?: boolean;
@@ -312,21 +380,82 @@ export interface Database {
           sms_provider?: string | null;
           state_region?: string | null;
           subscription_tier?: string;
+          target_role_families?: string[];
+          target_terms?: string[];
+          target_years?: number[];
           updated_at?: string;
           visa_type?: string | null;
+          weekly_availability_hours?: string | null;
           website_url?: string | null;
+        };
+        Relationships: [];
+      };
+      request_rate_limits: {
+        Row: {
+          hit_count: number;
+          scope: string;
+          subject: string;
+          updated_at: string;
+          window_started_at: string;
+        };
+        Insert: {
+          hit_count?: number;
+          scope: string;
+          subject: string;
+          updated_at?: string;
+          window_started_at: string;
+        };
+        Update: {
+          hit_count?: number;
+          scope?: string;
+          subject?: string;
+          updated_at?: string;
+          window_started_at?: string;
         };
         Relationships: [];
       };
     };
     Views: Record<string, never>;
     Functions: {
+      consume_rate_limit: {
+        Args: {
+          p_limit: number;
+          p_scope: string;
+          p_subject: string;
+          p_window_seconds: number;
+        };
+        Returns: {
+          allowed: boolean;
+          remaining: number;
+          reset_at: string;
+        }[];
+      };
       claim_next_application: {
         Args: {
           p_user_id?: string | null;
           p_worker_id: string;
         };
         Returns: Database["public"]["Tables"]["applications"]["Row"][];
+      };
+      select_candidate_jobs_for_profile: {
+        Args: {
+          p_profile_id: string;
+          p_since?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][];
+      };
+      select_candidate_profiles_for_job: {
+        Args: {
+          p_industries: string[];
+          p_location: string;
+          p_remote: boolean;
+          p_role_family: string;
+          p_target_term: string | null;
+          p_target_year: number | null;
+        };
+        Returns: {
+          id: string;
+        }[];
       };
     };
     Enums: Record<string, never>;

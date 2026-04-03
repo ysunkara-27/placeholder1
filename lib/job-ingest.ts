@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectJobPortalFromUrl, type JobPortalKind } from "@/lib/portal";
+import {
+  canonicalizeJobUrl,
+  inferJobLevel,
+  inferQualificationTags,
+} from "@/lib/job-normalization";
 import type { Database } from "@/lib/supabase/database.types";
 
 type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
@@ -11,6 +16,7 @@ const jobLevelSchema = z.enum([
   "new_grad",
   "co_op",
   "part_time",
+  "associate",
 ]);
 
 const jobPortalSchema = z.enum([
@@ -49,7 +55,7 @@ const optionalDateSchema = z
 export const jobIngestPayloadSchema = z.object({
   company: nonEmptyStringSchema,
   title: nonEmptyStringSchema,
-  level: jobLevelSchema,
+  level: jobLevelSchema.optional(),
   location: nonEmptyStringSchema,
   url: z.string().url(),
   application_url: z.string().url(),
@@ -79,19 +85,13 @@ function normalizeTimestamp(value?: string) {
   return new Date(value).toISOString();
 }
 
-export function canonicalizeJobUrl(url: string) {
-  const parsed = new URL(url);
-  parsed.hash = "";
-
-  if (parsed.pathname !== "/" && parsed.pathname.endsWith("/")) {
-    parsed.pathname = parsed.pathname.slice(0, -1);
-  }
-
-  return parsed.toString();
-}
-
 export function parseJobIngestPayload(input: unknown): JobIngestPayload {
-  return jobIngestPayloadSchema.parse(input);
+  const parsed = jobIngestPayloadSchema.parse(input);
+
+  return {
+    ...parsed,
+    level: parsed.level ?? inferJobLevel(parsed.title, parsed.jd_summary ?? ""),
+  };
 }
 
 function resolvePortal(payload: JobIngestPayload): JobPortalKind {
@@ -107,17 +107,32 @@ export function mapJobIngestPayloadToInsert(
 ): JobInsert {
   const portal = resolvePortal(payload);
   const deadline = normalizeTimestamp(payload.deadline);
+  const level = payload.level ?? inferJobLevel(payload.title, payload.jd_summary ?? "");
+  const canonicalUrl = canonicalizeJobUrl(payload.url);
+  const canonicalApplicationUrl = canonicalizeJobUrl(payload.application_url);
+  const qualification = inferQualificationTags({
+    title: payload.title,
+    jdSummary: payload.jd_summary,
+    level,
+  });
 
   return {
     company: payload.company.trim(),
     title: payload.title.trim(),
-    level: payload.level,
+    level,
     location: payload.location.trim(),
-    url: canonicalizeJobUrl(payload.url),
-    application_url: canonicalizeJobUrl(payload.application_url),
+    url: canonicalUrl,
+    application_url: canonicalApplicationUrl,
+    canonical_url: canonicalUrl,
+    canonical_application_url: canonicalApplicationUrl,
     remote: payload.remote,
     industries: dedupeStrings(payload.industries),
     portal,
+    role_family: qualification.role_family,
+    target_term: qualification.target_term,
+    target_year: qualification.target_year,
+    experience_band: qualification.experience_band,
+    is_early_career: qualification.is_early_career,
     jd_summary: payload.jd_summary?.trim() ?? null,
     posted_at: normalizeTimestamp(payload.posted_at) ?? new Date().toISOString(),
     status: "active",
@@ -140,7 +155,7 @@ export async function upsertJobFromIngestPayload(
   const { data, error } = await supabase
     .from("jobs")
     .upsert(insert, {
-      onConflict: "url",
+      onConflict: "canonical_url",
       ignoreDuplicates: false,
     })
     .select("*")

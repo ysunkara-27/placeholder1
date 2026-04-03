@@ -40,12 +40,14 @@ def is_early_career(title: str, commitment: str = "") -> bool:
 
 
 def infer_level(title: str, commitment: str = "") -> str:
-    """Map a job title + commitment to one of: internship, new_grad, co_op, part_time."""
+    """Map a job title + commitment to one of: internship, new_grad, co_op, part_time, associate."""
     text = f"{title} {commitment}".lower()
     if "co-op" in text or "coop" in text:
         return "co_op"
     if "new grad" in text or "new-grad" in text or "university grad" in text:
         return "new_grad"
+    if "associate" in text:
+        return "associate"
     if "part time" in text or "part-time" in text:
         return "part_time"
     return "internship"

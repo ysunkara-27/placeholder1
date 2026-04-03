@@ -120,6 +120,16 @@ export function mapPersistedProfileToApplicantDraft(
             graduation: profile.graduation,
           }
         : {}),
+      ...(profile.graduation_year
+        ? {
+            graduation_year: String(profile.graduation_year),
+          }
+        : {}),
+      ...(profile.graduation_term
+        ? {
+            graduation_term: profile.graduation_term,
+          }
+        : {}),
       ...(profile.gpa ? { gpa: profile.gpa } : {}),
       ...(profile.locations[0]
         ? { relocation: profile.remote_ok ? "no" : "yes" }

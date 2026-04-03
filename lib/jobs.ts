@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  inferJobLevel,
+  inferQualificationTags,
+} from "@/lib/job-normalization";
 import type { Database } from "@/lib/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -20,25 +24,6 @@ interface SeedJobRecord {
 
 let cachedSeedJobs: SeedJobRecord[] | null = null;
 
-function inferLevel(title: string): string {
-  const normalized = title.toLowerCase();
-
-  if (normalized.includes("intern")) {
-    return "internship";
-  }
-  if (normalized.includes("co-op") || normalized.includes("coop")) {
-    return "co_op";
-  }
-  if (normalized.includes("new grad")) {
-    return "new_grad";
-  }
-  if (normalized.includes("part time")) {
-    return "part_time";
-  }
-
-  return "internship";
-}
-
 function inferIndustries(title: string, notes: string): string[] {
   const normalized = `${title} ${notes}`.toLowerCase();
   const industries = new Set<string>();
@@ -46,7 +31,8 @@ function inferIndustries(title: string, notes: string): string[] {
   if (
     normalized.includes("software") ||
     normalized.includes("engineer") ||
-    normalized.includes("developer")
+    normalized.includes("developer") ||
+    normalized.includes("swe")
   ) {
     industries.add("SWE");
   }
@@ -65,17 +51,30 @@ function inferIndustries(title: string, notes: string): string[] {
 
 function mapSeedJobToInsert(seed: SeedJobRecord): JobInsert {
   const postedAt = new Date(`${seed.retrieved_on}T00:00:00.000Z`).toISOString();
+  const level = inferJobLevel(seed.title, seed.notes);
+  const qualification = inferQualificationTags({
+    title: seed.title,
+    jdSummary: seed.notes,
+    level,
+  });
 
   return {
     company: seed.company,
     title: seed.title,
-    level: inferLevel(seed.title),
+    level,
     location: seed.location,
     remote: /remote/i.test(seed.location),
     industries: inferIndustries(seed.title, seed.notes),
     portal: seed.portal,
     url: seed.source_url,
     application_url: seed.apply_url,
+    canonical_url: seed.source_url,
+    canonical_application_url: seed.apply_url,
+    role_family: qualification.role_family,
+    target_term: qualification.target_term,
+    target_year: qualification.target_year,
+    experience_band: qualification.experience_band,
+    is_early_career: qualification.is_early_career,
     jd_summary: seed.notes,
     status: "active",
     metadata: {

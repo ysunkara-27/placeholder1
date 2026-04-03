@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import type {
   Industry,
   JobLevel,
+  JobRoleFamily,
   GrayAreaSuggestion,
   AnnotatedResume,
   EEOData,
+  TargetTerm,
 } from "@/lib/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -63,6 +65,9 @@ interface FormState {
   // Step 3: preferences
   industries: Industry[];
   levels: JobLevel[];
+  target_role_families: JobRoleFamily[];
+  target_terms: TargetTerm[];
+  target_years: number[];
   locations: string[];
   remote_ok: boolean;
   gray_areas: GrayAreaSuggestion | null;
@@ -72,6 +77,8 @@ interface FormState {
   cover_letter_template: string;
   // Step 5: autofill (optional)
   eeo: EEOData | null;
+  graduation_year: number | null;
+  graduation_term: TargetTerm | null;
 }
 
 const INITIAL: FormState = {
@@ -79,11 +86,13 @@ const INITIAL: FormState = {
   linkedin_url: "", website_url: "", github_url: "",
   school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
   authorized_to_work: true, visa_type: "", earliest_start_date: "", weekly_availability_hours: "",
-  industries: [], levels: [], locations: [], remote_ok: false, gray_areas: null,
+  industries: [], levels: [], target_role_families: [], target_terms: [], target_years: [], locations: [], remote_ok: false, gray_areas: null,
   annotatedResume: null,
   resumeUrl: null,
   cover_letter_template: "",
   eeo: null,
+  graduation_year: null,
+  graduation_term: null,
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -105,6 +114,7 @@ function isStepValid(step: StepId, form: FormState): boolean {
       return (
         form.industries.length > 0 &&
         form.levels.length > 0 &&
+        form.target_role_families.length > 0 &&
         (form.locations.length > 0 || form.remote_ok) &&
         form.gray_areas !== null
       );
@@ -222,6 +232,9 @@ export default function OnboardingPage() {
             earliest_start_date: mapped.earliest_start_date,
             industries: mapped.industries,
             levels: mapped.levels,
+            target_role_families: mapped.target_role_families,
+            target_terms: mapped.target_terms,
+            target_years: mapped.target_years,
             locations: mapped.locations,
             remote_ok: mapped.remote_ok,
             gray_areas: mapped.gray_areas,
@@ -231,6 +244,8 @@ export default function OnboardingPage() {
             major2: mapped.major2,
             cover_letter_template: mapped.cover_letter_template,
             weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
+            graduation_year: mapped.graduation_year,
+            graduation_term: mapped.graduation_term,
           }));
 
           // Restore draft for fields not in Supabase yet
@@ -242,6 +257,18 @@ export default function OnboardingPage() {
                 ...current,
                 major2: current.major2 || draft.major2 || "",
                 cover_letter_template: current.cover_letter_template || draft.cover_letter_template || "",
+                target_role_families:
+                  current.target_role_families.length > 0
+                    ? current.target_role_families
+                    : draft.target_role_families || [],
+                target_terms:
+                  current.target_terms.length > 0
+                    ? current.target_terms
+                    : draft.target_terms || [],
+                target_years:
+                  current.target_years.length > 0
+                    ? current.target_years
+                    : draft.target_years || [],
               }));
             }
           } catch {/* ignore */}
@@ -301,7 +328,18 @@ export default function OnboardingPage() {
       const payload = mapProfileToUpsertInput({
         userId: session.user.id,
         userEmail: session.user.email ?? "",
-        profile: { ...profileFields, resume_url: form.resumeUrl, major2: form.major2, cover_letter_template: form.cover_letter_template, weekly_availability_hours: form.weekly_availability_hours } as any,
+        profile: {
+          ...profileFields,
+          resume_url: form.resumeUrl,
+          major2: form.major2,
+          cover_letter_template: form.cover_letter_template,
+          weekly_availability_hours: form.weekly_availability_hours,
+          target_role_families: form.target_role_families,
+          target_terms: form.target_terms,
+          target_years: form.target_years,
+          graduation_year: form.graduation_year,
+          graduation_term: form.graduation_term,
+        } as any,
         resume: annotatedResume,
       });
 
@@ -390,6 +428,9 @@ export default function OnboardingPage() {
                 <StepPreferences
                   industries={form.industries}
                   levels={form.levels}
+                  targetRoleFamilies={form.target_role_families}
+                  targetTerms={form.target_terms}
+                  targetYears={form.target_years}
                   locations={form.locations}
                   remoteOk={form.remote_ok}
                   grayAreas={form.gray_areas}

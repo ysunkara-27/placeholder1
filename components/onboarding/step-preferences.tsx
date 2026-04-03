@@ -3,11 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { INDUSTRY_OPTIONS, LEVEL_OPTIONS, POPULAR_CITIES, cn } from "@/lib/utils";
+import {
+  INDUSTRY_OPTIONS,
+  LEVEL_OPTIONS,
+  POPULAR_CITIES,
+  TARGET_TERM_OPTIONS,
+  cn,
+} from "@/lib/utils";
 import type {
   Industry,
   JobLevel,
+  JobRoleFamily,
   GrayAreaSuggestion,
+  TargetTerm,
 } from "@/lib/types";
 import {
   CheckCircle2,
@@ -26,12 +34,18 @@ import {
 interface Props {
   industries: Industry[];
   levels: JobLevel[];
+  targetRoleFamilies: JobRoleFamily[];
+  targetTerms: TargetTerm[];
+  targetYears: number[];
   locations: string[];
   remoteOk: boolean;
   grayAreas: GrayAreaSuggestion | null;
   onChange: (patch: Partial<{
     industries: Industry[];
     levels: JobLevel[];
+    target_role_families: JobRoleFamily[];
+    target_terms: TargetTerm[];
+    target_years: number[];
     locations: string[];
     remote_ok: boolean;
     gray_areas: GrayAreaSuggestion;
@@ -39,9 +53,18 @@ interface Props {
 }
 
 export function StepPreferences({
-  industries, levels, locations, remoteOk, grayAreas, onChange,
+  industries,
+  levels,
+  targetRoleFamilies,
+  targetTerms,
+  targetYears,
+  locations,
+  remoteOk,
+  grayAreas,
+  onChange,
 }: Props) {
   const [cityInput, setCityInput] = useState("");
+  const [yearInput, setYearInput] = useState("");
   const [grayLoading, setGrayLoading] = useState(false);
   const [grayError, setGrayError] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -122,6 +145,32 @@ export function StepPreferences({
         ? levels.filter((l) => l !== v)
         : [...levels, v],
     });
+  }
+  function toggleRoleFamily(v: JobRoleFamily) {
+    onChange({
+      target_role_families: targetRoleFamilies.includes(v)
+        ? targetRoleFamilies.filter((family) => family !== v)
+        : [...targetRoleFamilies, v],
+    });
+  }
+  function toggleTargetTerm(v: TargetTerm) {
+    onChange({
+      target_terms: targetTerms.includes(v)
+        ? targetTerms.filter((term) => term !== v)
+        : [...targetTerms, v],
+    });
+  }
+  function addTargetYear(raw: string) {
+    const year = Number(raw.trim());
+    if (!Number.isInteger(year) || year < 2025 || year > 2035 || targetYears.includes(year)) {
+      setYearInput("");
+      return;
+    }
+    onChange({ target_years: [...targetYears, year].sort() });
+    setYearInput("");
+  }
+  function removeTargetYear(year: number) {
+    onChange({ target_years: targetYears.filter((value) => value !== year) });
   }
 
   // ── Gray area edit helpers ────────────────────────────────────────────────
@@ -212,6 +261,75 @@ export function StepPreferences({
               </button>
             );
           })}
+        </div>
+      </SubSection>
+
+      <SubSection label="Qualification focus">
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700">Role families</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: "internship", label: "Internship" },
+                { value: "co_op", label: "Co-op" },
+                { value: "new_grad", label: "New Grad" },
+                { value: "associate", label: "Associate" },
+                { value: "part_time", label: "Part-time" },
+              ] as const).map(({ value, label }) => (
+                <Badge
+                  key={value}
+                  selected={targetRoleFamilies.includes(value)}
+                  onClick={() => toggleRoleFamily(value)}
+                  size="md"
+                >
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700">Target terms</p>
+            <div className="flex flex-wrap gap-2">
+              {TARGET_TERM_OPTIONS.map(({ value, label }) => (
+                <Badge
+                  key={value}
+                  selected={targetTerms.includes(value)}
+                  onClick={() => toggleTargetTerm(value)}
+                  size="md"
+                >
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700">Target recruiting years</p>
+            <div className="min-h-[44px] flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2">
+              {targetYears.map((year) => (
+                <span key={year} className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-1 text-sm font-medium text-indigo-700">
+                  {year}
+                  <button onClick={() => removeTargetYear(year)} aria-label={`Remove ${year}`} className="ml-0.5 hover:text-indigo-900 transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={yearInput}
+                onChange={(e) => setYearInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTargetYear(yearInput);
+                  }
+                }}
+                onBlur={() => addTargetYear(yearInput)}
+                placeholder={targetYears.length === 0 ? "Add year, e.g. 2027" : ""}
+                className="flex-1 min-w-[140px] bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              />
+            </div>
+          </div>
         </div>
       </SubSection>
 

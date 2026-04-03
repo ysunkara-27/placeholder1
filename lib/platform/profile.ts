@@ -1,4 +1,12 @@
-import type { AnnotatedResume, EEOData, GrayAreaSuggestion, Industry, JobLevel } from "@/lib/types";
+import type {
+  AnnotatedResume,
+  EEOData,
+  GrayAreaSuggestion,
+  Industry,
+  JobLevel,
+  JobRoleFamily,
+  TargetTerm,
+} from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface PersistedProfile {
@@ -28,10 +36,44 @@ export interface PersistedProfile {
   major2: string;
   cover_letter_template: string;
   weekly_availability_hours: string;
+  target_role_families: JobRoleFamily[];
+  target_terms: TargetTerm[];
+  target_years: number[];
+  graduation_year: number | null;
+  graduation_term: TargetTerm | null;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type { ProfileRow };
+
+function inferGraduationYear(graduation: string, fallback: number | null): number | null {
+  if (typeof fallback === "number") {
+    return fallback;
+  }
+
+  const match = graduation.match(/\b(20\d{2})\b/);
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]);
+}
+
+function inferGraduationTerm(
+  graduation: string,
+  fallback: TargetTerm | null
+): TargetTerm | null {
+  if (fallback) {
+    return fallback;
+  }
+
+  const normalized = graduation.toLowerCase();
+  if (normalized.includes("spring")) return "spring";
+  if (normalized.includes("summer")) return "summer";
+  if (normalized.includes("fall") || normalized.includes("autumn")) return "fall";
+  if (normalized.includes("winter")) return "winter";
+  return null;
+}
 
 export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfile {
   return {
@@ -61,6 +103,11 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     major2: (row as any).major2 ?? "",
     cover_letter_template: (row as any).cover_letter_template ?? "",
     weekly_availability_hours: (row as any).weekly_availability_hours ?? "",
+    target_role_families: ((row as any).target_role_families ?? row.levels ?? []) as JobRoleFamily[],
+    target_terms: ((row as any).target_terms ?? []) as TargetTerm[],
+    target_years: ((row as any).target_years ?? []) as number[],
+    graduation_year: (row as any).graduation_year ?? null,
+    graduation_term: ((row as any).graduation_term as TargetTerm | null) ?? null,
   };
 }
 
@@ -71,6 +118,14 @@ export function mapProfileToUpsertInput(args: {
   resume: AnnotatedResume | null;
 }): Database["public"]["Tables"]["profiles"]["Insert"] {
   const { userId, userEmail, profile, resume } = args;
+  const graduationYear = inferGraduationYear(
+    profile.graduation,
+    (profile as any).graduation_year ?? null
+  );
+  const graduationTerm = inferGraduationTerm(
+    profile.graduation,
+    (profile as any).graduation_term ?? null
+  );
 
   return ({
     id: userId,
@@ -102,6 +157,11 @@ export function mapProfileToUpsertInput(args: {
     major2: (profile as any).major2 || null,
     cover_letter_template: (profile as any).cover_letter_template || null,
     weekly_availability_hours: (profile as any).weekly_availability_hours || null,
+    target_role_families: (profile as any).target_role_families ?? profile.levels,
+    target_terms: (profile as any).target_terms ?? [],
+    target_years: (profile as any).target_years ?? [],
+    graduation_year: graduationYear,
+    graduation_term: graduationTerm,
     notification_pref: profile.phone ? "sms" : "email",
     sms_provider: profile.phone ? "plivo" : null,
     sms_opt_in: Boolean(profile.phone),

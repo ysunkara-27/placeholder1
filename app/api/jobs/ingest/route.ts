@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createAlert, sendAlertSms } from "@/lib/alerts";
+import { selectCandidateProfileIdsForJob } from "@/lib/candidate-routing";
 import { getApplyQueueEnv } from "@/lib/env";
 import {
   parseJobIngestPayload,
@@ -38,10 +39,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const supabase = getSupabaseAdminClient();
     const upsertedJob = await upsertJobFromIngestPayload(supabase, payload);
 
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("onboarding_completed", true);
+    const candidateProfileIds = await selectCandidateProfileIdsForJob(
+      supabase,
+      upsertedJob
+    );
+
+    const { data: profiles, error: profilesError } =
+      candidateProfileIds.length === 0
+        ? { data: [], error: null }
+        : await supabase
+            .from("profiles")
+            .select("*")
+            .in("id", candidateProfileIds);
 
     if (profilesError) {
       throw profilesError;
@@ -134,6 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         url: upsertedJob.url,
       },
       profilesChecked: results.length,
+      candidateProfiles: candidateProfileIds.length,
       alertsCreated: results.filter((result) => result.alerted).length,
       smsSent: results.filter((result) => result.smsSent).length,
       results,

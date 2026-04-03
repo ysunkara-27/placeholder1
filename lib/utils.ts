@@ -38,7 +38,16 @@ export const LEVEL_OPTIONS = [
   { value: "internship", label: "Internship", description: "Summer / semester internships" },
   { value: "new_grad", label: "New Grad", description: "Full-time roles for new graduates" },
   { value: "co_op", label: "Co-op", description: "Multi-term cooperative programs" },
+  { value: "associate", label: "Associate", description: "Early-career full-time roles beyond new grad" },
   { value: "part_time", label: "Part-time", description: "Part-time roles during school" },
+] as const;
+
+export const TARGET_TERM_OPTIONS = [
+  { value: "spring", label: "Spring" },
+  { value: "summer", label: "Summer" },
+  { value: "fall", label: "Fall" },
+  { value: "winter", label: "Winter" },
+  { value: "any", label: "Any term" },
 ] as const;
 
 export const POPULAR_CITIES = [
