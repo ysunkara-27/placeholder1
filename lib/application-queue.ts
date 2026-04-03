@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hashFingerprint } from "@/lib/request-controls";
 import {
   fetchApplySubmit,
   parseApplyPlanRequest,
@@ -17,7 +18,8 @@ export type QueueDisposition =
   | "queued"
   | "already_queued"
   | "already_running"
-  | "already_submitted";
+  | "already_submitted"
+  | "cooldown_active";
 
 export interface QueueApplicationResult {
   application: ApplicationRow;
@@ -40,6 +42,8 @@ interface QueueApplicationInput {
   requestPayload: ApplyPlanRequest;
 }
 
+const RECENT_REQUEUE_COOLDOWN_MS = 10 * 60 * 1000;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -50,12 +54,14 @@ function extractConfirmationText(result: ApplyEngineResponse): string | null {
 }
 
 function buildQueuedApplicationUpdate(
-  input: QueueApplicationInput
+  input: QueueApplicationInput,
+  requestFingerprint: string
 ): ApplicationInsert | ApplicationUpdate {
   return {
     user_id: input.userId,
     job_id: input.jobId,
     status: "queued",
+    request_fingerprint: requestFingerprint,
     request_payload: input.requestPayload as Json,
     confirmation_text: null,
     last_error: null,
@@ -151,6 +157,11 @@ export async function queueApplication(
   supabase: SupabaseClient<Database>,
   input: QueueApplicationInput
 ): Promise<QueueApplicationResult> {
+  const requestFingerprint = hashFingerprint({
+    url: input.requestPayload.url,
+    profile: input.requestPayload.profile,
+    runtime_hints: input.requestPayload.runtime_hints,
+  });
   const existing = await supabase
     .from("applications")
     .select("*")
@@ -167,6 +178,18 @@ export async function queueApplication(
   const portal = detectPortalFromUrl(input.requestPayload.url);
 
   if (existing.data) {
+    if (
+      existing.data.request_fingerprint === requestFingerprint &&
+      (existing.data.status === "failed" || existing.data.status === "requires_auth") &&
+      Date.now() - new Date(existing.data.updated_at).getTime() < RECENT_REQUEUE_COOLDOWN_MS
+    ) {
+      return {
+        application: existing.data,
+        disposition: "cooldown_active",
+        portal,
+      };
+    }
+
     if (existing.data.status === "queued") {
       return {
         application: existing.data,
@@ -193,7 +216,7 @@ export async function queueApplication(
 
     const updated = await supabase
       .from("applications")
-      .update(buildQueuedApplicationUpdate(input))
+      .update(buildQueuedApplicationUpdate(input, requestFingerprint))
       .eq("id", existing.data.id)
       .select("*")
       .single();
@@ -211,7 +234,7 @@ export async function queueApplication(
 
   const inserted = await supabase
     .from("applications")
-    .insert(buildQueuedApplicationUpdate(input) as ApplicationInsert)
+    .insert(buildQueuedApplicationUpdate(input, requestFingerprint) as ApplicationInsert)
     .select("*")
     .single();
 
@@ -243,24 +266,10 @@ export async function claimNextQueuedApplication(
   return data?.[0] ?? null;
 }
 
-export async function processNextQueuedApplication(
+async function processClaimedApplication(
   supabase: SupabaseClient<Database>,
-  workerId: string,
-  userId?: string
+  claimed: ApplicationRow
 ): Promise<ProcessQueueResult> {
-  const claimed = await claimNextQueuedApplication(supabase, workerId, userId);
-
-  if (!claimed) {
-    return {
-      processed: false,
-      application: null,
-      runId: null,
-      portal: null,
-      status: null,
-      error: null,
-    };
-  }
-
   let runId: string | null = null;
 
   try {
@@ -340,4 +349,124 @@ export async function processNextQueuedApplication(
       error: message,
     };
   }
+}
+
+export async function processApplicationById(
+  supabase: SupabaseClient<Database>,
+  workerId: string,
+  applicationId: string,
+  userId: string
+): Promise<ProcessQueueResult> {
+  const existing = await supabase
+    .from("applications")
+    .select("*")
+    .eq("id", applicationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existing.error) {
+    throw existing.error;
+  }
+
+  if (!existing.data) {
+    return {
+      processed: false,
+      application: null,
+      runId: null,
+      portal: null,
+      status: null,
+      error: "Application not found",
+    };
+  }
+
+  if (existing.data.status === "running") {
+    return {
+      processed: false,
+      application: existing.data,
+      runId: null,
+      portal: detectPortalFromUrl(
+        existing.data.request_payload &&
+          typeof existing.data.request_payload === "object" &&
+          "url" in existing.data.request_payload
+          ? normalizeUnknownUrl(existing.data.request_payload.url)
+          : ""
+      ),
+      status: existing.data.status,
+      error: "Application is already running",
+    };
+  }
+
+  if (existing.data.status !== "queued") {
+    return {
+      processed: false,
+      application: existing.data,
+      runId: null,
+      portal: detectPortalFromUrl(
+        existing.data.request_payload &&
+          typeof existing.data.request_payload === "object" &&
+          "url" in existing.data.request_payload
+          ? normalizeUnknownUrl(existing.data.request_payload.url)
+          : ""
+      ),
+      status: existing.data.status,
+      error: `Application is ${existing.data.status}, not queued`,
+    };
+  }
+
+  const claimed = await supabase
+    .from("applications")
+    .update({
+      status: "running",
+      worker_id: workerId,
+      started_at: nowIso(),
+      last_error: null,
+    })
+    .eq("id", applicationId)
+    .eq("user_id", userId)
+    .eq("status", "queued")
+    .select("*")
+    .maybeSingle();
+
+  if (claimed.error) {
+    throw claimed.error;
+  }
+
+  if (!claimed.data) {
+    return {
+      processed: false,
+      application: existing.data,
+      runId: null,
+      portal: detectPortalFromUrl(
+        existing.data.request_payload &&
+          typeof existing.data.request_payload === "object" &&
+          "url" in existing.data.request_payload
+          ? normalizeUnknownUrl(existing.data.request_payload.url)
+          : ""
+      ),
+      status: existing.data.status,
+      error: "Application could not be claimed for processing",
+    };
+  }
+
+  return processClaimedApplication(supabase, claimed.data);
+}
+
+export async function processNextQueuedApplication(
+  supabase: SupabaseClient<Database>,
+  workerId: string,
+  userId?: string
+): Promise<ProcessQueueResult> {
+  const claimed = await claimNextQueuedApplication(supabase, workerId, userId);
+
+  if (!claimed) {
+    return {
+      processed: false,
+      application: null,
+      runId: null,
+      portal: null,
+      status: null,
+      error: null,
+    };
+  }
+  return processClaimedApplication(supabase, claimed);
 }

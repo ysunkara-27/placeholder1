@@ -88,13 +88,10 @@ export function parseProspectiveListReply(
 
 export function formatProspectiveListHelpSms(): string {
   return [
-    "Reply commands for today's Twin list:",
+    "Twin SMS is updates-only.",
     "",
-    "1) Reply `APPLY ALL` (or `YES`) to apply to everything.",
-    "2) Reply `SKIP ALL` (or `NO`) to skip everything.",
-    "3) Reply `SKIP 2` (or just `2`) to skip a specific number.",
-    "   You can also do `SKIP 1,3`.",
-    "4) Reply `STOP` to pause SMS alerts.",
+    "Open your dashboard to review jobs and manage queueing.",
+    "Reply `STOP` to pause SMS alerts.",
   ].join("\n");
 }
 
@@ -234,7 +231,8 @@ export function formatProspectiveListSms(opts: {
   const lines: string[] = [];
   lines.push(`Twin daily shortlist (${opts.digestDateLabel}).`);
   lines.push("");
-  lines.push("Reply to confirm or skip:");
+  lines.push("Twin SMS is updates-only.");
+  lines.push("Review and queue applications from your dashboard.");
   lines.push("");
 
   for (const it of opts.items.slice(0, 10)) {
@@ -245,12 +243,7 @@ export function formatProspectiveListSms(opts: {
   }
 
   lines.push("");
-  lines.push("Commands:");
-  lines.push("- Reply `APPLY ALL` (or `YES`) to apply to everything.");
-  lines.push("- Reply `SKIP ALL` (or `NO`) to skip everything.");
-  lines.push("- Reply `SKIP 2` (or `2`) to skip a number.");
-  lines.push("- Reply `HELP` for options.");
-  lines.push("- Reply `STOP` to pause SMS.");
+  lines.push("Reply `STOP` to pause SMS.");
 
   return lines.join("\n").slice(0, 1200);
 }
@@ -287,4 +280,3 @@ export function rankProspectiveJobs(profile: ProfileRow, jobs: JobRow[], maxItem
 
   return scored.slice(0, maxItems);
 }
-

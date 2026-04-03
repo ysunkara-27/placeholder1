@@ -3,6 +3,11 @@ import { fetchApplyPlan, parseApplyPlanRequest } from "@/lib/apply-engine";
 import { listRecentApplyRunHistorySignals, persistApplyRun } from "@/lib/apply-runs";
 import { ensureJobForApplicationUrl } from "@/lib/jobs";
 import { buildUrlApplyReadinessSummary } from "@/lib/platform/apply-readiness";
+import {
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRequestIp,
+} from "@/lib/request-controls";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -24,6 +29,25 @@ function buildRuntimeHints(
 
 export async function POST(req: NextRequest) {
   try {
+    const adminSupabase = getSupabaseAdminClient();
+    const serverSupabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await serverSupabase.auth.getUser();
+    const rateLimit = await consumeRateLimit(adminSupabase, {
+      scope: "apply_plan",
+      subject: user?.id ? `user:${user.id}` : `ip:${getRequestIp(req)}`,
+      windowSeconds: 60,
+      limit: user?.id ? 20 : 8,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded for apply planning" },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await req.json();
     const payload = parseApplyPlanRequest(body);
     let readiness = buildUrlApplyReadinessSummary(payload.profile, payload.url);
@@ -31,13 +55,8 @@ export async function POST(req: NextRequest) {
     let runId: string | null = null;
 
     try {
-      const supabase = await getSupabaseServerClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       if (user?.id) {
-        const history = await listRecentApplyRunHistorySignals(supabase, user.id);
+        const history = await listRecentApplyRunHistorySignals(serverSupabase, user.id);
         readiness = buildUrlApplyReadinessSummary(payload.profile, payload.url, history);
         const runtimeHints = buildRuntimeHints(readiness);
         const job = await ensureJobForApplicationUrl(
@@ -49,7 +68,7 @@ export async function POST(req: NextRequest) {
           runtime_hints: runtimeHints,
         };
         const result = await fetchApplyPlan(enginePayload);
-        const record = await persistApplyRun(supabase, {
+        const record = await persistApplyRun(serverSupabase, {
           userId: user.id,
           jobId: job?.id ?? null,
           mode: "plan",

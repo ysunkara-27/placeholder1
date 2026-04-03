@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  applyProspectiveListCommand,
-  findActiveProspectiveList,
-  formatProspectiveListHelpSms,
-  getProspectiveListItems,
   getSupabaseAdminClientUntyped,
-  parseProspectiveListReply,
 } from "@/lib/prospective-lists";
 import {
   normalizeReplyText,
@@ -15,18 +10,10 @@ import {
 } from "@/lib/messaging/reply";
 import {
   findProfileByPhone,
-  findLatestPendingAlert,
-  confirmAlert,
-  skipAlert,
   expireAlertsForUser,
 } from "@/lib/alerts";
-import { queueApplication } from "@/lib/application-queue";
-import {
-  getDailyFollowupItemsForUser,
-  storeFollowupAnswersForUser,
-} from "@/lib/followups";
-import { mapProfileRowToPersistedProfile } from "@/lib/platform/profile";
-import { mapPersistedProfileToApplicantDraft } from "@/lib/platform/applicant";
+import { getDailyFollowupItemsForUser, storeFollowupAnswersForUser } from "@/lib/followups";
+import { buildRateLimitHeaders, consumeRateLimit } from "@/lib/request-controls";
 
 // POST /api/messaging/reply
 //
@@ -37,12 +24,11 @@ import { mapPersistedProfileToApplicantDraft } from "@/lib/platform/applicant";
 //
 // The route:
 // 1. Extracts From + message text from form data
-// 2. Normalizes the reply to confirm / skip / stop / unknown
+// 2. Normalizes the reply to stop / unknown
 // 3. Looks up the user by phone number
-// 4. On confirm → marks latest pending alert confirmed, queues application
-// 5. On skip    → marks alert skipped
-// 6. On stop    → opts user out, expires pending alerts
-// 7. Returns 200 (Plivo: empty body, Twilio: TwiML <Response/>)
+// 4. On stop    → opts user out, expires pending alerts
+// 5. Non-stop replies are informational only; SMS no longer confirms/queues applications
+// 6. Returns 200 (Plivo: empty body, Twilio: TwiML <Response/>)
 
 function twiml(body: string): NextResponse {
   return new NextResponse(`<Response>${body}</Response>`, {
@@ -83,6 +69,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const supabase = getSupabaseAdminClient();
   const untypedSupabase = getSupabaseAdminClientUntyped();
+
+  const rateLimit = await consumeRateLimit(supabase, {
+    scope: "messaging_reply",
+    subject: `phone:${fromPhone}`,
+    windowSeconds: 300,
+    limit: 12,
+  }).catch(() => null);
+
+  if (rateLimit && !rateLimit.allowed) {
+    return provider === "twilio"
+      ? new NextResponse("<Response></Response>", {
+          status: 429,
+          headers: {
+            "Content-Type": "text/xml",
+            ...buildRateLimitHeaders(rateLimit),
+          },
+        })
+      : NextResponse.json(
+          { error: "Rate limit exceeded for inbound messaging" },
+          { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+        );
+  }
 
   const profile = await findProfileByPhone(supabase, fromPhone).catch(() => null);
 
@@ -127,62 +135,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return emptyOk();
   }
 
-  // Digest/prospective list mode: handle SKIP/APPLY/HELP commands when a list is active.
-  const activeList = await findActiveProspectiveList(
-    untypedSupabase,
-    profile.id,
-    new Date().toISOString()
-  ).catch(() => null);
-
-  if (activeList) {
-    const items = await getProspectiveListItems(untypedSupabase, activeList.id).catch(
-      () => []
-    );
-
-    const parsed = parseProspectiveListReply(rawText);
-    const command = parsed.command;
-
-    if (command?.kind === "help") {
-      if (provider === "twilio") {
-        return twiml(`<Message>${formatProspectiveListHelpSms().replace(/</g, "&lt;")}</Message>`);
-      }
-      return emptyOk();
-    }
-
-    if (command?.kind === "apply_all") {
-      await applyProspectiveListCommand(untypedSupabase, activeList.id, command);
-      if (provider === "twilio") {
-        return twiml("<Message>Got it! We'll apply your selected list at cutoff.</Message>");
-      }
-      return emptyOk();
-    }
-
-    if (command?.kind === "skip_all") {
-      await applyProspectiveListCommand(untypedSupabase, activeList.id, command);
-      if (provider === "twilio") {
-        return twiml("<Message>Okay — we'll skip everything on your list today.</Message>");
-      }
-      return emptyOk();
-    }
-
-    if (command?.kind === "skip_indices") {
-      const maxRank = items.length;
-      const cleaned = command.indices.filter((n) => n >= 1 && n <= maxRank);
-      if (cleaned.length > 0) {
-        await applyProspectiveListCommand(untypedSupabase, activeList.id, {
-          kind: "skip_indices",
-          indices: cleaned,
-        });
-        if (provider === "twilio") {
-          return twiml("<Message>Saved. We'll apply the rest at cutoff.</Message>");
-        }
-        return emptyOk();
-      }
-    }
-
-    // If we had an active list but didn't recognize the command, fall through to follow-up handling.
-  }
-
   if (action === "unknown") {
     const followupItems = await getDailyFollowupItemsForUser(
       supabase,
@@ -210,60 +162,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const alert = await findLatestPendingAlert(supabase, profile.id).catch(() => null);
-
-  if (!alert) {
-    return provider === "twilio" ? twiml("") : emptyOk();
-  }
-
-  if (action === "confirm") {
-    await confirmAlert(supabase, alert.id).catch(() => null);
-
-    // Fetch job to build request payload
-    const { data: job } = await supabase
-      .from("jobs")
-      .select("*")
-      .eq("id", alert.job_id)
-      .single();
-
-    if (job) {
-      const persistedProfile = mapProfileRowToPersistedProfile(profile);
-      const applicantDraft = mapPersistedProfileToApplicantDraft(persistedProfile, profile.email ?? "");
-
-      await queueApplication(supabase, {
-        userId: profile.id,
-        jobId: job.id,
-        requestPayload: {
-          url: job.application_url,
-          profile: applicantDraft,
-          runtime_hints: {
-            historical_blocked_families: [],
-          },
-        },
-      }).catch((err) => {
-        console.error("[messaging/reply][queue-application]", err);
-      });
-    }
-
-    if (provider === "twilio") {
-      return twiml("<Message>Got it! Your Twin is on it.</Message>");
-    }
-    return emptyOk();
-  }
-
-  if (action === "skip") {
-    await skipAlert(supabase, alert.id).catch(() => null);
-
-    if (provider === "twilio") {
-      return twiml("<Message>Skipped. We'll keep looking.</Message>");
-    }
-    return emptyOk();
-  }
-
   // unknown reply
   if (provider === "twilio") {
     return twiml(
-      "<Message>Reply YES to apply, NO to skip, or STOP to pause alerts.</Message>"
+      "<Message>Twin SMS is updates-only. Open your dashboard to manage applications, or reply STOP to pause alerts.</Message>"
     );
   }
   return emptyOk();

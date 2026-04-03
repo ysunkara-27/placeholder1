@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApplyQueueEnv } from "@/lib/env";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendAlertSms } from "@/lib/alerts";
+import { buildRateLimitHeaders, consumeRateLimit } from "@/lib/request-controls";
 
 // POST /api/messaging/send-alert
 // Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET
@@ -12,6 +13,7 @@ import { sendAlertSms } from "@/lib/alerts";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const { workerSecret } = getApplyQueueEnv();
+  const supabase = getSupabaseAdminClient();
 
   if (workerSecret) {
     const auth = req.headers.get("authorization") ?? "";
@@ -34,7 +36,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdminClient();
+  const rateLimit = await consumeRateLimit(supabase, {
+    scope: "send_alert_sms",
+    subject: `alert:${alertId}`,
+    windowSeconds: 3600,
+    limit: 1,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Alert SMS already attempted in the current window" },
+      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+    );
+  }
+
   const result = await sendAlertSms(supabase, alertId);
 
   if (!result.sent) {

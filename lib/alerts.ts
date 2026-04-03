@@ -22,12 +22,13 @@ export function formatAlertMessage(job: JobRow): string {
   const location = job.remote ? `${job.location} / Remote` : job.location;
 
   return [
-    `Twin found a match:`,
+    `Twin update: new match`,
     ``,
     `${job.company} — ${job.title}`,
     `${location} | ${level}`,
     ``,
-    `Reply YES to apply, NO to skip.`,
+    `Open the posting: ${job.application_url}`,
+    `Manage queueing from your dashboard.`,
     `Reply STOP to pause alerts.`,
   ].join("\n");
 }
@@ -85,6 +86,18 @@ export async function sendAlertSms(
     return { sent: false, error: `Alert is ${alert.status}, not pending` };
   }
 
+  const existingMessageId =
+    alert.metadata &&
+    typeof alert.metadata === "object" &&
+    "message_id" in alert.metadata &&
+    typeof alert.metadata.message_id === "string"
+      ? alert.metadata.message_id
+      : null;
+
+  if (existingMessageId) {
+    return { sent: false, error: "Alert SMS already sent" };
+  }
+
   const { data: job, error: jobError } = await supabase
     .from("jobs")
     .select("*")
@@ -119,36 +132,13 @@ export async function sendAlertSms(
   await supabase
     .from("alerts")
     .update({
+      status: "sent",
       response_channel: "sms",
       metadata: { message_id: result.messageId ?? null } as Database["public"]["Tables"]["alerts"]["Update"]["metadata"],
     })
     .eq("id", alertId);
 
   return { sent: true };
-}
-
-export async function confirmAlert(
-  supabase: SupabaseClient<Database>,
-  alertId: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("alerts")
-    .update({ status: "confirmed", replied_at: nowIso() })
-    .eq("id", alertId);
-
-  if (error) throw error;
-}
-
-export async function skipAlert(
-  supabase: SupabaseClient<Database>,
-  alertId: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("alerts")
-    .update({ status: "skipped", replied_at: nowIso() })
-    .eq("id", alertId);
-
-  if (error) throw error;
 }
 
 export async function expireAlertsForUser(
@@ -160,24 +150,6 @@ export async function expireAlertsForUser(
     .update({ status: "expired" })
     .eq("user_id", userId)
     .eq("status", "pending");
-}
-
-export async function findLatestPendingAlert(
-  supabase: SupabaseClient<Database>,
-  userId: string
-): Promise<AlertRow | null> {
-  const { data, error } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("status", "pending")
-    .order("alerted_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  return data;
 }
 
 export async function findProfileByPhone(

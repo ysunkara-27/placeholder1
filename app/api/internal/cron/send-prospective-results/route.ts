@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApplyQueueEnv } from "@/lib/env";
+import { buildRateLimitHeaders, consumeRateLimit } from "@/lib/request-controls";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendSms } from "@/lib/messaging/send";
 import { getSupabaseAdminClientUntyped } from "@/lib/prospective-lists";
@@ -26,6 +27,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const typedSupabase = getSupabaseAdminClient();
+  const routeRateLimit = await consumeRateLimit(typedSupabase, {
+    scope: "cron_send_prospective_results",
+    subject: "worker",
+    windowSeconds: 60,
+    limit: 6,
+  });
+
+  if (!routeRateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded for prospective results sends" },
+      { status: 429, headers: buildRateLimitHeaders(routeRateLimit) }
+    );
+  }
+
   const untypedSupabase = getSupabaseAdminClientUntyped();
 
   const nowUtcIso = nowIso();
@@ -174,4 +189,3 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ sent, errors });
 }
-

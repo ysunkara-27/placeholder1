@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { selectCandidateJobsForProfile } from "@/lib/candidate-routing";
 import { getApplyQueueEnv } from "@/lib/env";
+import { buildRateLimitHeaders, consumeRateLimit } from "@/lib/request-controls";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   formatProspectiveListSms,
@@ -34,27 +36,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const typedSupabase = getSupabaseAdminClient();
+  const routeRateLimit = await consumeRateLimit(typedSupabase, {
+    scope: "cron_send_prospective_lists",
+    subject: "worker",
+    windowSeconds: 60,
+    limit: 6,
+  });
+
+  if (!routeRateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded for prospective-list sends" },
+      { status: 429, headers: buildRateLimitHeaders(routeRateLimit) }
+    );
+  }
+
   const untypedSupabase = getSupabaseAdminClientUntyped();
 
   const now = new Date();
   const nowUtcIso = now.toISOString();
 
-  // Fetch candidate jobs once per tick.
   const sinceIso = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
-  const { data: jobs, error: jobsError } = await typedSupabase
-    .from("jobs")
-    .select("*")
-    .eq("status", "active")
-    .gte("posted_at", sinceIso);
-
-  if (jobsError) {
-    return NextResponse.json({ error: jobsError.message }, { status: 500 });
-  }
 
   const { data: profiles, error: profilesError } = await typedSupabase
     .from("profiles")
     .select("*")
-    .eq("onboarding_completed", true);
+    .eq("onboarding_completed", true)
+    .eq("daily_digest_enabled", true)
+    .eq("sms_opt_in", true)
+    .not("phone", "is", null);
 
   if (profilesError) {
     return NextResponse.json({ error: profilesError.message }, { status: 500 });
@@ -137,9 +146,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       continue;
     }
 
+    const candidateJobs = await selectCandidateJobsForProfile(
+      typedSupabase,
+      { id: profile.id },
+      sinceIso
+    ).catch(() => []);
+
     const selected = rankProspectiveJobs(
       profile as any,
-      (jobs ?? []) as any,
+      candidateJobs as any,
       maxItems
     );
 
@@ -235,4 +250,3 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ sent, skipped, errors });
 }
-

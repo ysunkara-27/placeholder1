@@ -4,6 +4,11 @@ import { parseApplyPlanRequest } from "@/lib/apply-engine";
 import { listRecentApplyRunHistorySignals } from "@/lib/apply-runs";
 import { ensureJobForApplicationUrl } from "@/lib/jobs";
 import { buildUrlApplyReadinessSummary } from "@/lib/platform/apply-readiness";
+import {
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRequestIp,
+} from "@/lib/request-controls";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -36,11 +41,16 @@ function buildDispositionMessage(disposition: string) {
     return "Application was already submitted.";
   }
 
+  if (disposition === "cooldown_active") {
+    return "A recent identical apply attempt already ran. Wait before retrying.";
+  }
+
   return "Application queued for execution.";
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const adminSupabase = getSupabaseAdminClient();
     const body = await req.json();
     const payload = parseApplyPlanRequest(body);
     const supabase = await getSupabaseServerClient();
@@ -52,6 +62,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "You must be signed in to queue an application" },
         { status: 401 }
+      );
+    }
+
+    const rateLimit = await consumeRateLimit(adminSupabase, {
+      scope: "apply_submit",
+      subject: user?.id ? `user:${user.id}` : `ip:${getRequestIp(req)}`,
+      windowSeconds: 60,
+      limit: 8,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded for apply submission" },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -73,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     const job = await ensureJobForApplicationUrl(
-      getSupabaseAdminClient(),
+      adminSupabase,
       payload.url
     );
 
@@ -84,7 +108,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const queued = await queueApplication(getSupabaseAdminClient(), {
+    const queued = await queueApplication(adminSupabase, {
       userId: user.id,
       jobId: job.id,
       requestPayload: {
