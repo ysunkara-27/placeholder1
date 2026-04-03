@@ -1,6 +1,14 @@
 # Twin
 
-> Build your profile once. Get alerted when jobs drop. Apply with one reply.
+> Build your profile once. Queue real applications with truthful operator visibility.
+
+Current MVP truth:
+- strongest current apply targets are `Greenhouse` and `Lever`
+- `Workday` is partial / triaged, not at the same reliability tier yet
+- SMS flows exist in code, but production-trusted approval requires signature verification, rate limiting, and spend controls before it should be treated as fully live
+- deeper product truth and the active execution slice live in:
+  - `PLANS.md`
+  - `docs/master-planning.md`
 
 ## Setup
 
@@ -39,9 +47,20 @@ supabase/migrations/20260329220000_profile_portal_fields.sql
 supabase/migrations/20260329230000_jobs_portal_field.sql
 supabase/migrations/20260329233000_jobs_url_uniqueness.sql
 supabase/migrations/20260331140000_prospective_lists.sql
+supabase/migrations/20260401090000_digest_fixed_times.sql
+supabase/migrations/20260401120000_profile_major2_coverletter.sql
+supabase/migrations/20260401130000_profile_weekly_hours.sql
+supabase/migrations/20260402120000_job_routing_and_targeting.sql
+supabase/migrations/20260402133000_request_controls.sql
 ```
 
 This creates the platform tables: `profiles`, `jobs`, `alerts`, `applications`, `apply_runs`, plus the digest tables `prospective_lists` and `prospective_list_items`.
+The latest migration also adds:
+- canonical job identity fields
+- richer qualification targeting fields on profiles
+- job routing tags such as `role_family`, `target_term`, and `target_year`
+- SQL candidate-selection helpers used to avoid broad matching scans
+- DB-backed request rate limiting plus queue request fingerprints for idempotency
 
 **Enable Anonymous Auth** — in your Supabase dashboard go to:
 `Authentication → Providers → Anonymous` and toggle it on.
@@ -131,7 +150,8 @@ To simulate an inbound SMS reply webhook, hit:
 - `From`
 - `Body` (Twilio) or `Text` (Plivo)
 
-The webhook auto-detects “Twilio mode” if `x-twilio-signature` is present (signature verification is not enforced yet).
+The webhook auto-detects “Twilio mode” if `x-twilio-signature` is present.
+Current truth: signature verification is not enforced yet, so this path should be treated as development/operator testing until the hardening work in `PLANS.md` lands.
 Example (Twilio-shaped):
 
 ```bash
@@ -167,6 +187,19 @@ The input file must be a JSON array of job objects. Minimum shape:
   }
 ]
 ```
+
+**7b. Job reconciliation**
+
+To inspect hydration drift between DB job rows and website-ready canonical rows:
+
+```bash
+npm run reconcile:jobs
+```
+
+This reports:
+- duplicate canonical job groups
+- jobs missing routing/qualification metadata
+- canonical URL drift
 
 **8. Low-cost deployment shape**
 

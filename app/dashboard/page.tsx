@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BlockersSummary } from "@/components/dashboard/blockers-summary";
 import { FollowupsSummary } from "@/components/dashboard/followups-summary";
@@ -171,7 +172,7 @@ export default function DashboardPage() {
   const authBlockedApplications = applications.filter(
     (application) => application.status === "requires_auth"
   ).length;
-  const pendingAlerts = alerts.filter((alert) => alert.status === "pending").length;
+  const pendingAlerts = alerts.filter((alert) => alert.status === "pending" || alert.status === "sent").length;
   const matchedJobs = alerts.length;
   const latestActivityAt = [
     alerts[0]?.alerted_at,
@@ -323,8 +324,21 @@ export default function DashboardPage() {
     icon: string;
     label: string;
     sub: string;
+    eta: string | null;
     tone: "green" | "amber" | "red" | "blue" | "gray";
+    postingUrl?: string | null;
+    reviewHref?: string | null;
+    reviewLabel?: string | null;
   };
+
+  function estimateApplicationEta(status: string) {
+    if (status === "queued") return "~5-15 min remaining";
+    if (status === "running") return "~1-5 min remaining";
+    if (status === "requires_auth") return "Needs your input";
+    if (status === "failed") return "Blocked until fixed";
+    if (status === "applied") return "Completed";
+    return null;
+  }
 
   const activityFeed: FeedItem[] = [
     ...alerts.slice(0, 5).map((a) => ({
@@ -338,7 +352,11 @@ export default function DashboardPage() {
           ? `Skipped — ${a.job?.title ?? ""}`
           : `Match found — ${a.job?.title ?? "Unknown"} @ ${a.job?.company ?? ""}`,
       sub: a.job?.company ?? "",
-      tone: (a.status === "applied" ? "green" : a.status === "pending" ? "amber" : "gray") as FeedItem["tone"],
+      eta: a.status === "pending" || a.status === "sent" ? "Ready for review" : null,
+      tone: (a.status === "applied" ? "green" : a.status === "pending" || a.status === "sent" ? "amber" : "gray") as FeedItem["tone"],
+      postingUrl: a.job?.application_url ?? null,
+      reviewHref: "#applications",
+      reviewLabel: "Open queue review",
     })),
     ...applications.slice(0, 5).map((ap) => ({
       id: `app-${ap.id}`,
@@ -363,7 +381,8 @@ export default function DashboardPage() {
           : ap.status === "running"
           ? `Applying — ${ap.job?.title ?? ""}`
           : `Queued — ${ap.job?.title ?? ""}`,
-      sub: ap.job?.company ?? "",
+      sub: `${ap.job?.company ?? ""}${ap.last_error ? ` · ${ap.last_error.slice(0, 60)}` : ""}`,
+      eta: estimateApplicationEta(ap.status),
       tone: (
         ap.status === "applied"
           ? "green"
@@ -373,6 +392,12 @@ export default function DashboardPage() {
           ? "blue"
           : "gray"
       ) as FeedItem["tone"],
+      postingUrl: ap.job?.url ?? null,
+      reviewHref: "#applications",
+      reviewLabel:
+        ap.status === "queued" || ap.status === "running" || ap.status === "failed" || ap.status === "requires_auth"
+          ? "Open verification"
+          : "Open applications",
     })),
   ]
     .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
@@ -529,7 +554,34 @@ export default function DashboardPage() {
               <div key={item.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
                 <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{item.label}</p>
+                  <p className="text-sm text-gray-800">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">{item.sub}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {item.eta && (
+                      <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                        {item.eta}
+                      </span>
+                    )}
+                    {item.reviewHref && item.reviewLabel && (
+                      <a
+                        href={item.reviewHref}
+                        className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                      >
+                        {item.reviewLabel}
+                      </a>
+                    )}
+                    {item.postingUrl && (
+                      <a
+                        href={item.postingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                      >
+                        Open posting
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
                   {formatShortDateTime(item.ts)}
@@ -610,7 +662,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Job alerts</h2>
               <p className="mt-0.5 text-xs text-gray-400">
-                Matches your Twin found. Reply YES via SMS or click to apply.
+                Matches your Twin found. SMS now sends updates only; queue applications from the dashboard.
               </p>
             </div>
           </div>
@@ -618,7 +670,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Applications */}
-        <div className="space-y-3">
+        <div id="applications" className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">
               Recent applications
@@ -731,6 +783,7 @@ function SettingRow({ label, value }: { label: string; value: string }) {
 
 const STATUS_STYLES: Record<string, string> = {
   pending:   "bg-amber-50 text-amber-700 border-amber-200",
+  sent:      "bg-sky-50 text-sky-700 border-sky-200",
   confirmed: "bg-indigo-50 text-indigo-700 border-indigo-200",
   skipped:   "bg-gray-100 text-gray-500 border-gray-200",
   expired:   "bg-gray-100 text-gray-400 border-gray-200",
@@ -782,7 +835,7 @@ function AlertsList({ alerts }: { alerts: AlertRecord[] }) {
               })}
             </p>
           </div>
-          {alert.job?.application_url && alert.status === "pending" && (
+          {alert.job?.application_url && (alert.status === "pending" || alert.status === "sent") && (
             <a
               href={alert.job.application_url}
               target="_blank"

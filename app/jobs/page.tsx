@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { INDUSTRY_OPTIONS, LEVEL_OPTIONS, formatPostedAt } from "@/lib/utils";
 import type { JobWithMatch } from "@/app/api/jobs/browse/route";
 
@@ -20,6 +21,21 @@ export default function JobsPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const LIMIT = 30;
 
+  function isPersistedQueuedStatus(status: string | null | undefined) {
+    return Boolean(
+      status &&
+      ["queued", "running", "applied", "requires_auth"].includes(status)
+    );
+  }
+
+  function queueLabelForStatus(status: string | null | undefined) {
+    if (status === "applied") return "Applied ✓";
+    if (status === "running") return "Running…";
+    if (status === "requires_auth") return "Needs Action";
+    if (status === "queued") return "Queued ✓";
+    return "Queue it";
+  }
+
   const fetchJobs = useCallback(async (currentOffset: number, append: boolean) => {
     setLoading(true);
     try {
@@ -35,8 +51,24 @@ export default function JobsPage() {
       if (!res.ok) throw new Error("Failed to fetch jobs");
       const data = await res.json();
 
-      setJobs((prev) => append ? [...prev, ...(data.jobs ?? [])] : (data.jobs ?? []));
+      const fetchedJobs = data.jobs ?? [];
+      const persistedQueuedIds = fetchedJobs
+        .filter((job: JobWithMatch) => isPersistedQueuedStatus(job.application_status))
+        .map((job: JobWithMatch) => job.id);
+
+      setJobs((prev) => append ? [...prev, ...fetchedJobs] : fetchedJobs);
       setTotal(data.total ?? 0);
+      setQueued((prev) => {
+        if (!append) {
+          return new Set(persistedQueuedIds);
+        }
+
+        const next = new Set(prev);
+        for (const jobId of persistedQueuedIds) {
+          next.add(jobId);
+        }
+        return next;
+      });
     } catch {
       // silently fail — user sees empty state
     } finally {
@@ -222,7 +254,7 @@ export default function JobsPage() {
         {jobs.length > 0 && (
           <div className="grid gap-3 sm:grid-cols-2">
             {jobs.map((job) => {
-              const isQueued = queued.has(job.id);
+              const isQueued = queued.has(job.id) || isPersistedQueuedStatus(job.application_status);
               const isQueueing = queueing === job.id;
               const score = job.match.score;
               const isAutoMatch = score >= 75;
@@ -273,20 +305,31 @@ export default function JobsPage() {
                   {/* Bottom row: date + queue button */}
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-[11px] text-gray-400">{formatPostedAt(job.posted_at)}</span>
-                    <button
-                      type="button"
-                      disabled={isQueued || isQueueing}
-                      onClick={() => handleQueue(job.id)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
-                        isQueued
-                          ? "text-green-600 border-green-200 bg-green-50 cursor-default"
-                          : isQueueing
-                          ? "text-indigo-400 border-indigo-100 bg-white cursor-not-allowed"
-                          : "text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                      }`}
-                    >
-                      {isQueued ? "Queued ✓" : isQueueing ? "Queuing…" : "Queue it"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={job.application_url || job.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                      >
+                        Posting
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <button
+                        type="button"
+                        disabled={isQueued || isQueueing}
+                        onClick={() => handleQueue(job.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                          isQueued
+                            ? "text-green-600 border-green-200 bg-green-50 cursor-default"
+                            : isQueueing
+                            ? "text-indigo-400 border-indigo-100 bg-white cursor-not-allowed"
+                            : "text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                        }`}
+                      >
+                        {isQueueing ? "Queuing…" : queueLabelForStatus(job.application_status)}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

@@ -11,7 +11,7 @@ const ramboia = localFont({
 export const metadata: Metadata = {
   title: "Twin — Your application agent for internship season.",
   description:
-    "Build your profile once. Get alerted when jobs drop. Apply with one reply.",
+    "Build your profile once. Get text updates when jobs drop. Queue applications from your dashboard.",
 };
 
 export default function RootLayout({

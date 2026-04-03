@@ -55,7 +55,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 
 - No production job ingestion pipeline yet
 - No real matching engine yet
-- No live alerting or inbound SMS reply loop yet
+- Live messaging code exists, but trusted production SMS approval is not complete until signature verification, rate limiting, and spend controls are enforced
 - Inbound follow-up answers now parse from SMS and persist onto the profile, but still need repeated live validation against real blocked applications
 - No queue worker / scheduler / retry pipeline yet
 - No Workday or Handshake real agent yet
@@ -63,6 +63,8 @@ As of this update, the repo already has meaningful platform scaffolding.
 - No screenshot persistence or replay tooling yet
 - No billing, plan caps, or Stripe
 - Dashboard still overstates some platform readiness relative to backend reality
+- Job ingestion, dedupe, and website hydration are not yet unified behind one canonical job-normalization contract
+- Profile targeting is still too coarse to express `Spring 2027 Internship` vs `Summer 2027 Internship` vs `New Grad 2027` vs `Associate`
 
 ### Immediate Production Priorities
 
@@ -70,6 +72,10 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Keep scraper ingest config compatible with both app env names and standalone env names
 - Finish auth/account durability after onboarding
 - Replace remaining dashboard placeholders with DB-backed truth
+- Align all queue-entry paths behind one readiness/idempotency contract
+- Add rate limiting, inbound-message verification, and provider spend controls before broadening SMS-driven apply flows
+- Reconcile canonical job hydration across API ingest, direct Supabase ingest, and website browse surfaces
+- Expand qualification tagging so matching can target term/year/family without brute-force scans
 
 ### Research Input Status
 
@@ -92,6 +98,13 @@ Twin should let a student:
 6. submit through major ATS portals
 7. track success, failures, manual blockers, and follow-up actions
 
+Twin should also understand real early-career recruiting distinctions:
+
+- seasonal internships such as `Spring 2027`, `Summer 2027`, `Fall 2027`
+- co-op terms
+- `New Grad / Fresh Grad`
+- `Associate` early-career roles
+
 ## Product Principles
 
 - Deterministic first: hardcode known ATS flows before using AI.
@@ -100,6 +113,8 @@ Twin should let a student:
 - Full auditability: every apply attempt needs inputs, actions, outputs, and failure clues.
 - Safety before autonomy: hard stops must exist for auth walls, validation blockers, and ambiguous questions.
 - Replace guesswork with normalized fields: profile data and screening questions need stable internal keys.
+- Tag once, match many: jobs should be normalized and tagged at ingest time so later matching does not recompute basic classification for every user.
+- Route before scoring: use cheap coarse filtering to shrink the candidate set before expensive scoring, provider sends, or apply work.
 
 ## Architecture Direction
 
@@ -125,6 +140,10 @@ Twin should let a student:
 - `alerts`
 - `applications`
 - `apply_runs`
+- future routing helpers:
+  - normalized qualification selectors
+  - candidate-selection SQL functions or routing tables
+  - job reconciliation outputs
 
 ### Core Service Boundaries
 
@@ -158,13 +177,128 @@ Twin should be developed across these workstreams in parallel but shipped in the
 1. Platform truth
 2. Dashboard truth
 3. Job intake and normalization
-4. Matching and alerting
-5. Messaging and approvals
+4. Qualification targeting and routing
+5. Matching and alerting
+6. Messaging and approvals
 6. Apply engine MVP
 7. Portal expansion
 8. Answer system and document assets
 9. Safety, observability, and operations
 10. Billing and packaging
+
+## Qualification Targeting Model
+
+The current `levels` model is too coarse for the recruiting flows Twin is trying to support.
+
+### Normalized job/profile targeting fields
+
+Twin should normalize both jobs and user intent into:
+
+- `role_family`
+  - `internship`
+  - `co_op`
+  - `new_grad`
+  - `associate`
+  - `part_time`
+- `target_term`
+  - `spring`
+  - `summer`
+  - `fall`
+  - `winter`
+  - `any`
+- `target_year`
+  - recruiting year such as `2027`
+- `experience_band`
+  - `student`
+  - `new_grad`
+  - `early_career`
+
+### Profile truth to capture
+
+Profiles should evolve to store:
+
+- compatibility field: `levels`
+- richer targeting fields:
+  - `target_role_families`
+  - `target_terms`
+  - `target_years`
+  - `graduation_year`
+  - `graduation_term`
+  - `earliest_start_date`
+  - `weekly_availability_hours`
+
+### Job truth to capture at ingest time
+
+Jobs should be tagged immediately with:
+
+- `industries`
+- `role_family`
+- `target_term`
+- `target_year`
+- `experience_band`
+- `portal_support_tier`
+- canonical source and application URLs
+
+These tags should not be deferred to browse-time scoring.
+
+## Matching Architecture Direction
+
+The current brute-force scan pattern is not acceptable for scale, latency, or message spend.
+
+### Required target architecture
+
+Matching should happen in two stages:
+
+1. `candidate selection`
+   - cheap filtering by:
+     - industry
+     - role family
+     - target term
+     - target year
+     - remote/location coarse filters
+2. `candidate scoring`
+   - run `matchJobToProfile` only on the reduced candidate set
+
+### Recommended implementation shape
+
+- maintain normalized selectors on both jobs and profiles
+- add a SQL function such as `public.select_candidate_profiles_for_job(...)`
+- optionally add a routing table/materialized selector layer keyed by:
+  - `industry`
+  - `role_family`
+  - `target_term`
+  - `target_year`
+- make both instant alerts and digest ranking use the same candidate-selection layer
+
+### Rules
+
+- no full-profile scans in normal ingest flow
+- no separate matching architecture for digest versus alerting
+- no provider send path should run before candidate reduction and confidence gating
+
+## Job Hydration Truth
+
+Twin currently has multiple job-ingest paths and they must converge on one canonical contract.
+
+### Known risk
+
+- API ingest and direct Supabase ingest do not currently share one exact canonicalization implementation
+- this can create duplicate or divergent rows based on URL shape, timestamps, or metadata shape
+- the website then reflects whichever row happens to be canonical/current
+
+### Required fix direction
+
+- one shared canonical URL implementation for all ingest paths
+- one canonical job identity contract:
+  - source URL
+  - application URL
+  - provider/source
+  - external key if available
+- a reconciliation path for old rows:
+  - duplicates
+  - stale active rows
+  - missing normalized tags
+  - inconsistent `posted_at`
 
 ## Phase Plan
 
@@ -465,11 +599,15 @@ Deliverables:
 - cover letter strategy only when required
 - resume PDF generation/verification before submit
 - short-answer library for recurring prompts
+- future deterministic resume-variant pipeline built from a reusable experience vault
+- future opt-in graduation-year-flex targeting for students whose recruiting window legitimately spans adjacent years
 
 Open items:
 
 - no real cover-letter/document generation pipeline yet
 - current answer system is field-level, not prompt-level
+- no per-job tailored resume artifact is generated today; current apply execution still uploads the single stored PDF
+- no policy layer exists yet for opt-in graduation-year-flex resume variants
 
 Exit criteria:
 
@@ -499,6 +637,10 @@ Deliverables:
 - admin replay tools
 - queue visibility
 - rate limiting
+- inbound provider verification
+- queue idempotency
+- provider spend telemetry
+- expensive-route throttling
 
 Exit criteria:
 
@@ -511,6 +653,103 @@ Required tests:
 - duplicate suppression tests
 - failure persistence tests
 - provider outage behavior
+- webhook signature verification tests
+- rate-limit coverage for queue/plan/submit/message routes
+- provider dedupe and spend-metadata tests
+
+## 2026-04-02 Product Gap Closure Direction
+
+This section is now the cross-cutting source of truth for closing the current product-design gaps.
+
+### Gaps being actively closed
+
+1. public product claims exceed backend truth
+2. queue entry is inconsistent across UI and messaging paths
+3. operator evidence is too shallow for fast triage
+4. portal support breadth is presented too broadly
+5. active docs drift from actual operating truth
+6. job hydration can drift between DB truth and website browse truth
+7. qualification targeting is too coarse for real early-career recruiting windows
+8. matching does broad scans instead of candidate routing first
+
+### Non-negotiable execution rules for this closure work
+
+- no public copy may imply live capability without code, persistence, and an operator/debug path
+- Greenhouse and Lever remain the only current live MVP targets
+- Workday is operationally useful only as `partial / triaged`
+- Ashby, Handshake, and vision fallback are not default MVP queue targets
+- Twilio, Plivo, Anthropic, and Yutori are budgeted dependencies and must not be treated as free ambient services
+
+### Required controls before SMS-driven approval can be called live
+
+- verify inbound Twilio signatures
+- rate limit inbound reply processing
+- dedupe queue creation caused by replies
+- shorten templates and prefer digest/in-app delivery where possible
+- track provider, segment count, and estimated cost on sends
+
+Current product direction:
+
+- Twilio should be treated as an updates/status channel, not a confirmation channel
+- queueing and approval should happen in-product unless a later phase explicitly reintroduces SMS actions with hardened verification and spend controls
+
+### Required controls before expensive apply routes can be called hardened
+
+- per-user or equivalent throttles on `/api/apply/plan`, `/api/apply/submit`, and all queue-entry routes
+- idempotent queue creation keyed by user/job/request fingerprint
+- portal-support gating that blocks unsupported/low-tier portals before queue creation
+- structured rejection reasons returned to UI/operator paths
+
+### Preserved future design: deterministic dynamic resumes
+
+The current system stores:
+
+- one uploaded resume PDF for apply execution
+- one structured `resume_json` payload with locked vs flexible bullets
+
+The current system does not yet generate per-job resume variants.
+
+The next-stage design should be:
+
+1. create an `experience vault` from the structured resume:
+   - canonical experience records
+   - reusable bullets
+   - skills
+   - tags for industry, role family, seniority, and recruiting window relevance
+2. generate resume variants deterministically:
+   - keep locked bullets fixed
+   - choose flexible bullets by rule-based scoring against the matched job
+   - render locally from a fixed template before apply
+3. add an explicit user-controlled graduation-year-flex setting:
+   - ask during onboarding/profile whether Twin may target adjacent graduation years
+   - default to off
+   - use only when the user has stated their graduation timing is flexible
+   - never change locked degree dates, employment dates, or other fixed facts
+   - if enabled, allow the application-specific resume variant to adjust only the user-approved graduation-year presentation needed for that recruiting window
+   - persist provenance for the primary year, flexed year/window, and whether a flexed resume artifact was used
+4. keep provider spend low:
+   - parse and structure once
+   - assemble variants with SQL plus local scoring
+   - use Anthropic only for narrow fallback rewrite cases, not routine per-job resume generation
+
+### Preserved future design: normalized matching for incomplete profiles
+
+Matching should be normalized around what the user has actually filled out.
+
+Required behavior:
+
+1. missing optional profile fields must not behave like hard mismatches
+2. only explicit user preferences should create rejection rules
+3. scoring should use available signals only:
+   - industries
+   - role family
+   - recruiting window
+   - location
+   - remote preference
+4. preference modes should exist for at least:
+   - location: `strict`, `prefer`, `ignore`
+   - recruiting window / target year: `strict`, `prefer`, `ignore`
+5. partially completed but usable profiles should still get ranked matches instead of appearing artificially unmatched
 
 ### Phase 10: Billing and Packaging
 
@@ -954,3 +1193,92 @@ When `twinmegaresearch.md` is populated, the first things to update here should 
   - no selector-level recovery analytics yet exist
   - real live-run data still needs to shape which portal families get hardened next
 - Next recommended step: Use recovery outcome aggregation to target the highest-frequency failed recovery family per portal, then add portal-specific option-label aliases where the generic semantic matcher still falls short.
+
+### Session Update: 2026-04-02
+
+- Workstream: Job intake and normalization
+- Feature batch: Canonical job routing and richer qualification targeting
+- Status before: job ingestion, website hydration, and matching used inconsistent normalization; profile targeting was too coarse; ingest/digest matching still relied on broad scans.
+- Status after: the repo now has schema and code support for canonical job identity, richer qualification targeting fields, immediate job routing tags at ingest, and SQL candidate-selection helpers that replace the old broad-scan architecture.
+- Follow-up hardening in the same execution slice added DB-backed request controls, queue request fingerprints, and rate limiting on the expensive/apply/message entry points.
+- Files changed:
+  - `supabase/migrations/20260402120000_job_routing_and_targeting.sql`
+  - `lib/job-normalization.ts`
+  - `lib/candidate-routing.ts`
+  - `lib/job-ingest.ts`
+  - `lib/jobs.ts`
+  - `lib/matching.ts`
+  - `lib/platform/profile.ts`
+  - `lib/platform/applicant.ts`
+  - `lib/types.ts`
+  - `lib/utils.ts`
+  - `lib/supabase/database.types.ts`
+  - `app/api/jobs/ingest/route.ts`
+  - `app/api/jobs/browse/route.ts`
+  - `app/api/internal/cron/send-prospective-lists/route.ts`
+  - `app/onboarding/page.tsx`
+  - `components/onboarding/step-preferences.tsx`
+  - `scraper/ingest_jobs.py`
+  - `scraper/sources/common.py`
+  - `scripts/reconcile-jobs.mjs`
+  - `supabase/migrations/20260402133000_request_controls.sql`
+  - `lib/request-controls.ts`
+  - `app/api/apply/plan/route.ts`
+  - `app/api/apply/submit/route.ts`
+  - `app/api/jobs/[jobId]/queue/route.ts`
+  - `app/api/messaging/reply/route.ts`
+  - `app/api/messaging/send-alert/route.ts`
+  - `app/api/internal/cron/send-prospective-lists/route.ts`
+  - `app/api/internal/cron/finalize-prospective-lists/route.ts`
+  - `app/api/internal/cron/send-prospective-results/route.ts`
+  - `lib/application-queue.ts`
+  - `lib/alerts.ts`
+  - `package.json`
+  - `README.md`
+  - `PLANS.md`
+- Tests run:
+  - `python3 -m py_compile $(find apply_engine -name '*.py') scraper/ingest_jobs.py scraper/sources/common.py`
+  - `npm run build`
+- Tests passed:
+  - Python syntax compilation passed
+  - Next production build passed
+- Tests not run:
+  - `npm run test:apply-engine`
+  - reason: `./.venv/bin/python` is missing in this workspace
+- Known gaps:
+  - the new Supabase migration must be applied before the candidate-routing SQL helpers and new fields exist in the database
+  - the request-controls migration must be applied before DB-backed throttles and queue idempotency exist in the database
+  - old job rows may still need reconciliation/backfill before website hydration fully matches canonical job truth
+  - onboarding now captures richer qualification targeting, but the rest of the product still needs UI surfacing for those new selectors outside onboarding
+- Next recommended step: Apply both new migrations, run `npm run reconcile:jobs`, fix any canonical drift or missing tag groups, validate one real ingest flow plus one real digest flow against the new SQL candidate selectors, and then verify that the protected routes return expected 429/cooldown behavior under repeated identical requests.
+
+### Session Update: 2026-04-02
+
+- Workstream: Queue review and messaging truth
+- Feature batch: Split-screen queue verification and updates-only SMS
+- Status before: queued applications were visible only as flat rows, there was no in-dashboard verification pane for a selected queued application, and SMS behavior still implied confirmation/approval flows.
+- Status after: the dashboard now supports a split-screen queue review flow for recent applications, selected queued applications can be submitted directly through a targeted `Trust Apply` action, and Twilio copy plus the main inbound SMS route now treat SMS as updates-only rather than a confirmation surface.
+- Files changed:
+  - `app/api/applications/recent/route.ts`
+  - `app/api/applications/[applicationId]/trust-apply/route.ts`
+  - `components/dashboard/applications-list.tsx`
+  - `lib/application-queue.ts`
+  - `lib/alerts.ts`
+  - `lib/messaging/reply.ts`
+  - `lib/prospective-lists.ts`
+  - `app/api/messaging/reply/route.ts`
+  - `app/dashboard/page.tsx`
+  - `app/layout.tsx`
+  - `PLANS.md`
+- Tests run:
+  - `npm run build`
+- Tests passed:
+  - Next production build passed
+- Tests not run:
+  - `npm run test:apply-engine`
+  - reason: `./.venv/bin/python` is missing in this workspace
+- Known gaps:
+  - the prospective-list cron subsystem still exists and may need additional simplification so it no longer implies SMS-driven approval semantics anywhere
+  - the new split-screen verification pane currently uses the stored application payload plus readiness summaries, but it does not yet render a richer prompt-by-prompt verification surface
+  - matching strictness is still too rigid for location and recruiting window defaults
+- Next recommended step: soften location/target-year matching into preference modes, add `graduation_year_flex`, and then simplify the remaining prospective-list queue semantics so all approval paths stay consistent with the updates-only SMS direction.
