@@ -4,6 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PdfUploader } from "@/components/resume/pdf-uploader";
+import {
+  clampText,
+  isNearCharacterLimit,
+  MAX_RESUME_TEXT_CHARS,
+} from "@/lib/upload-limits";
 import { generateId, cn } from "@/lib/utils";
 import type { ChatMessage, ResumeProfile } from "@/lib/types";
 import { Send, FileUp, ChevronDown } from "lucide-react";
@@ -32,6 +37,7 @@ export function ChatInterface({ onResumeUpdate }: Props) {
   const [input, setInput] = useState("");
   const [generating, setGenerating] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -42,6 +48,13 @@ export function ChatInterface({ onResumeUpdate }: Props) {
   async function sendMessage(content: string) {
     if (!content.trim() || generating) return;
 
+    if (content.length > MAX_RESUME_TEXT_CHARS) {
+      setInputError(
+        `Resume text is too long. Keep it under ${MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.`
+      );
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: generateId(),
       role: "user",
@@ -51,6 +64,7 @@ export function ChatInterface({ onResumeUpdate }: Props) {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setInputError(null);
     setGenerating(true);
 
     // Optimistic assistant placeholder
@@ -72,7 +86,12 @@ export function ChatInterface({ onResumeUpdate }: Props) {
         }),
       });
 
-      if (!res.ok || !res.body) throw new Error("Stream failed");
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error ?? "Stream failed");
+      }
+
+      if (!res.body) throw new Error("Stream failed");
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -118,14 +137,15 @@ export function ChatInterface({ onResumeUpdate }: Props) {
       } catch {
         // No structured data in this response, that's fine
       }
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Sorry, I ran into an issue. Please try again.";
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
             ? {
                 ...m,
-                content:
-                  "Sorry, I ran into an issue. Please try again.",
+                content: message,
               }
             : m
         )
@@ -138,9 +158,10 @@ export function ChatInterface({ onResumeUpdate }: Props) {
 
   function handlePdfParsed(text: string) {
     setShowUploader(false);
-    sendMessage(
-      `Here's my existing resume — please parse it and structure it:\n\n${text}`
-    );
+    setInputError(null);
+    const prefix = "Please parse and structure this resume:\n\n";
+    const availableChars = MAX_RESUME_TEXT_CHARS - prefix.length;
+    sendMessage(`${prefix}${clampText(text, availableChars)}`);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -149,6 +170,21 @@ export function ChatInterface({ onResumeUpdate }: Props) {
       sendMessage(input);
     }
   }
+
+  function handleInputChange(value: string) {
+    if (value.length > MAX_RESUME_TEXT_CHARS) {
+      setInputError(
+        `Resume text is too long. Keep it under ${MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.`
+      );
+    } else {
+      setInputError(null);
+    }
+
+    setInput(value);
+  }
+
+  const inputLength = input.length;
+  const nearLimit = isNearCharacterLimit(inputLength, MAX_RESUME_TEXT_CHARS);
 
   return (
     <div className="flex flex-col h-full">
@@ -214,25 +250,37 @@ export function ChatInterface({ onResumeUpdate }: Props) {
           <Textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Describe your experience, or paste your resume..."
             className="flex-1 min-h-[40px] max-h-[160px] resize-none"
             rows={1}
+            maxLength={MAX_RESUME_TEXT_CHARS}
+            error={inputError ?? undefined}
           />
 
           <Button
             onClick={() => sendMessage(input)}
-            disabled={!input.trim() || generating}
+            disabled={!input.trim() || generating || Boolean(inputError)}
             loading={generating}
             className="shrink-0 h-9 w-9 p-0"
           >
             {!generating && <Send className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5 text-center">
-          Press Enter to send · Shift+Enter for new line
-        </p>
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-400">
+            Press Enter to send · Shift+Enter for new line
+          </p>
+          <p
+            className={cn(
+              "text-xs",
+              nearLimit ? "text-amber-600" : "text-gray-400"
+            )}
+          >
+            {inputLength.toLocaleString()} / {MAX_RESUME_TEXT_CHARS.toLocaleString()}
+          </p>
+        </div>
       </div>
     </div>
   );

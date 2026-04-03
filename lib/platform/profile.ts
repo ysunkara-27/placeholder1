@@ -8,6 +8,7 @@ import type {
   TargetTerm,
 } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
 
 export interface PersistedProfile {
   name: string;
@@ -155,7 +156,9 @@ export function mapProfileToUpsertInput(args: {
     resume_json: (resume ?? null) as Database["public"]["Tables"]["profiles"]["Insert"]["resume_json"],
     resume_url: profile.resume_url ?? null,
     major2: (profile as any).major2 || null,
-    cover_letter_template: (profile as any).cover_letter_template || null,
+    cover_letter_template: (profile as any).cover_letter_template
+      ? clampText((profile as any).cover_letter_template, MAX_COVER_LETTER_CHARS)
+      : null,
     weekly_availability_hours: (profile as any).weekly_availability_hours || null,
     target_role_families: (profile as any).target_role_families ?? profile.levels,
     target_terms: (profile as any).target_terms ?? [],

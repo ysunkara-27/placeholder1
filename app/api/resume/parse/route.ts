@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
+import {
+  formatLimitBytes,
+  MAX_RESUME_PDF_BYTES,
+  MAX_RESUME_TEXT_CHARS,
+} from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 
@@ -19,9 +24,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_RESUME_PDF_BYTES) {
       return NextResponse.json(
-        { error: "File too large (max 10MB)" },
+        { error: `File too large (max ${formatLimitBytes(MAX_RESUME_PDF_BYTES)})` },
         { status: 400 }
       );
     }
@@ -41,6 +46,15 @@ export async function POST(req: NextRequest) {
       .replace(/\r\n/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
+
+    if (cleaned.length > MAX_RESUME_TEXT_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Resume text is too long (${cleaned.length.toLocaleString()} characters). Keep it under ${MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.`,
+        },
+        { status: 422 }
+      );
+    }
 
     return NextResponse.json({ text: cleaned });
   } catch (err) {

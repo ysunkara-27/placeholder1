@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { formatLimitBytes, MAX_RESUME_PDF_BYTES } from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 
@@ -25,8 +26,11 @@ export async function POST(req: NextRequest) {
     if (file.type !== "application/pdf") {
       return NextResponse.json({ error: "Only PDF files are supported" }, { status: 400 });
     }
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
+    if (file.size > MAX_RESUME_PDF_BYTES) {
+      return NextResponse.json(
+        { error: `File too large (max ${formatLimitBytes(MAX_RESUME_PDF_BYTES)})` },
+        { status: 400 }
+      );
     }
 
     const supabase = getServiceClient();

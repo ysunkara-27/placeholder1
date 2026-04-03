@@ -6,7 +6,8 @@ import {
   inferJobLevel,
   inferQualificationTags,
 } from "@/lib/job-normalization";
-import type { Database } from "@/lib/supabase/database.types";
+import { normalizeJobIndustries } from "@/lib/job-industries";
+import type { Database, Json } from "@/lib/supabase/database.types";
 
 type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -85,6 +86,14 @@ function normalizeTimestamp(value?: string) {
   return new Date(value).toISOString();
 }
 
+function jsonObject(value: unknown): { [key: string]: Json | undefined } {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as { [key: string]: Json | undefined };
+  }
+
+  return {};
+}
+
 export function parseJobIngestPayload(input: unknown): JobIngestPayload {
   const parsed = jobIngestPayloadSchema.parse(input);
 
@@ -126,7 +135,11 @@ export function mapJobIngestPayloadToInsert(
     canonical_url: canonicalUrl,
     canonical_application_url: canonicalApplicationUrl,
     remote: payload.remote,
-    industries: dedupeStrings(payload.industries),
+    industries: normalizeJobIndustries(
+      dedupeStrings(payload.industries),
+      payload.title,
+      payload.jd_summary ?? ""
+    ),
     portal,
     role_family: qualification.role_family,
     target_term: qualification.target_term,
@@ -152,12 +165,66 @@ export async function upsertJobFromIngestPayload(
   payload: JobIngestPayload
 ): Promise<JobRow> {
   const insert = mapJobIngestPayloadToInsert(payload);
+
+  const { data: existing, error: existingError } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("canonical_url", insert.canonical_url!)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existing) {
+    const mergedMetadata = {
+      ...jsonObject(existing.metadata),
+      ...jsonObject(insert.metadata),
+    };
+
+    const update: Database["public"]["Tables"]["jobs"]["Update"] = {
+      application_url:
+        existing.application_url || insert.application_url,
+      canonical_application_url:
+        existing.canonical_application_url || insert.canonical_application_url,
+      remote: existing.remote || insert.remote,
+      industries: normalizeJobIndustries(
+        (existing.industries?.length ? existing.industries : insert.industries) ?? [],
+        existing.title,
+        existing.jd_summary ?? insert.jd_summary ?? ""
+      ),
+      portal: existing.portal || insert.portal,
+      role_family: existing.role_family || insert.role_family,
+      target_term: existing.target_term || insert.target_term,
+      target_year: existing.target_year || insert.target_year,
+      experience_band: existing.experience_band || insert.experience_band,
+      is_early_career: existing.is_early_career ?? insert.is_early_career,
+      jd_summary: existing.jd_summary || insert.jd_summary,
+      posted_at:
+        new Date(insert.posted_at!).getTime() > new Date(existing.posted_at).getTime()
+          ? insert.posted_at
+          : existing.posted_at,
+      status: existing.status === "closed" ? existing.status : "active",
+      metadata: mergedMetadata,
+    };
+
+    const { data: updated, error: updateError } = await supabase
+      .from("jobs")
+      .update(update)
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return updated;
+  }
+
   const { data, error } = await supabase
     .from("jobs")
-    .upsert(insert, {
-      onConflict: "canonical_url",
-      ignoreDuplicates: false,
-    })
+    .insert(insert)
     .select("*")
     .single();
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeJobIndustries } from "@/lib/job-industries";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { matchJobToProfile } from "@/lib/matching";
 import type { Database } from "@/lib/supabase/database.types";
@@ -58,12 +59,10 @@ export async function GET(request: NextRequest) {
       query = query.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
     }
 
-    if (industriesParam) {
-      const industries = industriesParam.split(",").map((s) => s.trim()).filter(Boolean);
-      if (industries.length > 0) {
-        query = query.overlaps("industries", industries);
-      }
-    }
+    const requestedIndustries = industriesParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     if (levelsParam) {
       const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
@@ -90,12 +89,6 @@ export async function GET(request: NextRequest) {
     if (search) {
       countQuery = countQuery.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
     }
-    if (industriesParam) {
-      const industries = industriesParam.split(",").map((s) => s.trim()).filter(Boolean);
-      if (industries.length > 0) {
-        countQuery = countQuery.overlaps("industries", industries);
-      }
-    }
     if (levelsParam) {
       const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
       if (levels.length > 0) {
@@ -109,15 +102,33 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.eq("portal", portal);
     }
 
+    const shouldFilterIndustriesInMemory = requestedIndustries.length > 0;
     const [jobsResponse, countResponse] = await Promise.all([
-      query.range(offset, offset + limit - 1),
-      countQuery,
+      shouldFilterIndustriesInMemory ? query : query.range(offset, offset + limit - 1),
+      shouldFilterIndustriesInMemory ? Promise.resolve({ count: null }) : countQuery,
     ]);
 
     if (jobsResponse.error) throw jobsResponse.error;
 
-    const jobs = (jobsResponse.data ?? []) as JobRow[];
-    const total = countResponse.count ?? 0;
+    const rawJobs = (jobsResponse.data ?? []) as JobRow[];
+    const normalizedJobs = rawJobs.map((job) => ({
+      ...job,
+      industries: normalizeJobIndustries(job.industries, job.title, job.jd_summary ?? ""),
+    }));
+
+    const filteredJobs =
+      requestedIndustries.length > 0
+        ? normalizedJobs.filter((job) =>
+            job.industries.some((industry) => requestedIndustries.includes(industry))
+          )
+        : normalizedJobs;
+
+    const jobs = shouldFilterIndustriesInMemory
+      ? filteredJobs.slice(offset, offset + limit)
+      : filteredJobs;
+    const total = shouldFilterIndustriesInMemory
+      ? filteredJobs.length
+      : countResponse.count ?? 0;
     const jobIds = jobs.map((job) => job.id);
 
     let applicationStatusByJobId = new Map<string, string>();

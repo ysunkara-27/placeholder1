@@ -104,34 +104,7 @@ function MessageBubble({
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgb(188,84,49)] text-sm font-bold text-white shadow-lg shadow-orange-200/70">
-            T
-          </div>
-          <div>
-            <p className="text-base font-semibold tracking-tight text-[rgb(32,24,20)]">Twin</p>
-            <p className="text-xs text-[rgb(122,96,80)]">Approve once. Let it handle the rest.</p>
-          </div>
-        </div>
-
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/auth"
-            className="rounded-full px-4 py-2 text-sm font-medium text-[rgb(122,96,80)] transition-colors hover:bg-white/80 hover:text-[rgb(32,24,20)]"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/onboarding"
-            className="inline-flex items-center gap-2 rounded-full border border-[rgb(214,183,161)] bg-white/90 px-4 py-2 text-sm font-semibold text-[rgb(32,24,20)] shadow-sm transition hover:border-[rgb(188,84,49)] hover:text-[rgb(188,84,49)]"
-          >
-            Start profile
-          </Link>
-        </nav>
-      </header>
-
-      <section className="mx-auto grid w-full max-w-6xl gap-14 px-6 pb-20 pt-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <section className="mx-auto grid w-full max-w-6xl gap-14 px-6 pb-20 pt-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div className="landing-rise">
           <div className="inline-flex items-center gap-2 rounded-full border border-[rgb(235,220,204)] bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[rgb(162,120,91)] shadow-sm backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-[rgb(188,84,49)]" />

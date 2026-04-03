@@ -25,6 +25,7 @@ import {
   mapProfileToUpsertInput,
   type ProfileRow,
 } from "@/lib/platform/profile";
+import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
 import { Check, ChevronRight, ChevronLeft } from "lucide-react";
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
@@ -127,6 +128,72 @@ function isStepValid(step: StepId, form: FormState): boolean {
   }
 }
 
+function clampFormTextFields(form: Partial<FormState>): Partial<FormState> {
+  return {
+    ...form,
+    ...(typeof form.cover_letter_template === "string"
+      ? {
+          cover_letter_template: clampText(
+            form.cover_letter_template,
+            MAX_COVER_LETTER_CHARS
+          ),
+        }
+      : {}),
+  };
+}
+
+function hasStepProgress(step: StepId, form: FormState): boolean {
+  switch (step) {
+    case "personal":
+      return Boolean(
+        form.name.trim() ||
+        form.phone.trim() ||
+        form.city.trim() ||
+        form.state_region.trim() ||
+        form.linkedin_url.trim() ||
+        form.website_url.trim() ||
+        form.github_url.trim()
+      );
+    case "education":
+      return Boolean(
+        form.school.trim() ||
+        form.major.trim() ||
+        form.major2.trim() ||
+        form.degree.trim() ||
+        form.gpa.trim() ||
+        form.graduation.trim() ||
+        form.visa_type.trim() ||
+        form.earliest_start_date.trim() ||
+        form.weekly_availability_hours.trim()
+      );
+    case "preferences":
+      return Boolean(
+        form.industries.length ||
+        form.levels.length ||
+        form.target_role_families.length ||
+        form.target_terms.length ||
+        form.target_years.length ||
+        form.locations.length ||
+        form.remote_ok ||
+        form.gray_areas
+      );
+    case "resume":
+      return Boolean(
+        form.annotatedResume ||
+        form.resumeUrl ||
+        form.cover_letter_template.trim()
+      );
+    case "autofill":
+      return Boolean(
+        form.eeo ||
+        form.graduation_year ||
+        form.graduation_term
+      );
+    default:
+      return false;
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
@@ -137,11 +204,17 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [maxVisitedStepIndex, setMaxVisitedStepIndex] = useState(0);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
   const canAdvance = !saving && isStepValid(currentStep.id, form);
+  const unlockedStepIds = new Set(
+    STEPS.filter((step, index) =>
+      index <= maxVisitedStepIndex || hasStepProgress(step.id, form)
+    ).map((step) => step.id)
+  );
 
   // Save draft to localStorage on every form change (debounced)
   useEffect(() => {
@@ -242,7 +315,10 @@ export default function OnboardingPage() {
             annotatedResume: extractResumeFromProfileRow(profileRow),
             resumeUrl: mapped.resume_url,
             major2: mapped.major2,
-            cover_letter_template: mapped.cover_letter_template,
+            cover_letter_template: clampText(
+              mapped.cover_letter_template,
+              MAX_COVER_LETTER_CHARS
+            ),
             weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
             graduation_year: mapped.graduation_year,
             graduation_term: mapped.graduation_term,
@@ -256,7 +332,9 @@ export default function OnboardingPage() {
               setForm((current) => ({
                 ...current,
                 major2: current.major2 || draft.major2 || "",
-                cover_letter_template: current.cover_letter_template || draft.cover_letter_template || "",
+                cover_letter_template:
+                  current.cover_letter_template ||
+                  clampText(draft.cover_letter_template || "", MAX_COVER_LETTER_CHARS),
                 target_role_families:
                   current.target_role_families.length > 0
                     ? current.target_role_families
@@ -279,7 +357,10 @@ export default function OnboardingPage() {
             const raw = localStorage.getItem("twin_onboarding_draft");
             if (raw) {
               const draft = JSON.parse(raw) as Partial<FormState>;
-              setForm((current) => ({ ...current, ...draft }));
+              setForm((current) => ({
+                ...current,
+                ...clampFormTextFields(draft),
+              }));
             }
           } catch {/* ignore */}
         }
@@ -299,7 +380,7 @@ export default function OnboardingPage() {
   }, [router]);
 
   function update(patch: Partial<FormState>) {
-    setForm((f) => ({ ...f, ...patch }));
+    setForm((f) => ({ ...f, ...clampFormTextFields(patch) }));
   }
 
   async function goNext() {
@@ -363,6 +444,22 @@ export default function OnboardingPage() {
     setStepIndex((i) => i - 1);
   }
 
+  function goToStep(nextIndex: number) {
+    if (nextIndex === stepIndex) return;
+
+    const nextStep = STEPS[nextIndex];
+    if (!nextStep || !unlockedStepIds.has(nextStep.id)) {
+      return;
+    }
+
+    setDirection(nextIndex > stepIndex ? 1 : -1);
+    setStepIndex(nextIndex);
+  }
+
+  useEffect(() => {
+    setMaxVisitedStepIndex((current) => Math.max(current, stepIndex));
+  }, [stepIndex]);
+
   const variants = {
     enter: (dir: number) => ({ x: dir > 0 ? 48 : -48, opacity: 0 }),
     center: { x: 0, opacity: 1 },
@@ -371,15 +468,17 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
-        <span className="text-lg font-semibold tracking-tight text-gray-900">
-          Twin
-        </span>
-        <StepCircles steps={STEPS} currentIndex={stepIndex} />
-      </header>
-
       <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
         <div className="w-full max-w-lg">
+          <div className="mb-8 flex justify-center">
+            <StepCircles
+              steps={STEPS}
+              currentIndex={stepIndex}
+              unlockedStepIds={unlockedStepIds}
+              onSelectStep={goToStep}
+            />
+          </div>
+
           {authError && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {authError}
@@ -478,29 +577,37 @@ export default function OnboardingPage() {
 function StepCircles({
   steps,
   currentIndex,
+  unlockedStepIds,
+  onSelectStep,
 }: {
   steps: typeof STEPS;
   currentIndex: number;
+  unlockedStepIds: Set<StepId>;
+  onSelectStep: (index: number) => void;
 }) {
   return (
     <div className="flex items-center gap-1">
       {steps.map((step, i) => {
         const done = i < currentIndex;
         const active = i === currentIndex;
+        const unlocked = unlockedStepIds.has(step.id);
         return (
           <div key={step.id} className="flex items-center">
-            <div
+            <button
+              type="button"
+              onClick={() => onSelectStep(i)}
+              disabled={!unlocked}
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
                 done
                   ? "bg-indigo-600 text-white"
                   : active
                   ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
                   : "bg-gray-100 text-gray-400"
-              }`}
+              } ${unlocked ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
               aria-label={`Step ${i + 1}: ${step.label}`}
             >
               {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
-            </div>
+            </button>
             {i < steps.length - 1 && (
               <div
                 className={`h-px w-6 transition-colors duration-300 ${

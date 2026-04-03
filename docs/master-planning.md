@@ -64,6 +64,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 - No billing, plan caps, or Stripe
 - Dashboard still overstates some platform readiness relative to backend reality
 - Job ingestion, dedupe, and website hydration are not yet unified behind one canonical job-normalization contract
+- Browse filtering now normalizes/falls back job industries at read time, but the live jobs table still needs a one-time repair for previously overwritten or mis-tagged rows
 - Profile targeting is still too coarse to express `Spring 2027 Internship` vs `Summer 2027 Internship` vs `New Grad 2027` vs `Associate`
 
 ### Immediate Production Priorities
@@ -75,6 +76,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Align all queue-entry paths behind one readiness/idempotency contract
 - Add rate limiting, inbound-message verification, and provider spend controls before broadening SMS-driven apply flows
 - Reconcile canonical job hydration across API ingest, direct Supabase ingest, and website browse surfaces
+- Preserve existing job identity fields when canonical URL collisions occur during ingest; do not let later payloads silently rewrite older rows
 - Expand qualification tagging so matching can target term/year/family without brute-force scans
 
 ### Research Input Status

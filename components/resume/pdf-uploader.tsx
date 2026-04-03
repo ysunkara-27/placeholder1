@@ -3,6 +3,11 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { cn } from "@/lib/utils";
+import {
+  formatLimitBytes,
+  MAX_RESUME_PDF_BYTES,
+  MAX_RESUME_TEXT_CHARS,
+} from "@/lib/upload-limits";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 
 interface Props {
@@ -52,7 +57,7 @@ export function PdfUploader({ onParsed }: Props) {
     onDrop,
     accept: { "application/pdf": [".pdf"] },
     maxFiles: 1,
-    maxSize: 10 * 1024 * 1024, // 10 MB
+    maxSize: MAX_RESUME_PDF_BYTES,
     disabled: uploading,
   });
 
@@ -104,7 +109,9 @@ export function PdfUploader({ onParsed }: Props) {
           <p className="text-sm font-medium text-gray-700">
             {isDragActive ? "Drop it here" : "Upload existing resume"}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">PDF up to 10MB</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            PDF up to {formatLimitBytes(MAX_RESUME_PDF_BYTES)}. Extracted text must stay under {MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.
+          </p>
         </div>
       </div>
 

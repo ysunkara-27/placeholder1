@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ChatInterface } from "@/components/resume/chat-interface";
 import { ResumePreview } from "@/components/resume/resume-preview";
 import type { ResumeProfile } from "@/lib/types";
-import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
+import { Eye, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ResumePage() {
@@ -47,23 +46,7 @@ export default function ResumePage() {
 
   return (
     <div className="flex flex-col h-screen bg-white overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/onboarding"
-            className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Link>
-          <span className="text-gray-200">/</span>
-          <span className="text-sm font-semibold text-gray-900">
-            Resume Builder
-          </span>
-        </div>
-
-        {/* Mobile view toggle */}
+      <header className="flex justify-end px-5 py-4 border-b border-gray-100 shrink-0">
         <div className="flex md:hidden gap-1 p-0.5 bg-gray-100 rounded-lg">
           <button
             onClick={() => setMobileView("chat")}

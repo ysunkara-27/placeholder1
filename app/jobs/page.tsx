@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { INDUSTRY_OPTIONS, LEVEL_OPTIONS, formatPostedAt } from "@/lib/utils";
 import type { JobWithMatch } from "@/app/api/jobs/browse/route";
@@ -135,27 +134,25 @@ export default function JobsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-          <Link
-            href="/dashboard"
-            className="text-sm text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1"
-          >
-            ← Dashboard
-          </Link>
-          <h1 className="text-lg font-semibold tracking-tight text-gray-900">Job Board</h1>
+      <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-gray-400">
+              Browse jobs
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
+              Job Board
+            </h1>
+          </div>
           <input
             type="text"
             placeholder="Search company or title…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-64 h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors sm:w-72"
           />
         </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         {/* Filter bar */}
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2 items-center">

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeJobIndustries } from "@/lib/job-industries";
 import {
   inferJobLevel,
   inferQualificationTags,
@@ -24,31 +25,6 @@ interface SeedJobRecord {
 
 let cachedSeedJobs: SeedJobRecord[] | null = null;
 
-function inferIndustries(title: string, notes: string): string[] {
-  const normalized = `${title} ${notes}`.toLowerCase();
-  const industries = new Set<string>();
-
-  if (
-    normalized.includes("software") ||
-    normalized.includes("engineer") ||
-    normalized.includes("developer") ||
-    normalized.includes("swe")
-  ) {
-    industries.add("SWE");
-  }
-  if (normalized.includes("data") || normalized.includes("ml")) {
-    industries.add("Data");
-  }
-  if (normalized.includes("product")) {
-    industries.add("PM");
-  }
-  if (normalized.includes("research")) {
-    industries.add("Research");
-  }
-
-  return industries.size > 0 ? [...industries] : ["SWE"];
-}
-
 function mapSeedJobToInsert(seed: SeedJobRecord): JobInsert {
   const postedAt = new Date(`${seed.retrieved_on}T00:00:00.000Z`).toISOString();
   const level = inferJobLevel(seed.title, seed.notes);
@@ -64,7 +40,7 @@ function mapSeedJobToInsert(seed: SeedJobRecord): JobInsert {
     level,
     location: seed.location,
     remote: /remote/i.test(seed.location),
-    industries: inferIndustries(seed.title, seed.notes),
+    industries: normalizeJobIndustries([], seed.title, seed.notes),
     portal: seed.portal,
     url: seed.source_url,
     application_url: seed.apply_url,

@@ -218,6 +218,31 @@ Exit criteria:
 
 Future extension to preserve:
 
+## Session Handoff — 2026-04-03
+
+Finished:
+
+- unified job-industry normalization behind `lib/job-industries.ts`
+- made `/api/jobs/browse` normalize/fallback industries before applying industry filters so browse results do not depend only on stale stored tags
+- changed `/api/jobs/ingest` job writes to preserve existing identity fields on canonical URL collisions instead of blindly overwriting title/company/location with the latest payload
+- updated seed-job materialization to use the same industry normalization contract as ingest and browse
+
+Blocked / still incomplete:
+
+- existing bad rows in Supabase are not automatically repaired by this code change
+- live DB audit could not be run from this sandbox because outbound DNS to Supabase failed
+- `npm run test:apply-engine` still cannot run here because `./.venv/bin/python` is missing
+
+Exact next step:
+
+- run a live job reconciliation against Supabase, identify canonical URL collision groups and rows with bad/missing industries, then apply a one-time data repair/backfill
+
+Exact verification run:
+
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+- `node scripts/reconcile-jobs.mjs` attempted but blocked by sandbox DNS failure to Supabase
+
 - add an opt-in `graduation_year_flex` profile setting so a student can explicitly authorize Twin to generate alternate recruiting-window targeting for adjacent years
 - the default must remain strict to the user's primary graduation data unless the user opts in
 - flexing graduation targeting must never fabricate employment dates, degree dates, or locked resume facts

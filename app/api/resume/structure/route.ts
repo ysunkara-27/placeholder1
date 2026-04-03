@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClaudeClient, STRUCTURE_SYSTEM_PROMPT } from "@/lib/claude";
 import type { AnnotatedResume } from "@/lib/types";
+import { MAX_RESUME_TEXT_CHARS } from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,15 @@ export async function POST(req: NextRequest) {
 
     if (!text?.trim()) {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
+    }
+
+    if (text.length > MAX_RESUME_TEXT_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Resume text is too long. Keep it under ${MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.`,
+        },
+        { status: 400 }
+      );
     }
 
     const client = getClaudeClient();

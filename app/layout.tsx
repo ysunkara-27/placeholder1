@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { SiteNavbar } from "@/components/navigation/site-navbar";
 
 const ramboia = localFont({
   src: "../RamboiaTest-Regular.otf",
@@ -21,7 +22,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${ramboia.variable} min-h-screen`}>{children}</body>
+      <body className={`${ramboia.variable} min-h-screen`}>
+        <SiteNavbar />
+        {children}
+      </body>
     </html>
   );
 }

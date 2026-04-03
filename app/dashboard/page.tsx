@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ExternalLink } from "lucide-react";
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BlockersSummary } from "@/components/dashboard/blockers-summary";
 import { FollowupsSummary } from "@/components/dashboard/followups-summary";
 import { RecoverySummary } from "@/components/dashboard/recovery-summary";
@@ -405,30 +404,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <span className="text-lg font-semibold tracking-tight text-gray-900">
-            Twin
-          </span>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/jobs"
-              className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-            >
-              Browse jobs
-            </Link>
-            <Link
-              href="/onboarding"
-              className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-            >
-              Edit profile
-            </Link>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         {isAnonymous && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

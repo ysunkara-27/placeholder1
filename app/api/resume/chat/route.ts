@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClaudeClient, RESUME_SYSTEM_PROMPT } from "@/lib/claude";
+import { MAX_RESUME_TEXT_CHARS } from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,15 @@ export async function POST(req: NextRequest) {
     const normalized: MessageParam[] = messages.filter((m) =>
       ["user", "assistant"].includes(m.role) && m.content.trim()
     );
+
+    if (normalized.some((message) => message.content.length > MAX_RESUME_TEXT_CHARS)) {
+      return NextResponse.json(
+        {
+          error: `Each resume message must stay under ${MAX_RESUME_TEXT_CHARS.toLocaleString()} characters.`,
+        },
+        { status: 400 }
+      );
+    }
 
     const client = getClaudeClient();
 

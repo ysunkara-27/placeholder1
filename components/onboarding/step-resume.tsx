@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { PdfUploader } from "@/components/resume/pdf-uploader";
 import { ResumeAnnotator } from "@/components/resume/resume-annotator";
+import {
+  isNearCharacterLimit,
+  MAX_COVER_LETTER_CHARS,
+} from "@/lib/upload-limits";
 import type { AnnotatedResume } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
@@ -31,6 +35,11 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
   const [error, setError] = useState<string | null>(null);
   const pendingFile = useRef<File | null>(null);
   const msgInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const coverLetterLength = coverLetter.length;
+  const nearCoverLetterLimit = isNearCharacterLimit(
+    coverLetterLength,
+    MAX_COVER_LETTER_CHARS
+  );
 
   useEffect(() => {
     if (phase === "structuring") {
@@ -200,7 +209,7 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
           </label>
           <p className="text-xs text-gray-500 mt-0.5">
             Your Twin will use this as a base and tailor it for each application.
-            Leave blank to skip cover letters.
+            Leave blank to skip cover letters. Max {MAX_COVER_LETTER_CHARS.toLocaleString()} characters.
           </p>
         </div>
         <textarea
@@ -208,8 +217,14 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
           onChange={(e) => onCoverLetterChange(e.target.value)}
           placeholder={"Dear Hiring Manager,\n\nI'm excited to apply for..."}
           rows={6}
+          maxLength={MAX_COVER_LETTER_CHARS}
           className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors duration-150"
         />
+        <div className="flex justify-end">
+          <p className={`text-xs ${nearCoverLetterLimit ? "text-amber-600" : "text-gray-400"}`}>
+            {coverLetterLength.toLocaleString()} / {MAX_COVER_LETTER_CHARS.toLocaleString()}
+          </p>
+        </div>
       </div>
     </div>
   );

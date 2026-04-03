@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { ArrowRight, Mail } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -79,15 +78,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <header className="px-6 py-5 flex items-center border-b border-gray-100">
-        <Link
-          href="/"
-          className="text-lg font-semibold tracking-tight text-gray-900 hover:text-gray-700 transition-colors"
-        >
-          Twin
-        </Link>
-      </header>
-
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-sm space-y-6">
           {phase === "form" ? (
