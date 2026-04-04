@@ -9,10 +9,7 @@ import { FollowupsSummary } from "@/components/dashboard/followups-summary";
 import { RecoverySummary } from "@/components/dashboard/recovery-summary";
 import { FollowupAnswersEditor } from "@/components/dashboard/followup-answers-editor";
 import { NotificationScheduleCard } from "@/components/dashboard/notification-schedule-card";
-import {
-  ApplicationsList,
-  type DashboardApplicationRecord,
-} from "@/components/dashboard/applications-list";
+import { type DashboardApplicationRecord } from "@/components/dashboard/applications-list";
 import {
   ApplyRunsList,
   type ApplyRunRecord,
@@ -423,49 +420,49 @@ export default function DashboardPage() {
       eta: a.status === "pending" || a.status === "sent" ? "Ready for review" : null,
       tone: (a.status === "applied" ? "green" : a.status === "pending" || a.status === "sent" ? "amber" : "gray") as FeedItem["tone"],
       postingUrl: a.job?.application_url ?? null,
-      reviewHref: "#applications",
-      reviewLabel: "Open queue review",
+      reviewHref: "/apply-lab",
+      reviewLabel: "Open apply lab",
     })),
-    ...applications.slice(0, 5).map((ap) => ({
-      id: `app-${ap.id}`,
-      ts: ap.updated_at,
+    ...applyRuns.slice(0, 5).map((run) => ({
+      id: `run-${run.id}`,
+      ts: run.created_at,
       icon:
-        ap.status === "applied"
+        run.status === "applied"
           ? "✅"
-          : ap.status === "failed"
+          : run.status === "failed"
           ? "❌"
-          : ap.status === "requires_auth"
+          : run.status === "requires_auth"
           ? "🔒"
-          : ap.status === "running"
+          : run.status === "running"
           ? "⚙️"
           : "📋",
       label:
-        ap.status === "applied"
-          ? `Applied — ${ap.job?.title ?? "Unknown"} @ ${ap.job?.company ?? ""}`
-          : ap.status === "failed"
-          ? `Blocked — ${ap.job?.title ?? ""} (${ap.last_error?.slice(0, 40) ?? "error"})`
-          : ap.status === "requires_auth"
-          ? `Auth wall — ${ap.job?.title ?? ""}`
-          : ap.status === "running"
-          ? `Applying — ${ap.job?.title ?? ""}`
-          : `Queued — ${ap.job?.title ?? ""}`,
-      sub: `${ap.job?.company ?? ""}${ap.last_error ? ` · ${ap.last_error.slice(0, 60)}` : ""}`,
-      eta: estimateApplicationEta(ap.status),
+        run.status === "applied"
+          ? `Applied run — ${run.portal ?? "unknown portal"}`
+          : run.status === "failed"
+          ? `Blocked run — ${run.portal ?? "unknown portal"}`
+          : run.status === "requires_auth"
+          ? `Auth wall — ${run.portal ?? "unknown portal"}`
+          : run.status === "running"
+          ? `Applying — ${run.portal ?? "unknown portal"}`
+          : `Queued run — ${run.portal ?? "unknown portal"}`,
+      sub: `${run.url}${run.error ? ` · ${run.error.slice(0, 60)}` : ""}`,
+      eta: estimateApplicationEta(run.status),
       tone: (
-        ap.status === "applied"
+        run.status === "applied"
           ? "green"
-          : ap.status === "failed" || ap.status === "requires_auth"
+          : run.status === "failed" || run.status === "requires_auth"
           ? "red"
-          : ap.status === "running"
+          : run.status === "running"
           ? "blue"
           : "gray"
       ) as FeedItem["tone"],
-      postingUrl: ap.job?.url ?? null,
-      reviewHref: "#applications",
+      postingUrl: run.url ?? null,
+      reviewHref: "/apply-lab",
       reviewLabel:
-        ap.status === "queued" || ap.status === "running" || ap.status === "failed" || ap.status === "requires_auth"
+        run.status === "queued" || run.status === "running" || run.status === "failed" || run.status === "requires_auth"
           ? "Open verification"
-          : "Open applications",
+          : "Open apply lab",
     })),
   ]
     .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
@@ -716,16 +713,6 @@ export default function DashboardPage() {
             </div>
           </div>
           <AlertsList alerts={alerts} />
-        </div>
-
-        {/* Applications */}
-        <div id="applications" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Recent applications
-            </h2>
-          </div>
-          <ApplicationsList applications={applications} />
         </div>
 
         <div className="space-y-3">
