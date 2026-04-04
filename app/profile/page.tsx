@@ -102,6 +102,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -123,6 +124,7 @@ export default function ProfilePage() {
         if (!session?.user.id) { router.replace("/auth?error=session_required"); return; }
 
         setSessionUserId(session.user.id);
+        setUserEmail(session.user.email ?? "");
 
         const { data, error } = await supabase
           .from("profiles")
@@ -360,6 +362,9 @@ export default function ProfilePage() {
                 Update anything that changed.
               </p>
             </div>
+
+            {/* Profile completeness */}
+            <ProfileCompleteness form={form} userEmail={userEmail} />
 
             {/* 1 · Personal */}
             <EditSection
@@ -678,6 +683,70 @@ function ProfileResumeSection({
             {MAX_COVER_LETTER_CHARS.toLocaleString()}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Profile completeness ─────────────────────────────────────────────────────
+
+function ProfileCompleteness({ form, userEmail }: { form: FormState; userEmail: string }) {
+  const fields: Array<{ label: string; filled: boolean; reason: string }> = [
+    { label: "Email", filled: !!userEmail, reason: "Required on every application form" },
+    { label: "Phone", filled: !!form.phone, reason: "SMS alerts + required on many portals" },
+    { label: "LinkedIn URL", filled: !!form.linkedin_url, reason: "Some portals make this required" },
+    { label: "Resume PDF", filled: !!form.resumeUrl, reason: "No resume file = application blocked immediately" },
+    { label: "Cover letter", filled: !!form.cover_letter_template, reason: "Portals that require a cover letter will skip it otherwise" },
+    { label: "School", filled: !!form.school, reason: "Greenhouse and Workday pull this for the education section" },
+    { label: "Graduation date", filled: !!form.graduation, reason: "90% of ATS forms ask for this" },
+    { label: "Start date", filled: !!form.earliest_start_date, reason: "'When can you start?' is asked on every form" },
+    { label: "Work authorization", filled: !!form.visa_type, reason: "ITAR and export control questions need this" },
+    { label: "EEO data", filled: !!(form.eeo?.gender), reason: "Pre-fills diversity sections on most portals" },
+  ];
+
+  const filledCount = fields.filter((f) => f.filled).length;
+  const pct = Math.round((filledCount / fields.length) * 100);
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Profile completeness</p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            {filledCount === fields.length
+              ? "All fields filled — Twin can handle the full application range."
+              : `${filledCount} of ${fields.length} fields filled. Missing fields cause blocked applications.`}
+          </p>
+        </div>
+        <span className={`text-sm font-bold tabular-nums ${pct === 100 ? "text-green-600" : pct >= 70 ? "text-indigo-600" : "text-red-500"}`}>
+          {pct}%
+        </span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : pct >= 70 ? "bg-indigo-500" : "bg-red-400"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {fields.map((field) => (
+          <div
+            key={field.label}
+            className={`flex items-start gap-1.5 rounded-lg px-2.5 py-2 ${field.filled ? "bg-gray-50" : "bg-red-50 border border-red-100"}`}
+          >
+            <span className={`mt-0.5 text-xs shrink-0 ${field.filled ? "text-green-500" : "text-red-400"}`}>
+              {field.filled ? "✓" : "✗"}
+            </span>
+            <div className="min-w-0">
+              <p className={`text-xs font-medium truncate ${field.filled ? "text-gray-700" : "text-red-700"}`}>
+                {field.label}
+              </p>
+              {!field.filled && (
+                <p className="text-[10px] text-red-500 mt-0.5 leading-tight">{field.reason}</p>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

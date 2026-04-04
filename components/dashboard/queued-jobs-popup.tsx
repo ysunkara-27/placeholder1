@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, X, FlaskConical } from "lucide-react";
+import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import type { DashboardApplicationRecord } from "@/components/dashboard/applications-list";
 
 interface QueuedJobsPopupProps {
