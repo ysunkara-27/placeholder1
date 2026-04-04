@@ -51,7 +51,32 @@ def create_app() -> FastAPI:
     if FastAPI is None:  # pragma: no cover
         raise RuntimeError("fastapi is not installed. Install apply_engine/requirements.txt first.")
 
+    from apply_engine.logging_config import configure_logging
+    configure_logging()
+
     app = FastAPI(title="Twin Apply Engine")
+
+    # ── Tracking API routes ───────────────────────────────────────────────────
+    try:
+        from apply_engine.api.applications import router as applications_router
+        from apply_engine.api.users import router as users_router
+        app.include_router(applications_router)
+        app.include_router(users_router)
+    except ImportError:
+        pass  # tracking layer not available (no DATABASE_URL)
+
+    # ── DB connection lifecycle ───────────────────────────────────────────────
+    @app.on_event("startup")
+    async def _startup() -> None:
+        pass  # engine is created lazily on first request
+
+    @app.on_event("shutdown")
+    async def _shutdown() -> None:
+        try:
+            from apply_engine.tracking.db import dispose_engine
+            await dispose_engine()
+        except Exception:
+            pass
 
     @app.get("/health")
     async def health() -> dict[str, str]:
