@@ -22,6 +22,21 @@ async function assertAdmin(): Promise<NextResponse | null> {
   return null;
 }
 
+// GET /api/admin/jobs/[jobId] — fetch single job
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ jobId: string }> }
+) {
+  const denied = await assertAdmin();
+  if (denied) return denied;
+
+  const { jobId } = await params;
+  const db = getServiceClient();
+  const { data, error } = await db.from("jobs").select("*").eq("id", jobId).single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  return NextResponse.json(data);
+}
+
 // PATCH /api/admin/jobs/[jobId] — update any job fields
 export async function PATCH(
   request: NextRequest,
