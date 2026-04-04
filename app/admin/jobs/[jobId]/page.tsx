@@ -25,12 +25,8 @@ interface Job {
   portal: string | null;
   jd_summary: string | null;
   is_early_career: boolean;
-  role_family: string | null;
-  experience_band: string | null;
   industries: string[];
   posted_at: string;
-  target_term: string | null;
-  target_year: number | null;
 }
 
 const PORTALS = [
@@ -39,13 +35,10 @@ const PORTALS = [
   "company_website", "other",
 ];
 
-const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time", "junior", "mid", "senior"];
-
-const ROLE_FAMILIES = ["internship", "new_grad", "associate", "early_career", "experienced"];
-
-const EXPERIENCE_BANDS = ["student", "new_grad", "early_career", "experienced"];
+const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time"];
 
 const STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800 border-amber-200",
   active:  "bg-green-100 text-green-800 border-green-200",
   paused:  "bg-yellow-100 text-yellow-800 border-yellow-200",
   closed:  "bg-red-100 text-red-800 border-red-200",
@@ -236,6 +229,7 @@ export default function JobEditPage() {
             <div className="grid grid-cols-3 gap-4">
               <Field label="Status">
                 <select className={inp} value={draft.status} onChange={(e) => set("status", e.target.value)}>
+                  <option value="pending">Pending</option>
                   <option value="active">Active</option>
                   <option value="paused">Paused</option>
                   <option value="closed">Closed</option>
@@ -267,36 +261,16 @@ export default function JobEditPage() {
                   {!LEVELS.includes(draft.level) && <option value={draft.level}>{draft.level}</option>}
                 </select>
               </Field>
-              <Field label="Role family">
-                <select className={inp} value={draft.role_family ?? ""} onChange={(e) => set("role_family", e.target.value || null)}>
-                  <option value="">— none —</option>
-                  {ROLE_FAMILIES.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </Field>
-              <Field label="Experience band">
-                <select className={inp} value={draft.experience_band ?? ""} onChange={(e) => set("experience_band", e.target.value || null)}>
-                  <option value="">— none —</option>
-                  {EXPERIENCE_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </Field>
-              <Field label="Target term">
-                <select className={inp} value={draft.target_term ?? ""} onChange={(e) => set("target_term", e.target.value || null)}>
-                  <option value="">— none —</option>
-                  {["spring", "summer", "fall", "winter", "any"].map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+              <Field label="Industries (comma-separated)">
+                <input
+                  className={inp}
+                  value={draft.industries?.join(", ") ?? ""}
+                  onChange={(e) =>
+                    set("industries", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))
+                  }
+                />
               </Field>
             </div>
-            <Field label="Industries (comma-separated)">
-              <input
-                className={inp}
-                value={draft.industries?.join(", ") ?? ""}
-                onChange={(e) =>
-                  set("industries", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))
-                }
-              />
-            </Field>
             <div className="flex items-center gap-6 pt-1">
               <Toggle
                 label="Is early career"
@@ -313,20 +287,9 @@ export default function JobEditPage() {
 
           {/* Location */}
           <Section title="Location">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Location text">
-                <input className={inp} value={draft.location} onChange={(e) => set("location", e.target.value)} />
-              </Field>
-              <Field label="Target year">
-                <input
-                  type="number"
-                  className={inp}
-                  value={draft.target_year ?? ""}
-                  onChange={(e) => set("target_year", e.target.value ? Number(e.target.value) : null)}
-                  placeholder="e.g. 2026"
-                />
-              </Field>
-            </div>
+            <Field label="Location text">
+              <input className={inp} value={draft.location} onChange={(e) => set("location", e.target.value)} />
+            </Field>
           </Section>
 
           {/* URLs */}
@@ -408,7 +371,7 @@ export default function JobEditPage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Quick status</p>
             <div className="flex flex-col gap-2">
-              {(["active", "paused", "closed"] as const).map((s) => (
+              {(["pending", "active", "paused", "closed"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => { set("status", s); setDirty(true); }}
@@ -455,8 +418,6 @@ export default function JobEditPage() {
               { label: "Posted", value: new Date(draft.posted_at).toLocaleDateString() },
               { label: "Portal", value: draft.portal ?? "—" },
               { label: "Level", value: draft.level },
-              { label: "Role family", value: draft.role_family ?? "—" },
-              { label: "Experience", value: draft.experience_band ?? "—" },
               { label: "Industries", value: draft.industries?.join(", ") || "—" },
             ].map(({ label, value, mono }) => (
               <div key={label} className="flex justify-between items-start gap-2">
