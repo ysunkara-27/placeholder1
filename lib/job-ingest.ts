@@ -148,7 +148,7 @@ export function mapJobIngestPayloadToInsert(
     is_early_career: qualification.is_early_career,
     jd_summary: payload.jd_summary?.trim() ?? null,
     posted_at: normalizeTimestamp(payload.posted_at) ?? new Date().toISOString(),
-    status: "active",
+    status: "pending",
     metadata: {
       ...(payload.salary_range ? { salary_range: payload.salary_range.trim() } : {}),
       ...(payload.tags.length > 0 ? { tags: dedupeStrings(payload.tags) } : {}),
@@ -204,7 +204,9 @@ export async function upsertJobFromIngestPayload(
         new Date(insert.posted_at!).getTime() > new Date(existing.posted_at).getTime()
           ? insert.posted_at
           : existing.posted_at,
-      status: existing.status === "closed" ? existing.status : "active",
+      // Keep whatever status admin set — never overwrite on re-scrape.
+      // last_seen_at is updated by the DB trigger automatically.
+      status: existing.status,
       metadata: mergedMetadata,
     };
 

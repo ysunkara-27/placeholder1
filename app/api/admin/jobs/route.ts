@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
 
   const stats = {
     total: allStatuses?.length ?? 0,
+    pending: allStatuses?.filter((j) => j.status === "pending").length ?? 0,
     active: allStatuses?.filter((j) => j.status === "active").length ?? 0,
     paused: allStatuses?.filter((j) => j.status === "paused").length ?? 0,
     closed: allStatuses?.filter((j) => j.status === "closed").length ?? 0,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
   const db = getServiceClient();
   const body = await request.json();
   const { action, jobIds, status: newStatus } = body as {
-    action: "fix_canonical" | "set_status" | "delete";
+    action: "fix_canonical" | "set_status" | "approve" | "reject" | "delete";
     jobIds?: string[];
     status?: string;
   };
@@ -115,8 +116,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "jobIds required" }, { status: 400 });
   }
 
+  if (action === "approve") {
+    const { data, error } = await db
+      .from("jobs")
+      .update({ status: "active" })
+      .in("id", jobIds!)
+      .select("id");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ affected: data?.length ?? jobIds!.length });
+  }
+
+  if (action === "reject") {
+    const { data, error } = await db
+      .from("jobs")
+      .update({ status: "closed" })
+      .in("id", jobIds!)
+      .select("id");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ affected: data?.length ?? jobIds!.length });
+  }
+
   if (action === "set_status") {
-    if (!newStatus || !["active", "paused", "closed"].includes(newStatus)) {
+    if (!newStatus || !["pending", "active", "paused", "closed"].includes(newStatus)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     const { data, error } = await db
