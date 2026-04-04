@@ -34,7 +34,7 @@ export function LockToggle({
       onClick={() => onChange(isLocked ? "flexible" : "locked")}
       title={isLocked ? "Locked — stays word-for-word" : "Flexible — optimized per job"}
       className={cn(
-        "relative flex items-center rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 shrink-0",
+        "relative flex items-center overflow-hidden rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 shrink-0",
         dims.outer,
         isLocked
           ? "bg-indigo-50 border-indigo-200 focus-visible:ring-indigo-500"
@@ -51,13 +51,13 @@ export function LockToggle({
           dims.pill,
           isLocked
             ? "left-[3px] bg-indigo-600 text-white"
-            : "left-[calc(100%-3px)] -translate-x-full bg-amber-500 text-white"
+            : "right-[3px] bg-amber-500 text-white"
         )}
       >
         {isLocked ? (
           <Lock className="w-2.5 h-2.5" />
         ) : (
-          <Sparkles className="w-2.5 h-2.5" />
+          <Sparkles className="h-2.5 w-2.5 scale-[0.9]" />
         )}
       </motion.div>
 

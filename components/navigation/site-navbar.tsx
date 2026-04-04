@@ -15,7 +15,7 @@ const AUTHED_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/jobs", label: "Browse jobs" },
   { href: "/apply-lab", label: "Apply lab" },
-  { href: "/onboarding", label: "Edit profile" },
+  { href: "/profile", label: "Edit profile" },
 ];
 
 function isActivePath(pathname: string, href: string) {

@@ -554,8 +554,8 @@ export default function DashboardPage() {
                   : `${filledCount} of ${PROFILE_FIELDS.length} fields filled. Missing fields cause blocked applications.`}
               </p>
             </div>
-            <Link href="/onboarding" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
-              Fill in onboarding →
+            <Link href="/profile" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+              Edit profile →
             </Link>
           </div>
 
@@ -757,7 +757,7 @@ export default function DashboardPage() {
               Twin settings
             </h2>
             <Link
-              href="/onboarding"
+              href="/profile"
               className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
             >
               Edit →

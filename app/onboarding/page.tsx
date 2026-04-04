@@ -202,13 +202,11 @@ export default function OnboardingPage() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [saving, setSaving] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isEditFooterVisible, setIsEditFooterVisible] = useState(false);
   const [maxVisitedStepIndex, setMaxVisitedStepIndex] = useState(0);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editFooterRef = useRef<HTMLDivElement | null>(null);
 
   const currentStep = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
@@ -287,7 +285,10 @@ export default function OnboardingPage() {
 
         if (data) {
           const profileRow = data as ProfileRow;
-          setIsEditMode(Boolean(profileRow.onboarding_completed));
+          if (profileRow.onboarding_completed) {
+            router.replace("/profile");
+            return;
+          }
           const mapped = mapProfileRowToPersistedProfile(profileRow);
           setForm((current) => ({
             ...current,
@@ -376,6 +377,10 @@ export default function OnboardingPage() {
             ? `Unable to start onboarding: ${error.message}`
             : "Unable to start onboarding."
         );
+      } finally {
+        if (active) {
+          setBootstrapping(false);
+        }
       }
     }
 
@@ -467,46 +472,32 @@ export default function OnboardingPage() {
     setMaxVisitedStepIndex((current) => Math.max(current, stepIndex));
   }, [stepIndex]);
 
-  useEffect(() => {
-    if (!isEditMode || !editFooterRef.current) {
-      setIsEditFooterVisible(false);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsEditFooterVisible(entry.isIntersecting);
-      },
-      {
-        threshold: 0,
-        rootMargin: "0px 0px -32px 0px",
-      }
-    );
-
-    observer.observe(editFooterRef.current);
-    return () => observer.disconnect();
-  }, [isEditMode]);
-
   const variants = {
     enter: (dir: number) => ({ x: dir > 0 ? 48 : -48, opacity: 0 }),
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({ x: dir > 0 ? -48 : 48, opacity: 0 }),
   };
 
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
-        <div className={`w-full ${isEditMode ? "max-w-4xl" : "max-w-lg"}`}>
-          {!isEditMode && (
-            <div className="mb-8 flex justify-center">
-              <StepCircles
-                steps={STEPS}
-                currentIndex={stepIndex}
-                unlockedStepIds={unlockedStepIds}
-                onSelectStep={goToStep}
-              />
-            </div>
-          )}
+        <div className="w-full max-w-lg">
+          <div className="mb-8 flex justify-center">
+            <StepCircles
+              steps={STEPS}
+              currentIndex={stepIndex}
+              unlockedStepIds={unlockedStepIds}
+              onSelectStep={goToStep}
+            />
+          </div>
 
           {authError && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -514,18 +505,17 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {isEditMode ? (
-            <div className="space-y-8 pb-32">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
-                  Edit profile
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Update anything that changed. This edit view keeps your full profile on one page.
-                </p>
-              </div>
-
-              <EditSection stepNumber={1} title="Personal" hint="Basics, links, and contact details">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={currentStep.id}
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {currentStep.id === "personal" && (
                 <StepProfile
                   name={form.name}
                   phone={form.phone}
@@ -537,9 +527,8 @@ export default function OnboardingPage() {
                   github_url={form.github_url}
                   onChange={(patch) => update(patch)}
                 />
-              </EditSection>
-
-              <EditSection stepNumber={2} title="Education" hint="School, authorization, and availability">
+              )}
+              {currentStep.id === "education" && (
                 <StepEducation
                   school={form.school}
                   major={form.major}
@@ -553,9 +542,8 @@ export default function OnboardingPage() {
                   weekly_availability_hours={form.weekly_availability_hours}
                   onChange={(patch) => update(patch)}
                 />
-              </EditSection>
-
-              <EditSection stepNumber={3} title="Preferences" hint="Targets, industries, and locations">
+              )}
+              {currentStep.id === "preferences" && (
                 <StepPreferences
                   industries={form.industries}
                   levels={form.levels}
@@ -567,9 +555,8 @@ export default function OnboardingPage() {
                   grayAreas={form.gray_areas}
                   onChange={(patch) => update(patch as Partial<FormState>)}
                 />
-              </EditSection>
-
-              <EditSection stepNumber={4} title="Resume" hint="Resume parsing, locks, and cover letter">
+              )}
+              {currentStep.id === "resume" && (
                 <StepResume
                   value={form.annotatedResume}
                   onChange={(annotatedResume) => update({ annotatedResume })}
@@ -578,118 +565,27 @@ export default function OnboardingPage() {
                   coverLetter={form.cover_letter_template}
                   onCoverLetterChange={(cover_letter_template) => update({ cover_letter_template })}
                 />
-              </EditSection>
-
-              <EditSection stepNumber={5} title="Autofill" hint="Optional EEO and extra application details">
+              )}
+              {currentStep.id === "autofill" && (
                 <StepAutofill
                   eeo={form.eeo}
                   onChange={(eeo) => update({ eeo })}
                 />
-              </EditSection>
-
-              {!isEditFooterVisible && (
-                <div className="fixed bottom-[11vh] left-1/2 z-40 -translate-x-1/2">
-                  <div className="rounded-xl border border-white/35 bg-transparent p-2.5 shadow-[0_18px_45px_rgba(15,23,42,0.12)] backdrop-blur-sm">
-                    <Button onClick={() => void saveProfile()} disabled={saving}>
-                      {saving ? "Saving..." : "Save changes"}
-                    </Button>
-                  </div>
-                </div>
               )}
+            </motion.div>
+          </AnimatePresence>
 
-              <div ref={editFooterRef} className="flex justify-center pt-6 pb-4">
-                <div className="rounded-xl border border-white/35 bg-transparent p-2.5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-                  <Button onClick={() => void saveProfile()} disabled={saving}>
-                    {saving ? "Saving..." : "Save changes"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <AnimatePresence mode="wait" custom={direction}>
-                <motion.div
-                  key={currentStep.id}
-                  custom={direction}
-                  variants={variants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{ duration: 0.18, ease: "easeOut" }}
-                >
-                  {currentStep.id === "personal" && (
-                    <StepProfile
-                      name={form.name}
-                      phone={form.phone}
-                      city={form.city}
-                      state_region={form.state_region}
-                      country={form.country}
-                      linkedin_url={form.linkedin_url}
-                      website_url={form.website_url}
-                      github_url={form.github_url}
-                      onChange={(patch) => update(patch)}
-                    />
-                  )}
-                  {currentStep.id === "education" && (
-                    <StepEducation
-                      school={form.school}
-                      major={form.major}
-                      major2={form.major2}
-                      degree={form.degree}
-                      gpa={form.gpa}
-                      graduation={form.graduation}
-                      authorized_to_work={form.authorized_to_work}
-                      visa_type={form.visa_type}
-                      earliest_start_date={form.earliest_start_date}
-                      weekly_availability_hours={form.weekly_availability_hours}
-                      onChange={(patch) => update(patch)}
-                    />
-                  )}
-                  {currentStep.id === "preferences" && (
-                    <StepPreferences
-                      industries={form.industries}
-                      levels={form.levels}
-                      targetRoleFamilies={form.target_role_families}
-                      targetTerms={form.target_terms}
-                      targetYears={form.target_years}
-                      locations={form.locations}
-                      remoteOk={form.remote_ok}
-                      grayAreas={form.gray_areas}
-                      onChange={(patch) => update(patch as Partial<FormState>)}
-                    />
-                  )}
-                  {currentStep.id === "resume" && (
-                    <StepResume
-                      value={form.annotatedResume}
-                      onChange={(annotatedResume) => update({ annotatedResume })}
-                      onResumeUrl={(resumeUrl) => update({ resumeUrl })}
-                      userId={sessionUserId ?? undefined}
-                      coverLetter={form.cover_letter_template}
-                      onCoverLetterChange={(cover_letter_template) => update({ cover_letter_template })}
-                    />
-                  )}
-                  {currentStep.id === "autofill" && (
-                    <StepAutofill
-                      eeo={form.eeo}
-                      onChange={(eeo) => update({ eeo })}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
+            <Button variant="ghost" onClick={goBack} disabled={stepIndex === 0}>
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Button>
 
-              <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
-                <Button variant="ghost" onClick={goBack} disabled={stepIndex === 0}>
-                  <ChevronLeft className="w-4 h-4" />
-                  Back
-                </Button>
-
-                <Button onClick={() => void goNext()} disabled={!canAdvance}>
-                  {isLast ? (saving ? "Saving..." : "Finish setup") : "Continue"}
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </>
-          )}
+            <Button onClick={() => void goNext()} disabled={!canAdvance}>
+              {isLast ? (saving ? "Saving..." : "Finish setup") : "Continue"}
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </main>
     </div>
@@ -743,32 +639,5 @@ function StepCircles({
         );
       })}
     </div>
-  );
-}
-
-function EditSection({
-  stepNumber,
-  title,
-  hint,
-  children,
-}: {
-  stepNumber: number;
-  title: string;
-  hint: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex items-start gap-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
-          {stepNumber}
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">{hint}</p>
-        </div>
-      </div>
-      {children}
-    </section>
   );
 }
