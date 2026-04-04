@@ -4,6 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // Routes that require a completed profile to access
 const PROTECTED_ROUTES = ["/dashboard", "/apply-lab"];
 
+// Only these emails can access /admin and /api/admin
+const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com"];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -29,7 +32,23 @@ export async function middleware(request: NextRequest) {
   );
 
   const pathname = request.nextUrl.pathname;
-  const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+
+  // Admin routes — hard-gated to ADMIN_EMAILS only
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
+      const dest = request.nextUrl.clone();
+      dest.pathname = "/auth";
+      return NextResponse.redirect(dest);
+    }
+    return response;
+  }
+
+  const isProtected = PROTECTED_ROUTES.some((route) =>
+    pathname.startsWith(route)
+  );
 
   if (isProtected) {
     // getUser() makes a live call to the Supabase Auth API — only pay this cost
