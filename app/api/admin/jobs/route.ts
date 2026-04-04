@@ -6,7 +6,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
 
-const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com"];
+const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 
 function getServiceClient() {
   const { url, serviceRoleKey } = getSupabaseEnv();

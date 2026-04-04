@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTECTED_ROUTES = ["/dashboard", "/apply-lab"];
 
 // Only these emails can access /admin and /api/admin
-const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com"];
+const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
