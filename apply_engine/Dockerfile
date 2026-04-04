@@ -8,8 +8,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy apply engine source
-COPY . .
+# Copy apply engine source into apply_engine/ subdirectory so the package is importable
+# as `apply_engine.*` regardless of whether Root Directory is set to apply_engine/ or not.
+RUN mkdir apply_engine
+COPY . ./apply_engine/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
