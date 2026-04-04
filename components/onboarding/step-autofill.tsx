@@ -1,14 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-
-interface EEOData {
-  pronouns?: string;
-  gender?: string;
-  race_ethnicity?: string;
-  veteran_status?: string;
-  disability_status?: string;
-}
+import type { EEOData } from "@/lib/types";
 
 interface Props {
   eeo: EEOData | null;
@@ -20,6 +13,8 @@ const GENDER_OPTIONS = [
   "Woman",
   "Non-binary",
   "Genderqueer / Non-conforming",
+  "Agender",
+  "Two-spirit",
   "Prefer not to say",
 ];
 
@@ -30,21 +25,65 @@ const RACE_OPTIONS = [
   "Black or African American",
   "Native Hawaiian or Pacific Islander",
   "White",
+  "Middle Eastern or North African",
   "Two or more races",
   "Prefer not to say",
 ];
 
 const VETERAN_OPTIONS = [
   "Not a veteran",
+  "Active duty or recently separated",
   "Protected veteran",
-  "Recently separated veteran",
+  "Disabled veteran",
   "Prefer not to say",
 ];
 
-const DISABILITY_OPTIONS = [
-  "No disability",
-  "Yes, I have a disability",
+const DISABILITY_STATUS_OPTIONS = [
+  "No, I do not have a disability",
+  "Yes, I have a disability (or have had one)",
   "Prefer not to say",
+];
+
+const DISABILITY_TYPE_OPTIONS = [
+  "ADHD / Learning disability",
+  "Autism / Neurodivergent",
+  "Anxiety / Depression / Mental health",
+  "Chronic illness / Autoimmune condition",
+  "Blind or low vision",
+  "Deaf or hard of hearing",
+  "Mobility / Physical impairment",
+  "Diabetes",
+  "Epilepsy / Seizure disorder",
+  "Cancer / Serious medical condition",
+  "Traumatic brain injury",
+  "Other",
+];
+
+const GPA_RANGES = [
+  "Below 3.0",
+  "3.0 – 3.2",
+  "3.2 – 3.4",
+  "3.4 – 3.6",
+  "3.6 – 3.8",
+  "3.8 – 4.0",
+];
+
+const SAT_RANGES = [
+  "Below 1000",
+  "1000 – 1100",
+  "1100 – 1200",
+  "1200 – 1300",
+  "1300 – 1400",
+  "1400 – 1500",
+  "1500 – 1600",
+];
+
+const ACT_RANGES = [
+  "Below 24",
+  "24 – 27",
+  "27 – 30",
+  "30 – 33",
+  "33 – 36",
 ];
 
 function ChipGroup({
@@ -64,15 +103,47 @@ function ChipGroup({
           type="button"
           onClick={() => onSelect(selected === opt ? "" : opt)}
           className={cn(
-            "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-150",
+            "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150",
             selected === opt
               ? "border-indigo-600 bg-indigo-600 text-white"
-              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
           )}
         >
           {opt}
         </button>
       ))}
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+      >
+        <option value="">{placeholder ?? "Select…"}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -88,6 +159,11 @@ export function StepAutofill({ eeo, onChange }: Props) {
       updated[key] = val;
     }
 
+    // Clear disability_type if disability_status is no longer "yes"
+    if (key === "disability_status" && !val.toLowerCase().startsWith("yes")) {
+      delete updated.disability_type;
+    }
+
     const hasValues = Object.keys(updated).some(
       (k) => (updated[k as keyof EEOData] ?? "").trim() !== ""
     );
@@ -96,25 +172,25 @@ export function StepAutofill({ eeo, onChange }: Props) {
   }
 
   const val = (key: keyof EEOData) => eeo?.[key] ?? "";
+  const hasDisability = val("disability_status").toLowerCase().startsWith("yes");
 
   return (
     <div className="space-y-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
-          Autofill extras
+          Application autofill
         </h1>
         <p className="text-gray-500">
-          Used only to fill optional diversity sections on job applications.
-          Skip anything you&apos;d rather not share.
+          Most applications require these fields. Your Twin pre-fills them
+          automatically — saving you time on every form.
         </p>
       </div>
 
-      {/* Privacy callout */}
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         🔒 This data never leaves your account and is only used to pre-fill forms.
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Pronouns */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Pronouns</label>
@@ -129,7 +205,9 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Gender identity */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Gender identity</label>
+          <label className="text-sm font-medium text-gray-700">
+            Gender identity
+          </label>
           <ChipGroup
             options={GENDER_OPTIONS}
             selected={val("gender")}
@@ -139,7 +217,9 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Race / Ethnicity */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Race / Ethnicity</label>
+          <label className="text-sm font-medium text-gray-700">
+            Race / Ethnicity
+          </label>
           <ChipGroup
             options={RACE_OPTIONS}
             selected={val("race_ethnicity")}
@@ -149,7 +229,9 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Veteran status */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Veteran status</label>
+          <label className="text-sm font-medium text-gray-700">
+            Veteran status
+          </label>
           <ChipGroup
             options={VETERAN_OPTIONS}
             selected={val("veteran_status")}
@@ -159,12 +241,64 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Disability status */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Disability status</label>
+          <label className="text-sm font-medium text-gray-700">
+            Disability status
+          </label>
           <ChipGroup
-            options={DISABILITY_OPTIONS}
+            options={DISABILITY_STATUS_OPTIONS}
             selected={val("disability_status")}
             onSelect={(v) => patch("disability_status", v)}
           />
+          {hasDisability && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-gray-500">
+                Condition type{" "}
+                <span className="text-gray-400 font-normal">
+                  (select the most accurate — used when applications show a
+                  prepopulated list)
+                </span>
+              </label>
+              <ChipGroup
+                options={DISABILITY_TYPE_OPTIONS}
+                selected={val("disability_type")}
+                onSelect={(v) => patch("disability_type", v)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Academic scores */}
+        <div className="space-y-3 border-t border-gray-100 pt-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+            Academic scores
+          </p>
+          <p className="text-sm text-gray-500">
+            Some applications ask for ranges rather than exact numbers. Pre-fill
+            these so your Twin selects the right bucket automatically.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SelectField
+              label="GPA range"
+              value={val("gpa_range")}
+              options={GPA_RANGES}
+              placeholder="Select range"
+              onChange={(v) => patch("gpa_range", v)}
+            />
+            <SelectField
+              label="SAT score range"
+              value={val("sat_range")}
+              options={SAT_RANGES}
+              placeholder="Select range"
+              onChange={(v) => patch("sat_range", v)}
+            />
+            <SelectField
+              label="ACT score range"
+              value={val("act_range")}
+              options={ACT_RANGES}
+              placeholder="Select range"
+              onChange={(v) => patch("act_range", v)}
+            />
+          </div>
         </div>
       </div>
     </div>

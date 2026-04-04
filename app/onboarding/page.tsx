@@ -13,7 +13,6 @@ import type {
   Industry,
   JobLevel,
   JobRoleFamily,
-  GrayAreaSuggestion,
   AnnotatedResume,
   EEOData,
   TargetTerm,
@@ -71,7 +70,7 @@ interface FormState {
   target_years: number[];
   locations: string[];
   remote_ok: boolean;
-  gray_areas: GrayAreaSuggestion | null;
+  gray_areas: unknown;
   // Step 4: resume
   annotatedResume: AnnotatedResume | null;
   resumeUrl: string | null;
@@ -115,9 +114,7 @@ function isStepValid(step: StepId, form: FormState): boolean {
       return (
         form.industries.length > 0 &&
         form.levels.length > 0 &&
-        form.target_role_families.length > 0 &&
-        (form.locations.length > 0 || form.remote_ok) &&
-        form.gray_areas !== null
+        (form.locations.length > 0 || form.remote_ok)
       );
     case "resume":
       return form.annotatedResume !== null;
@@ -170,12 +167,10 @@ function hasStepProgress(step: StepId, form: FormState): boolean {
       return Boolean(
         form.industries.length ||
         form.levels.length ||
-        form.target_role_families.length ||
         form.target_terms.length ||
         form.target_years.length ||
         form.locations.length ||
-        form.remote_ok ||
-        form.gray_areas
+        form.remote_ok
       );
     case "resume":
       return Boolean(
@@ -547,13 +542,17 @@ export default function OnboardingPage() {
                 <StepPreferences
                   industries={form.industries}
                   levels={form.levels}
-                  targetRoleFamilies={form.target_role_families}
                   targetTerms={form.target_terms}
                   targetYears={form.target_years}
                   locations={form.locations}
                   remoteOk={form.remote_ok}
-                  grayAreas={form.gray_areas}
-                  onChange={(patch) => update(patch as Partial<FormState>)}
+                  onChange={(patch) => {
+                    const full: Partial<FormState> = { ...patch as Partial<FormState> };
+                    if ("levels" in patch && Array.isArray(patch.levels)) {
+                      full.target_role_families = patch.levels as any;
+                    }
+                    update(full);
+                  }}
                 />
               )}
               {currentStep.id === "resume" && (

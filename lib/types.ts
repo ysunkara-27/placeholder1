@@ -213,4 +213,8 @@ export interface EEOData {
   race_ethnicity?: string;
   veteran_status?: string;
   disability_status?: string;
+  disability_type?: string;
+  gpa_range?: string;
+  sat_range?: string;
+  act_range?: string;
 }

@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { StepProfile } from "@/components/onboarding/step-profile";
 import { StepEducation } from "@/components/onboarding/step-education";
 import { StepPreferences } from "@/components/onboarding/step-preferences";
-import { StepResume } from "@/components/onboarding/step-resume";
 import { StepAutofill } from "@/components/onboarding/step-autofill";
+import { PortalAccountsCard } from "@/components/dashboard/portal-accounts-card";
 import type {
   Industry,
   JobLevel,
   JobRoleFamily,
-  GrayAreaSuggestion,
   AnnotatedResume,
   EEOData,
   TargetTerm,
@@ -24,7 +23,22 @@ import {
   mapProfileToUpsertInput,
   type ProfileRow,
 } from "@/lib/platform/profile";
-import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
+import { clampText, MAX_COVER_LETTER_CHARS, isNearCharacterLimit } from "@/lib/upload-limits";
+import { cn } from "@/lib/utils";
+import { FileText, Loader2, CheckCircle2 } from "lucide-react";
+
+// ─── Section definitions ─────────────────────────────────────────────────────
+
+const SECTIONS = [
+  { id: "personal",  title: "Personal",         hint: "Basics & contact" },
+  { id: "education", title: "Education",        hint: "School & auth" },
+  { id: "prefs",     title: "Preferences",      hint: "What you want" },
+  { id: "resume",    title: "Resume",           hint: "PDF & cover letter" },
+  { id: "autofill",  title: "Autofill",         hint: "EEO & scores" },
+  { id: "portals",   title: "Portal accounts",  hint: "Auto-login" },
+] as const;
+
+// ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
   name: string;
@@ -52,7 +66,8 @@ interface FormState {
   target_years: number[];
   locations: string[];
   remote_ok: boolean;
-  gray_areas: GrayAreaSuggestion | null;
+  // gray_areas preserved in DB but not displayed
+  gray_areas: unknown;
   annotatedResume: AnnotatedResume | null;
   resumeUrl: string | null;
   cover_letter_template: string;
@@ -62,53 +77,26 @@ interface FormState {
 }
 
 const INITIAL: FormState = {
-  name: "",
-  phone: "",
-  city: "",
-  state_region: "",
-  country: "United States",
-  linkedin_url: "",
-  website_url: "",
-  github_url: "",
-  school: "",
-  major: "",
-  major2: "",
-  degree: "",
-  gpa: "",
-  graduation: "",
-  authorized_to_work: true,
-  visa_type: "",
-  earliest_start_date: "",
-  weekly_availability_hours: "",
-  industries: [],
-  levels: [],
-  target_role_families: [],
-  target_terms: [],
-  target_years: [],
-  locations: [],
-  remote_ok: false,
-  gray_areas: null,
-  annotatedResume: null,
-  resumeUrl: null,
-  cover_letter_template: "",
-  eeo: null,
-  graduation_year: null,
-  graduation_term: null,
+  name: "", phone: "", city: "", state_region: "", country: "United States",
+  linkedin_url: "", website_url: "", github_url: "",
+  school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
+  authorized_to_work: true, visa_type: "", earliest_start_date: "", weekly_availability_hours: "",
+  industries: [], levels: [], target_role_families: [], target_terms: [], target_years: [],
+  locations: [], remote_ok: false, gray_areas: null,
+  annotatedResume: null, resumeUrl: null, cover_letter_template: "",
+  eeo: null, graduation_year: null, graduation_term: null,
 };
 
 function clampFormTextFields(form: Partial<FormState>): Partial<FormState> {
   return {
     ...form,
     ...(typeof form.cover_letter_template === "string"
-      ? {
-          cover_letter_template: clampText(
-            form.cover_letter_template,
-            MAX_COVER_LETTER_CHARS
-          ),
-        }
+      ? { cover_letter_template: clampText(form.cover_letter_template, MAX_COVER_LETTER_CHARS) }
       : {}),
   };
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -117,28 +105,22 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState(0);
   const [isEditFooterVisible, setIsEditFooterVisible] = useState(false);
+
+  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const editFooterRef = useRef<HTMLDivElement | null>(null);
 
+  // Bootstrap profile
   useEffect(() => {
     let active = true;
 
     async function bootstrap() {
       try {
         const supabase = getSupabaseBrowserClient();
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        if (!session?.user.id) {
-          router.replace("/auth?error=session_required");
-          return;
-        }
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session?.user.id) { router.replace("/auth?error=session_required"); return; }
 
         setSessionUserId(session.user.id);
 
@@ -148,16 +130,10 @@ export default function ProfilePage() {
           .eq("id", session.user.id)
           .maybeSingle();
 
-        if (error) {
-          throw error;
-        }
-
+        if (error) throw error;
         if (!active) return;
 
-        if (!data?.onboarding_completed) {
-          router.replace("/onboarding");
-          return;
-        }
+        if (!data?.onboarding_completed) { router.replace("/onboarding"); return; }
 
         const profileRow = data as ProfileRow;
         const mapped = mapProfileRowToPersistedProfile(profileRow);
@@ -191,10 +167,7 @@ export default function ProfilePage() {
           annotatedResume: extractResumeFromProfileRow(profileRow),
           resumeUrl: mapped.resume_url,
           major2: mapped.major2,
-          cover_letter_template: clampText(
-            mapped.cover_letter_template,
-            MAX_COVER_LETTER_CHARS
-          ),
+          cover_letter_template: clampText(mapped.cover_letter_template, MAX_COVER_LETTER_CHARS),
           weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
           graduation_year: mapped.graduation_year,
           graduation_term: mapped.graduation_term,
@@ -227,41 +200,47 @@ export default function ProfilePage() {
         } catch {}
       } catch (error) {
         if (!active) return;
-
         setAuthError(
           error instanceof Error
             ? `Unable to load your profile: ${error.message}`
             : "Unable to load your profile."
         );
       } finally {
-        if (active) {
-          setBootstrapping(false);
-        }
+        if (active) setBootstrapping(false);
       }
     }
 
     void bootstrap();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [router]);
 
+  // Active section tracking via scroll
   useEffect(() => {
-    if (!editFooterRef.current) {
-      setIsEditFooterVisible(false);
-      return;
+    if (bootstrapping) return;
+
+    function handleScroll() {
+      const refs = sectionRefs.current;
+      let best = 0;
+      for (let i = refs.length - 1; i >= 0; i--) {
+        const el = refs[i];
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= 120) { best = i; break; }
+      }
+      setActiveSection(best);
     }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsEditFooterVisible(entry.isIntersecting);
-      },
-      {
-        threshold: 0,
-        rootMargin: "0px 0px -32px 0px",
-      }
-    );
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [bootstrapping]);
 
+  // Edit footer visibility
+  useEffect(() => {
+    if (!editFooterRef.current) { setIsEditFooterVisible(false); return; }
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsEditFooterVisible(entry.isIntersecting),
+      { threshold: 0, rootMargin: "0px 0px -32px 0px" }
+    );
     observer.observe(editFooterRef.current);
     return () => observer.disconnect();
   }, []);
@@ -270,25 +249,19 @@ export default function ProfilePage() {
     setForm((current) => ({ ...current, ...clampFormTextFields(patch) }));
   }
 
+  function scrollToSection(idx: number) {
+    sectionRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   async function saveProfile() {
     setSaving(true);
     setAuthError(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        throw sessionError;
-      }
-
-      if (!session?.user.id) {
-        router.replace("/auth?error=session_required");
-        return;
-      }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session?.user.id) { router.replace("/auth?error=session_required"); return; }
 
       const { annotatedResume, resumeUrl: _resumeUrl, ...profileFields } = form;
       const payload = mapProfileToUpsertInput({
@@ -315,9 +288,7 @@ export default function ProfilePage() {
       localStorage.removeItem("twin_onboarding_draft");
       router.push("/dashboard");
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : "Failed to save your profile."
-      );
+      setAuthError(error instanceof Error ? error.message : "Failed to save your profile.");
     } finally {
       setSaving(false);
     }
@@ -333,117 +304,215 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
-        <div className="w-full max-w-4xl space-y-8 pb-32">
-          {authError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {authError}
+      <main className="flex-1 flex items-start justify-center px-4 py-12 overflow-y-auto">
+        <div className="w-full max-w-5xl flex gap-10">
+
+          {/* ── Sticky sidebar ─────────────────────────────────────────── */}
+          <aside className="hidden lg:block w-44 shrink-0">
+            <div className="sticky top-8">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                Edit profile
+              </p>
+              <nav className="space-y-0.5">
+                {SECTIONS.map((s, i) => (
+                  <button
+                    key={s.id}
+                    onClick={() => scrollToSection(i)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150",
+                      activeSection === i
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
+                        activeSection === i
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-100 text-gray-400"
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="text-xs font-medium leading-tight">
+                      {s.title}
+                    </span>
+                  </button>
+                ))}
+              </nav>
             </div>
-          )}
+          </aside>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
-              Edit profile
-            </h1>
-            <p className="text-sm text-gray-500">
-              Update anything that changed. This edit view keeps your full profile on one page.
-            </p>
-          </div>
-
-          <EditSection stepNumber={1} title="Personal" hint="Basics, links, and contact details">
-            <StepProfile
-              name={form.name}
-              phone={form.phone}
-              city={form.city}
-              state_region={form.state_region}
-              country={form.country}
-              linkedin_url={form.linkedin_url}
-              website_url={form.website_url}
-              github_url={form.github_url}
-              onChange={(patch) => update(patch)}
-            />
-          </EditSection>
-
-          <EditSection stepNumber={2} title="Education" hint="School, authorization, and availability">
-            <StepEducation
-              school={form.school}
-              major={form.major}
-              major2={form.major2}
-              degree={form.degree}
-              gpa={form.gpa}
-              graduation={form.graduation}
-              authorized_to_work={form.authorized_to_work}
-              visa_type={form.visa_type}
-              earliest_start_date={form.earliest_start_date}
-              weekly_availability_hours={form.weekly_availability_hours}
-              onChange={(patch) => update(patch)}
-            />
-          </EditSection>
-
-          <EditSection stepNumber={3} title="Preferences" hint="Targets, industries, and locations">
-            <StepPreferences
-              industries={form.industries}
-              levels={form.levels}
-              targetRoleFamilies={form.target_role_families}
-              targetTerms={form.target_terms}
-              targetYears={form.target_years}
-              locations={form.locations}
-              remoteOk={form.remote_ok}
-              grayAreas={form.gray_areas}
-              onChange={(patch) => update(patch as Partial<FormState>)}
-            />
-          </EditSection>
-
-          <EditSection stepNumber={4} title="Resume" hint="Resume parsing, locks, and cover letter">
-            <StepResume
-              value={form.annotatedResume}
-              onChange={(annotatedResume) => update({ annotatedResume })}
-              onResumeUrl={(resumeUrl) => update({ resumeUrl })}
-              userId={sessionUserId ?? undefined}
-              coverLetter={form.cover_letter_template}
-              onCoverLetterChange={(cover_letter_template) => update({ cover_letter_template })}
-            />
-          </EditSection>
-
-          <EditSection stepNumber={5} title="Autofill" hint="Optional EEO and extra application details">
-            <StepAutofill
-              eeo={form.eeo}
-              onChange={(eeo) => update({ eeo })}
-            />
-          </EditSection>
-
-          {!isEditFooterVisible && (
-            <div className="fixed bottom-[11vh] left-1/2 z-40 -translate-x-1/2">
-              <div className="rounded-xl border border-white/35 bg-transparent p-2.5 shadow-[0_18px_45px_rgba(15,23,42,0.12)] backdrop-blur-sm">
-                <Button onClick={() => void saveProfile()} disabled={saving}>
-                  {saving ? "Saving..." : "Save changes"}
-                </Button>
+          {/* ── Content ───────────────────────────────────────────────── */}
+          <div className="flex-1 min-w-0 space-y-8 pb-32">
+            {authError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {authError}
               </div>
-            </div>
-          )}
+            )}
 
-          <div ref={editFooterRef} className="h-8" aria-hidden="true" />
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+                Edit profile
+              </h1>
+              <p className="text-sm text-gray-500">
+                Update anything that changed.
+              </p>
+            </div>
+
+            {/* 1 · Personal */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[0] = el; }}
+              stepNumber={1}
+              title="Personal"
+              hint="Basics, links, and contact details"
+            >
+              <StepProfile
+                name={form.name}
+                phone={form.phone}
+                city={form.city}
+                state_region={form.state_region}
+                country={form.country}
+                linkedin_url={form.linkedin_url}
+                website_url={form.website_url}
+                github_url={form.github_url}
+                onChange={(patch) => update(patch)}
+              />
+            </EditSection>
+
+            {/* 2 · Education */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[1] = el; }}
+              stepNumber={2}
+              title="Education"
+              hint="School, authorization, and availability"
+            >
+              <StepEducation
+                school={form.school}
+                major={form.major}
+                major2={form.major2}
+                degree={form.degree}
+                gpa={form.gpa}
+                graduation={form.graduation}
+                authorized_to_work={form.authorized_to_work}
+                visa_type={form.visa_type}
+                earliest_start_date={form.earliest_start_date}
+                weekly_availability_hours={form.weekly_availability_hours}
+                onChange={(patch) => update(patch)}
+              />
+            </EditSection>
+
+            {/* 3 · Preferences */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[2] = el; }}
+              stepNumber={3}
+              title="Preferences"
+              hint="Industries, role type, timing, and locations"
+            >
+              <StepPreferences
+                industries={form.industries}
+                levels={form.levels}
+                targetTerms={form.target_terms}
+                targetYears={form.target_years}
+                locations={form.locations}
+                remoteOk={form.remote_ok}
+                onChange={(patch) => {
+                  const full: Partial<FormState> = { ...patch as Partial<FormState> };
+                  if ("levels" in patch && Array.isArray(patch.levels)) {
+                    full.target_role_families = patch.levels as any;
+                  }
+                  update(full);
+                }}
+              />
+            </EditSection>
+
+            {/* 4 · Resume */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[3] = el; }}
+              stepNumber={4}
+              title="Resume"
+              hint="PDF file and cover letter template"
+            >
+              <ProfileResumeSection
+                resumeUrl={form.resumeUrl}
+                onResumeUrl={(resumeUrl) => update({ resumeUrl })}
+                userId={sessionUserId}
+                coverLetter={form.cover_letter_template}
+                onCoverLetterChange={(cover_letter_template) =>
+                  update({ cover_letter_template })
+                }
+              />
+            </EditSection>
+
+            {/* 5 · Autofill */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[4] = el; }}
+              stepNumber={5}
+              title="Autofill"
+              hint="EEO details and academic score ranges"
+            >
+              <StepAutofill
+                eeo={form.eeo}
+                onChange={(eeo) => update({ eeo })}
+              />
+            </EditSection>
+
+            {/* 6 · Portal accounts */}
+            <EditSection
+              sectionRef={(el) => { sectionRefs.current[5] = el; }}
+              stepNumber={6}
+              title="Portal accounts"
+              hint="Login credentials for Workday, iCIMS, Handshake, and more"
+            >
+              <PortalAccountsCard />
+            </EditSection>
+
+            {/* Footer save */}
+            {!isEditFooterVisible && (
+              <div className="fixed bottom-[11vh] left-1/2 z-40 -translate-x-1/2">
+                <div className="rounded-xl border border-white/35 bg-transparent p-2.5 shadow-[0_18px_45px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                  <Button onClick={() => void saveProfile()} disabled={saving}>
+                    {saving ? "Saving..." : "Save changes"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div ref={editFooterRef} className="flex justify-end">
+              <Button onClick={() => void saveProfile()} disabled={saving}>
+                {saving ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </div>
         </div>
       </main>
     </div>
   );
 }
 
+// ─── EditSection wrapper ──────────────────────────────────────────────────────
+
 function EditSection({
   stepNumber,
   title,
   hint,
   children,
+  sectionRef,
 }: {
   stepNumber: number;
   title: string;
   hint: string;
   children: React.ReactNode;
+  sectionRef?: (el: HTMLElement | null) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+    <section
+      ref={sectionRef}
+      className="scroll-mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+    >
       <div className="mb-6 flex items-start gap-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
           {stepNumber}
         </div>
         <div>
@@ -453,5 +522,163 @@ function EditSection({
       </div>
       {children}
     </section>
+  );
+}
+
+// ─── Simplified resume section (PDF only) ────────────────────────────────────
+
+function ProfileResumeSection({
+  resumeUrl,
+  onResumeUrl,
+  userId,
+  coverLetter,
+  onCoverLetterChange,
+}: {
+  resumeUrl: string | null;
+  onResumeUrl: (url: string) => void;
+  userId: string | null;
+  coverLetter: string;
+  onCoverLetterChange: (v: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const coverLetterLength = coverLetter.length;
+  const nearLimit = isNearCharacterLimit(coverLetterLength, MAX_COVER_LETTER_CHARS);
+
+  async function handleFile(file: File) {
+    if (!userId) return;
+    if (file.type !== "application/pdf") {
+      setUploadError("Please upload a PDF file.");
+      return;
+    }
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", userId);
+      const res = await fetch("/api/resume/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Upload failed");
+      if (data.resumeUrl) {
+        onResumeUrl(data.resumeUrl);
+        setUploadedName(file.name);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* PDF upload */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-medium text-gray-700">Resume (PDF)</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            One file, used across all applications.
+          </p>
+        </div>
+
+        {resumeUrl ? (
+          <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-green-800">
+                {uploadedName ?? "Resume uploaded"}
+              </p>
+              <a
+                href={resumeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-green-700 underline underline-offset-2 hover:text-green-900"
+              >
+                View current resume
+              </a>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="shrink-0 text-xs font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
+            >
+              Replace
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || !userId}
+            className={cn(
+              "flex items-center gap-3 w-full rounded-xl border-2 border-dashed px-4 py-6 text-left transition-colors duration-150",
+              uploading
+                ? "border-indigo-200 bg-indigo-50 cursor-wait"
+                : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
+            )}
+          >
+            {uploading ? (
+              <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+            ) : (
+              <FileText className="w-5 h-5 text-gray-400" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                {uploading ? "Uploading…" : "Click to upload PDF"}
+              </p>
+              <p className="text-xs text-gray-400">PDF only</p>
+            </div>
+          </button>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = "";
+          }}
+        />
+
+        {uploadError && (
+          <p className="text-xs text-red-600">{uploadError}</p>
+        )}
+      </div>
+
+      {/* Cover letter */}
+      <div className="space-y-3 border-t border-gray-100 pt-6">
+        <div>
+          <label className="text-sm font-medium text-gray-700">
+            Cover letter template{" "}
+            <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Your Twin will use this as a base and tailor it for each
+            application. Leave blank to skip cover letters. Max{" "}
+            {MAX_COVER_LETTER_CHARS.toLocaleString()} characters.
+          </p>
+        </div>
+        <textarea
+          value={coverLetter}
+          onChange={(e) => onCoverLetterChange(e.target.value)}
+          placeholder={"Dear Hiring Manager,\n\nI'm excited to apply for..."}
+          rows={6}
+          maxLength={MAX_COVER_LETTER_CHARS}
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors duration-150"
+        />
+        <div className="flex justify-end">
+          <p
+            className={`text-xs ${nearLimit ? "text-amber-600" : "text-gray-400"}`}
+          >
+            {coverLetterLength.toLocaleString()} /{" "}
+            {MAX_COVER_LETTER_CHARS.toLocaleString()}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
