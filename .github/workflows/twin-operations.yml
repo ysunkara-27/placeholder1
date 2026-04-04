@@ -11,6 +11,10 @@ on:
         description: "Expire old pending alerts"
         required: false
         default: "true"
+      process_queue:
+        description: "Drain queued applications"
+        required: false
+        default: "true"
       send_prospective_lists:
         description: "Send daily prospective (digest) lists"
         required: false
@@ -113,6 +117,22 @@ jobs:
             --worker-secret "$TWIN_WORKER_SECRET" \
             --concurrency 20 \
             --skip-gemini
+
+  process-queue:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.process_queue == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain queued applications
+        env:
+          TWIN_APP_BASE_URL: ${{ secrets.TWIN_APP_BASE_URL }}
+          APPLY_QUEUE_WORKER_SECRET: ${{ secrets.APPLY_QUEUE_WORKER_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $APPLY_QUEUE_WORKER_SECRET" \
+            "$TWIN_APP_BASE_URL/api/internal/cron/process-queue"
 
   send-prospective-lists:
     if: |
