@@ -119,16 +119,6 @@ export interface PersonalInfo {
   gpa: string;
 }
 
-// ─── Onboarding ──────────────────────────────────────────────────────────────
-
-export type OnboardingStep = "profile" | "preferences" | "resume" | "phone";
-
-export interface OnboardingState {
-  step: OnboardingStep;
-  stepIndex: number;
-  data: Partial<UserPreferences>;
-}
-
 // ─── Gray Areas (Claude-suggested) ───────────────────────────────────────────
 
 export interface GrayAreaSuggestion {
