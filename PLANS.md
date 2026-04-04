@@ -17,7 +17,7 @@ Verified in this repo:
 - queue processing endpoints exist
 - local queue runner now exists: `npm run process:queue:local`
 - direct local queue runner now exists: `npm run process:queue:direct`
-- vetted live-run job set now exists: `data/job-seeds/vetted-live-mvp.json`
+- apply lab no longer depends on a bundled vetted seed set; it now reflects jobs sent from Browse Jobs
 - tests passing:
   - `npm run test:apply-engine`
   - `python3 -m py_compile $(find apply_engine -name '*.py')`
@@ -501,7 +501,7 @@ Exact actions:
 2. Start the apply engine locally:
    - `./.venv/bin/uvicorn apply_engine.main:app --host 127.0.0.1 --port 8000`
 3. Open `/apply-lab`
-4. Use only jobs from `data/job-seeds/vetted-live-mvp.json`
+4. Use operator-selected real jobs routed through the live browse/apply flow
 5. For each portal:
    - run `plan`
    - queue one job

@@ -1,11 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  APPLY_LAB_BROWSER_JOBS_KEY,
+  type ApplyLabBrowserJob,
+} from "@/lib/jobs-board-storage";
 import {
   mapProfileRowToPersistedProfile,
   type ProfileRow,
@@ -21,15 +25,7 @@ import {
   summarizeReadinessBuckets,
 } from "@/lib/platform/apply-readiness";
 
-interface SeedJob {
-  id: string;
-  portal: string;
-  company: string;
-  title: string;
-  location: string;
-  apply_url: string;
-  notes: string;
-}
+type ApplyLabJob = ApplyLabBrowserJob;
 
 interface ApplyPlanAction {
   action: "fill" | "click" | "select" | "upload" | "check" | "uncheck";
@@ -189,8 +185,10 @@ const DEFAULT_PROFILE = {
   custom_answers: {},
 };
 
-export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
-  const [selectedUrl, setSelectedUrl] = useState(jobs[0]?.apply_url ?? "");
+export function ApplyLab() {
+  const [browseJobs, setBrowseJobs] = useState<ApplyLabBrowserJob[]>([]);
+  const allJobs: ApplyLabJob[] = useMemo(() => browseJobs, [browseJobs]);
+  const [selectedUrl, setSelectedUrl] = useState("");
   const [profileJson, setProfileJson] = useState(
     JSON.stringify(DEFAULT_PROFILE, null, 2)
   );
@@ -217,6 +215,20 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
     readinessCounts = summarizeReadinessBuckets([]);
     portalReadiness = null;
   }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(APPLY_LAB_BROWSER_JOBS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as ApplyLabBrowserJob[];
+      setBrowseJobs(saved);
+      if (saved[0]?.apply_url) {
+        setSelectedUrl((current) => current || saved[0].apply_url);
+      }
+    } catch {
+      setBrowseJobs([]);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -293,6 +305,12 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
   useEffect(() => {
     void loadRuns();
   }, []);
+
+  useEffect(() => {
+    if (!selectedUrl && allJobs[0]?.apply_url) {
+      setSelectedUrl(allJobs[0].apply_url);
+    }
+  }, [allJobs, selectedUrl]);
 
   function normalizeResult(
     mode: "plan" | "queue" | "process",
@@ -415,9 +433,16 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
     <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
       <div className="space-y-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-gray-900">Seeded ATS Jobs</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Queued Browse Jobs</h2>
           <div className="mt-4 space-y-3">
-            {jobs.map((job) => (
+            {allJobs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                No jobs have been sent here yet. Add jobs from Browse Jobs, then
+                return to Apply Lab to inspect or run them.
+              </div>
+            ) : null}
+            {allJobs.map((job) => {
+              return (
               <button
                 key={job.id}
                 onClick={() => setSelectedUrl(job.apply_url)}
@@ -429,14 +454,17 @@ export function ApplyLab({ jobs }: { jobs: SeedJob[] }) {
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-gray-900">{job.company}</p>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                    {job.portal}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                      {job.portal}
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-1 text-sm text-gray-600">{job.title}</p>
                 <p className="mt-1 text-xs text-gray-400">{job.location}</p>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 

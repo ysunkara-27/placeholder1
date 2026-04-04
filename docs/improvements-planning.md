@@ -626,7 +626,7 @@ Move selection logic into SQL or RPC rather than fetching broad datasets into No
 ## 3.15 `app/apply-lab/page.tsx` and `components/apply/apply-lab.tsx`
 
 ### Current issue
-The apply lab is useful for internal testing, but it currently imports a static seed set (`vetted-live-mvp.json`) directly in the page, which keeps testing somewhat detached from production queue reality.
+The apply lab is useful for internal testing, but it should stay tied to real queue inputs rather than bundled fixtures.
 
 ### Code changes
 - allow selecting between:

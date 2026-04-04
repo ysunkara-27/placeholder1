@@ -11,18 +11,6 @@ These are current public ATS job URLs captured to bootstrap parser and apply-eng
 ## File
 
 - `live-openings-2026.json`
-- `vetted-live-mvp.json`
-
-## Vetted MVP set
-
-Use `vetted-live-mvp.json` for real apply-engine testing.
-
-- It contains the smaller set of live postings we want to run repeatedly while
-  hardening the MVP
-- It is the source for `/apply-lab`
-- It should stay small and high-signal
-- Add a posting there only after it has been manually opened and confirmed to
-  still expose a public apply flow
 
 ## Next step
 

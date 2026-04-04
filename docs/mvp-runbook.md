@@ -303,7 +303,7 @@ npx next start -p 3001
 npm run smoke
 
 # 2. Queue the 4 vetted test jobs
-npm run queue:vetted:mvp
+npm run process:queue:local
 
 # 3. Run one application at a time
 TWIN_MAX_RUNS=1 npm run process:queue:direct
@@ -332,7 +332,7 @@ npm run report:daily:followups
 cat reports/daily-followups-$(date +%Y-%m-%d).md
 
 # 6. Repeat
-npm run queue:vetted:mvp
+npm run process:queue:local
 npm run process:queue:direct
 ```
 
@@ -377,7 +377,7 @@ npm run smoke
 npm run smoke -- --portal greenhouse
 
 # Queue the vetted test jobs
-npm run queue:vetted:mvp
+npm run process:queue:local
 
 # Process the queue (real browser, 2–7 min per job)
 npm run process:queue:direct

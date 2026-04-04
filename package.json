@@ -10,7 +10,6 @@
     "test:apply-engine": "./.venv/bin/python -m unittest discover apply_engine/tests -v",
     "process:queue:local": "node scripts/process-queue-local.mjs",
     "process:queue:direct": "node scripts/process-queue-direct.mjs",
-    "queue:vetted:mvp": "node scripts/queue-vetted-mvp.mjs",
     "reconcile:jobs": "node scripts/reconcile-jobs.mjs",
     "check:rate-limit:plan": "node scripts/check-apply-plan-rate-limit.mjs",
     "report:daily:followups": "node scripts/generate-daily-followup-report.mjs",

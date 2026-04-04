@@ -58,6 +58,7 @@ interface ApplicantDraftLike {
   city?: string;
   state_region?: string;
   country?: string;
+  custom_answers?: Record<string, string>;
 }
 
 const STATUS_STYLES: Record<string, { dot: string; label: string; text: string; surface: string }> = {
@@ -84,6 +85,23 @@ function getRequestProfile(application: DashboardApplicationRecord): ApplicantDr
   return null;
 }
 
+function formatExactValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value === null || typeof value === "undefined") {
+    return "";
+  }
+  return JSON.stringify(value);
+}
+
+function prettifyKey(key: string) {
+  return key.replaceAll("_", " ");
+}
+
 function VerificationPane({
   application,
   onTrustApply,
@@ -96,6 +114,13 @@ function VerificationPane({
   trustError: string | null;
 }) {
   const requestProfile = getRequestProfile(application);
+  const customAnswers =
+    requestProfile?.custom_answers && typeof requestProfile.custom_answers === "object"
+      ? Object.entries(requestProfile.custom_answers)
+      : [];
+  const exactProfileEntries = requestProfile
+    ? Object.entries(requestProfile).filter(([key]) => key !== "custom_answers")
+    : [];
   const readiness = useMemo(() => {
     if (!requestProfile) return null;
 
@@ -198,6 +223,42 @@ function VerificationPane({
               value={requestProfile?.work_authorization || (requestProfile?.sponsorship_required ? "Needs sponsorship" : "Missing")}
             />
           </div>
+          <div className="border-t border-gray-200 pt-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
+              Exact Profile Payload
+            </p>
+            {exactProfileEntries.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {exactProfileEntries.map(([key, value]) => (
+                  <FieldRow
+                    key={key}
+                    label={prettifyKey(key)}
+                    value={formatExactValue(value) || "Empty string"}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-gray-500">
+                No exact profile payload found on this queued application.
+              </p>
+            )}
+          </div>
+          {customAnswers.length > 0 && (
+            <div className="border-t border-gray-200 pt-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
+                Application Questions
+              </p>
+              <div className="mt-3 space-y-2">
+                {customAnswers.map(([questionKey, answer]) => (
+                  <FieldRow
+                    key={questionKey}
+                    label={questionKey}
+                    value={answer || "Empty string"}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-white p-4 space-y-3">
@@ -432,7 +493,12 @@ function FieldRow({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
         {label}
       </p>
-      <p className="max-w-[60%] text-right text-sm text-gray-700">{value}</p>
+      <p
+        className="max-w-[60%] truncate text-right text-sm text-gray-700"
+        title={value}
+      >
+        {value}
+      </p>
     </div>
   );
 }

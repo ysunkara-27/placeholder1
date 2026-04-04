@@ -115,4 +115,4 @@ try {
 }
 
 console.log("\n  Smoke test passed. Run a real apply with:\n");
-console.log("  npm run queue:vetted:mvp && npm run process:queue:direct\n");
+console.log("  Queue real jobs from Browse Jobs, then run npm run process:queue:direct\n");
