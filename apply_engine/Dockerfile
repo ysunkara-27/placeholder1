@@ -17,4 +17,6 @@ ENV PYTHONUNBUFFERED=1 \
 
 EXPOSE 8000
 
-CMD ["uvicorn", "apply_engine.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+# Shell form so ${PORT} is expanded at runtime.
+# Default to 8000 if PORT is not injected (e.g. worker service).
+CMD uvicorn apply_engine.main:app --host 0.0.0.0 --port ${PORT:-8000}
