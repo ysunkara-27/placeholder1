@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseEnv } from "@/lib/env";
 import { hashFingerprint } from "@/lib/request-controls";
 import {
   fetchApplySubmit,
@@ -274,7 +275,12 @@ async function processClaimedApplication(
 
   try {
     const requestPayload = parseApplyPlanRequest(claimed.request_payload);
-    const result = await fetchApplySubmit(requestPayload);
+    const { url: supabaseUrl, serviceRoleKey } = getSupabaseEnv();
+    const result = await fetchApplySubmit(requestPayload, {
+      application_id: claimed.id,
+      supabase_url: supabaseUrl,
+      supabase_key: serviceRoleKey,
+    });
     runId = await safePersistRun(supabase, {
       userId: claimed.user_id,
       jobId: claimed.job_id,

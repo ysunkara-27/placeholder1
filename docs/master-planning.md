@@ -57,7 +57,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 - No real matching engine yet
 - Live messaging code exists, but trusted production SMS approval is not complete until signature verification, rate limiting, and spend controls are enforced
 - Inbound follow-up answers now parse from SMS and persist onto the profile, but still need repeated live validation against real blocked applications
-- No queue worker / scheduler / retry pipeline yet
+- Queue-drain endpoints now exist and a Railway worker entrypoint can poll them, but the hosted worker path still needs repeated live validation against real queued applications
 - No Workday or Handshake real agent yet
 - No real Claude vision fallback execution yet
 - No screenshot persistence or replay tooling yet

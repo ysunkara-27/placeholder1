@@ -68,6 +68,12 @@ const applyPlanRequestSchema = z.object({
     }),
 });
 
+const applyEngineExecutionContextSchema = z.object({
+  application_id: z.string().optional(),
+  supabase_url: z.string().url().optional(),
+  supabase_key: z.string().min(1).optional(),
+});
+
 const applyActionSchema = z.object({
   action: z.enum(["fill", "click", "select", "upload", "check", "uncheck"]),
   selector: z.string(),
@@ -108,6 +114,9 @@ const applyEngineResponseSchema = z.object({
 
 export type ApplyPlanRequest = z.infer<typeof applyPlanRequestSchema>;
 export type ApplyEngineResponse = z.infer<typeof applyEngineResponseSchema>;
+export type ApplyEngineExecutionContext = z.infer<
+  typeof applyEngineExecutionContextSchema
+>;
 
 export function parseApplyPlanRequest(input: unknown): ApplyPlanRequest {
   return applyPlanRequestSchema.parse(input);
@@ -120,14 +129,26 @@ export async function fetchApplyPlan(
 }
 
 export async function fetchApplySubmit(
-  input: ApplyPlanRequest
+  input: ApplyPlanRequest,
+  executionContext?: ApplyEngineExecutionContext
 ): Promise<ApplyEngineResponse> {
-  return fetchApplyEngine("apply", { ...input, dry_run: false });
+  const parsedExecutionContext = executionContext
+    ? applyEngineExecutionContextSchema.parse(executionContext)
+    : undefined;
+
+  return fetchApplyEngine("apply", {
+    ...input,
+    ...parsedExecutionContext,
+    dry_run: false,
+  });
 }
 
 async function fetchApplyEngine(
   path: "plan" | "apply",
-  input: ApplyPlanRequest & { dry_run?: boolean }
+  input: ApplyPlanRequest &
+    ApplyEngineExecutionContext & {
+      dry_run?: boolean;
+    }
 ): Promise<ApplyEngineResponse> {
   const { baseUrl, timeoutMs, greenhouseTimeoutMs } = getApplyEngineEnv();
 

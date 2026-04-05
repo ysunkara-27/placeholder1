@@ -27,6 +27,38 @@ Verified in this repo:
 
 Finished:
 
+- added a Railway-compatible queue worker entrypoint at `apply_engine/queue_worker.py`
+- updated `apply_engine/worker.railway.json` so the worker service polls the Next app queue-drain endpoint instead of launching an unused Celery process
+- verified the required repo checks still pass after the worker change:
+  - `npm run test:apply-engine`
+  - `python3 -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+- live-tested the real queue path against a queued Xometry Greenhouse application:
+  - before restarting the stale local apply engine, the job failed immediately because the running engine treated the signed Supabase resume URL like a local file path
+  - after restarting the engine from current workspace code, the same application successfully moved from `queued` to `running` under `worker_id=queue-worker`
+  - after wiring execution context through `lib/application-queue.ts` and `lib/apply-engine.ts`, the same application row started receiving real Python-side `log_events` (`Browser launched`, `Page loaded`, `Filling contact info`, `Navigating form`)
+
+Still blocked:
+
+- the hosted Railway worker path now exists in repo, but it still needs live validation in Railway with `TWIN_APP_BASE_URL` and `APPLY_QUEUE_WORKER_SECRET` set on the service
+- the latest Xometry live run now proves queue + telemetry wiring, but still needs terminal-state validation because it appears to stall in the Greenhouse fill/navigation phase
+- long-lived local apply-engine processes can mask current code behavior during live tests; operator runs need an explicit restart/check before trusting results
+
+Exact next step:
+
+- deploy/restart the Railway worker service with the new `python queue_worker.py` start command, confirm it can hit the app with the worker secret, and then watch one queued Greenhouse application reach a terminal state from the dashboard/apply-lab flow while checking `applications.log_events` for the last successful step
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+- live worker POST to `http://127.0.0.1:3001/api/internal/apply-queue/process`
+- live Supabase poll of application `cd8c646b-6847-4cf4-bbad-208b0fa38dfa`
+- fresh local queue drain via `node scripts/process-queue-local.mjs` against a restarted apply engine on `127.0.0.1:8000`
+
+Finished:
+
 - admin review `Term` editing now stays dropdown-only by default and only opens freeform input after explicitly selecting `Other`
 - fixed the interrupted admin-page term editor bug where selecting `Other` cleared the value without exposing the custom input
 - `Clean with AI` now auto-fills the job description summary into the draft on the first run when the field is empty
