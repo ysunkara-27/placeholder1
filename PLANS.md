@@ -71,6 +71,27 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (Admin JD Autofill Fix)
+
+Finished:
+
+- `Clean with AI` now prefers the actual job posting URL before the application URL when scraping description text
+- admin JD fallback filtering now rejects generic extraction headings and similar scrape-noise lines before auto-filling the description field
+
+Still blocked:
+
+- some JS-heavy portals may still return weak server-side HTML, so live validation is still needed for those sources
+
+Exact next step:
+
+- rerun `Clean with AI` on the affected admin jobs and confirm the description field now fills from the posting page instead of generic scrape labels
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
 ## Current Bottlenecks
 
 The biggest remaining blockers to MVP are:

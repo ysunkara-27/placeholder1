@@ -32,6 +32,19 @@ function buildFallbackSummary(text: string): string | null {
     .map((line) => line.trim())
     .filter((line) => (
       line.length >= 40 &&
+      !/^job description\b/i.test(line) &&
+      !/^job summary\b/i.test(line) &&
+      !/^description summary\b/i.test(line) &&
+      !/^overview\b$/i.test(line) &&
+      !/^about the role\b$/i.test(line) &&
+      !/^about us\b$/i.test(line) &&
+      !/^responsibilities\b$/i.test(line) &&
+      !/^requirements\b$/i.test(line) &&
+      !/^qualifications\b$/i.test(line) &&
+      !/^what you('|’)ll do\b$/i.test(line) &&
+      !/^what we('|’)re looking for\b$/i.test(line) &&
+      !/^extracted via\b/i.test(line) &&
+      !/^generic html rules\b/i.test(line) &&
       !/^apply\b/i.test(line) &&
       !/^save\b/i.test(line) &&
       !/^share\b/i.test(line) &&
@@ -45,8 +58,13 @@ function buildFallbackSummary(text: string): string | null {
 
   const picked: string[] = [];
   for (const line of cleaned) {
+    const normalized = line
+      .replace(/^[-*]\s*/, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (normalized.length < 40) continue;
     if (picked.some((existing) => existing.includes(line) || line.includes(existing))) continue;
-    picked.push(line.replace(/^[-*]\s*/, ""));
+    picked.push(normalized);
     if (picked.length === 4) break;
   }
 
