@@ -815,6 +815,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<"review" | "all">("review");
   const [stats, setStats] = useState<Stats | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   function showToast(text: string, ok = true) {
     setToast({ text, ok });
@@ -828,6 +829,25 @@ export default function AdminPage() {
       .then((d) => { if (d.stats) setStats(d.stats); })
       .catch(() => {});
   }, []);
+
+  async function resetAllToPending() {
+    if (!confirm(`Move all ${stats?.active ?? 0} active jobs to pending review queue?`)) return;
+    setResetting(true);
+    const res = await fetch("/api/admin/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset_to_pending" }),
+    });
+    const data = await res.json() as { affected?: number; error?: string };
+    setResetting(false);
+    if (!res.ok) { showToast(data.error ?? "Failed", false); return; }
+    showToast(`${data.affected} jobs moved to pending`);
+    // Refresh stats
+    fetch("/api/admin/jobs?page=1&limit=1")
+      .then((r) => r.json())
+      .then((d) => { if (d.stats) setStats(d.stats); })
+      .catch(() => {});
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -872,6 +892,25 @@ export default function AdminPage() {
                   <p className={cn("text-xl font-bold mt-0.5", s.color)}>{s.value.toLocaleString()}</p>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* One-time migration banner */}
+          {stats && stats.active > 0 && stats.pending === 0 && (
+            <div className="flex items-center justify-between gap-4 mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <p className="text-sm text-amber-800">
+                  <span className="font-semibold">{stats.active.toLocaleString()} active jobs</span> are visible to users but haven't been reviewed yet. Move them all to the review queue first.
+                </p>
+              </div>
+              <button
+                onClick={() => void resetAllToPending()}
+                disabled={resetting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {resetting ? "Moving…" : `Move all ${stats.active.toLocaleString()} → pending`}
+              </button>
             </div>
           )}
 

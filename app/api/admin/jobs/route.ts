@@ -87,10 +87,21 @@ export async function POST(request: NextRequest) {
   const db = getServiceClient();
   const body = await request.json();
   const { action, jobIds, status: newStatus } = body as {
-    action: "fix_canonical" | "set_status" | "approve" | "reject" | "delete";
+    action: "fix_canonical" | "reset_to_pending" | "set_status" | "approve" | "reject" | "delete";
     jobIds?: string[];
     status?: string;
   };
+
+  if (action === "reset_to_pending") {
+    // Move all active jobs into the review queue (one-time migration helper)
+    const { data, error } = await db
+      .from("jobs")
+      .update({ status: "pending" })
+      .eq("status", "active")
+      .select("id");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ affected: data?.length ?? 0 });
+  }
 
   if (action === "fix_canonical") {
     // Fix all jobs where canonical_url is null
