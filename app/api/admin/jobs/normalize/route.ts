@@ -49,7 +49,6 @@ target_term: ${target_term ?? "null"}
 degree_req: ${degree_req ?? "null"}
 
 Rules:
-- company: remove legal suffixes (Inc, Inc., LLC, Corp, Corp., Ltd, Co, plc, GmbH, S.A., N.V., etc). Fix capitalization. Keep short brand name only.
 - title: strip location info (e.g. "- New York, NY"), remove year/term refs (Summer 2026, Fall 2025, 2026 Intern), remove duplicate company name if prepended. Keep the core role name, preserve "Intern" / "Internship" / "Co-op" if present.
 - level: valid values are internship, new_grad, co_op, associate, part_time. Only suggest a change if the title clearly implies a different level than what is given.
 - location: standardize US cities to "City, ST" (e.g. "New York, NY"). For remote-only roles use "Remote". For international keep "City, Country". Strip zip codes and extra detail.
@@ -88,7 +87,7 @@ Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries"
 
   try {
     const suggestions = JSON.parse(text) as Record<string, unknown>;
-    if (suggestions.company === company) delete suggestions.company;
+    delete suggestions.company;
     if (suggestions.title === title) delete suggestions.title;
     if (suggestions.level === level) delete suggestions.level;
     if (suggestions.location === location) delete suggestions.location;
