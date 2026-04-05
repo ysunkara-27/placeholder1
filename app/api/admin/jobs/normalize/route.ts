@@ -7,6 +7,53 @@ const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sun
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview"; // only model used
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function buildFallbackSummary(text: string): string | null {
+  const cleaned = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => (
+      line.length >= 40 &&
+      !/^apply\b/i.test(line) &&
+      !/^save\b/i.test(line) &&
+      !/^share\b/i.test(line) &&
+      !/^click\b/i.test(line) &&
+      !/^privacy\b/i.test(line) &&
+      !/^cookie\b/i.test(line) &&
+      !/^equal opportunity\b/i.test(line)
+    ));
+
+  if (cleaned.length === 0) return null;
+
+  const picked: string[] = [];
+  for (const line of cleaned) {
+    if (picked.some((existing) => existing.includes(line) || line.includes(existing))) continue;
+    picked.push(line.replace(/^[-*]\s*/, ""));
+    if (picked.length === 4) break;
+  }
+
+  const summary = picked.join(" ").replace(/\s{2,}/g, " ").trim();
+  return summary.length >= 80 ? summary.slice(0, 1600) : null;
+}
+
 async function assertAdmin(): Promise<NextResponse | null> {
   const supabase = await getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,18 +66,43 @@ async function assertAdmin(): Promise<NextResponse | null> {
 async function fetchPageText(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; TwinBot/1.0)" },
-      signal: AbortSignal.timeout(8000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return null;
     const html = await res.text();
-    return html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim()
-      .slice(0, 8000);
+
+    // Try to extract the job description container before stripping all HTML.
+    // These selectors cover Greenhouse, Lever, and generic job boards.
+    const jdPatterns = [
+      // Greenhouse
+      /<div[^>]+id=["']content["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]+class=["'][^"']*posting-description[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
+      // Lever
+      /<div[^>]+class=["'][^"']*posting-description[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      // Generic: main, article, or large role/description divs
+      /<div[^>]+class=["'][^"']*(?:job-?description|jd|role-?description|description)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<article[^>]*>([\s\S]*?)<\/article>/i,
+      /<main[^>]*>([\s\S]*?)<\/main>/i,
+    ];
+
+    let extracted = "";
+    for (const pattern of jdPatterns) {
+      const match = html.match(pattern);
+      if (match?.[1] && match[1].length > 200) {
+        extracted = match[1];
+        break;
+      }
+    }
+
+    // Fall back to full page if no container found
+    const raw = extracted || html;
+
+    return stripHtml(raw).slice(0, 8000);
   } catch {
     return null;
   }
@@ -133,9 +205,19 @@ Example: {"title": "Software Engineer Intern", "industries": ["SWE"], "target_te
     if (suggestions.target_term === target_term) delete suggestions.target_term;
     // Only keep jd_summary suggestion if current field is empty
     if (jd_summary) delete suggestions.jd_summary;
+    if (!jd_summary && !suggestions.jd_summary && pageText) {
+      const fallbackSummary = buildFallbackSummary(pageText);
+      if (fallbackSummary) suggestions.jd_summary = fallbackSummary;
+    }
 
     return NextResponse.json({ suggestions });
   } catch {
+    if (!jd_summary && pageText) {
+      const fallbackSummary = buildFallbackSummary(pageText);
+      if (fallbackSummary) {
+        return NextResponse.json({ suggestions: { jd_summary: fallbackSummary } });
+      }
+    }
     return NextResponse.json({ error: "Could not parse AI response" }, { status: 500 });
   }
 }

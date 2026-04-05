@@ -1,6 +1,6 @@
 # Twin MVP Plan
 
-Last updated: 2026-03-31
+Last updated: 2026-04-05
 
 This file is the active execution plan for getting `Twin` from its current partial state to a working MVP.
 
@@ -22,6 +22,30 @@ Verified in this repo:
   - `npm run test:apply-engine`
   - `python3 -m py_compile $(find apply_engine -name '*.py')`
   - `npm run build`
+
+## Session Handoff — 2026-04-05
+
+Finished:
+
+- admin review `Term` editing now stays dropdown-only by default and only opens freeform input after explicitly selecting `Other`
+- fixed the interrupted admin-page term editor bug where selecting `Other` cleared the value without exposing the custom input
+- `Clean with AI` now auto-fills the job description summary into the draft on the first run when the field is empty
+- admin normalize route now has a deterministic JD-summary fallback from fetched page content when Gemini omits or fails to return `jd_summary`
+
+Still blocked:
+
+- live description extraction quality still depends on how much real HTML is available to server-side fetches for JS-heavy ATS pages
+- Greenhouse/Lever should be materially better than before, but Workday/iCIMS-style client-rendered pages will still need real-world validation
+
+Exact next step:
+
+- run live admin review against a small set of pending jobs across Greenhouse, Lever, and one JS-heavy portal and verify first-pass `Clean with AI` behavior for `target_term` and `jd_summary`
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
 
 ## Current Bottlenecks
 

@@ -68,6 +68,14 @@ function relativeTime(iso: string | null) {
 // ─── Review Queue ─────────────────────────────────────────────────────────────
 
 const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time"];
+const TERM_OPTIONS = [
+  "2026 Summer", "2026 Fall", "2026 Winter", "2026 Spring",
+  "2027 Summer", "2027 Fall", "2027 Winter", "2027 Spring",
+  "New Grad 2026", "New Grad 2027",
+  "Full Time",
+  "Co-op Summer 2026", "Co-op Fall 2026", "Co-op Spring 2026",
+  "Co-op Summer 2027", "Co-op Fall 2027",
+];
 
 const inp =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors";
@@ -91,6 +99,7 @@ function ReviewQueue({
   const [allSuggestions, setAllSuggestions] = useState<Record<string, Suggestions>>({});
   // Jobs currently being normalized in the background
   const [normalizing, setNormalizing] = useState<Set<string>>(new Set());
+  const [customTermOpen, setCustomTermOpen] = useState<Record<string, boolean>>({});
   const [processing, setProcessing] = useState<string | null>(null);
 
   const draft = selected ? (drafts[selected.id] ?? {}) : {};
@@ -205,11 +214,23 @@ function ReviewQueue({
       .then((res) => res.json() as Promise<{ suggestions?: Suggestions; error?: string }>)
       .then((data) => {
         if (data.error) { showToast(data.error, false); return; }
-        if (!data.suggestions || Object.keys(data.suggestions).length === 0) {
-          showToast("Looks good — no changes suggested");
+        const nextSuggestions = { ...(data.suggestions ?? {}) };
+        let autofilledDescription = false;
+
+        if (!job.jd_summary && typeof nextSuggestions.jd_summary === "string" && nextSuggestions.jd_summary.trim()) {
+          setDrafts((prev) => ({
+            ...prev,
+            [jobId]: { ...(prev[jobId] ?? {}), jd_summary: nextSuggestions.jd_summary as string },
+          }));
+          delete nextSuggestions.jd_summary;
+          autofilledDescription = true;
+        }
+
+        if (Object.keys(nextSuggestions).length === 0) {
+          showToast(autofilledDescription ? "Description auto-filled" : "Looks good — no changes suggested");
         } else {
-          setAllSuggestions((prev) => ({ ...prev, [jobId]: data.suggestions! }));
-          showToast("AI suggestions ready");
+          setAllSuggestions((prev) => ({ ...prev, [jobId]: nextSuggestions }));
+          showToast(autofilledDescription ? "Description auto-filled; AI suggestions ready" : "AI suggestions ready");
         }
       })
       .catch(() => showToast("AI failed", false))
@@ -494,29 +515,41 @@ function ReviewQueue({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Term</label>
-                  <input
-                    className={inp}
-                    value={current.target_term ?? ""}
-                    onChange={(e) => patch("target_term", e.target.value || null)}
-                    placeholder="e.g. 2026 Summer"
-                    list="term-suggestions"
-                  />
-                  <datalist id="term-suggestions">
-                    <option value="2026 Summer" />
-                    <option value="2026 Fall" />
-                    <option value="2026 Winter" />
-                    <option value="2026 Spring" />
-                    <option value="2027 Summer" />
-                    <option value="2027 Fall" />
-                    <option value="2027 Winter" />
-                    <option value="2027 Spring" />
-                    <option value="New Grad 2026" />
-                    <option value="New Grad 2027" />
-                    <option value="Full Time" />
-                    <option value="Co-op Fall 2026" />
-                    <option value="Co-op Spring 2026" />
-                    <option value="Co-op Summer 2026" />
-                  </datalist>
+                  {(() => {
+                    const val = current.target_term ?? "";
+                    const showCustomInput = Boolean(selected && customTermOpen[selected.id]);
+                    const isOther = val !== "" && !TERM_OPTIONS.includes(val);
+                    return (
+                      <>
+                        <select
+                          className={inp}
+                          value={showCustomInput || isOther ? "__other__" : val}
+                          onChange={(e) => {
+                            if (!selected) return;
+                            if (e.target.value === "__other__") {
+                              setCustomTermOpen((prev) => ({ ...prev, [selected.id]: true }));
+                              return;
+                            }
+                            setCustomTermOpen((prev) => ({ ...prev, [selected.id]: false }));
+                            patch("target_term", e.target.value || null);
+                          }}
+                        >
+                          <option value="">— unknown —</option>
+                          {TERM_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                          <option value="__other__">Other…</option>
+                        </select>
+                        {(showCustomInput || isOther) && (
+                          <input
+                            className={`${inp} mt-1`}
+                            value={val}
+                            onChange={(e) => patch("target_term", e.target.value || null)}
+                            placeholder="Type custom term…"
+                            autoFocus
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Remote</label>
