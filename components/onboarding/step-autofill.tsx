@@ -1,11 +1,17 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { EEOData } from "@/lib/types";
+import type { DisclosurePolicy, EEOData } from "@/lib/types";
 
 interface Props {
   eeo: EEOData | null;
-  onChange: (eeo: EEOData | null) => void;
+  gpaDisclosurePolicy: DisclosurePolicy;
+  eeoDisclosurePolicy: DisclosurePolicy;
+  onChange: (patch: {
+    eeo?: EEOData | null;
+    gpa_disclosure_policy?: DisclosurePolicy;
+    eeo_disclosure_policy?: DisclosurePolicy;
+  }) => void;
 }
 
 const GENDER_OPTIONS = [
@@ -148,7 +154,12 @@ function SelectField({
   );
 }
 
-export function StepAutofill({ eeo, onChange }: Props) {
+export function StepAutofill({
+  eeo,
+  gpaDisclosurePolicy,
+  eeoDisclosurePolicy,
+  onChange,
+}: Props) {
   function patch(key: keyof EEOData, val: string) {
     const current: EEOData = eeo ?? {};
     const updated: EEOData = { ...current };
@@ -168,7 +179,7 @@ export function StepAutofill({ eeo, onChange }: Props) {
       (k) => (updated[k as keyof EEOData] ?? "").trim() !== ""
     );
 
-    onChange(hasValues ? updated : null);
+    onChange({ eeo: hasValues ? updated : null });
   }
 
   const val = (key: keyof EEOData) => eeo?.[key] ?? "";
@@ -188,6 +199,28 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         🔒 This data never leaves your account and is only used to pre-fill forms.
+      </div>
+
+      <div className="space-y-4 rounded-2xl border border-rim bg-surface/60 p-4">
+        <div>
+          <p className="text-sm font-semibold text-ink">Disclosure rules</p>
+          <p className="mt-1 text-xs leading-5 text-dim">
+            Keep optional details private unless a portal explicitly requires them.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PolicyField
+            label="GPA"
+            value={gpaDisclosurePolicy}
+            onChange={(value) => onChange({ gpa_disclosure_policy: value })}
+          />
+          <PolicyField
+            label="Demographic responses"
+            value={eeoDisclosurePolicy}
+            onChange={(value) => onChange({ eeo_disclosure_policy: value })}
+          />
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -300,6 +333,48 @@ export function StepAutofill({ eeo, onChange }: Props) {
             />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PolicyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: DisclosurePolicy;
+  onChange: (value: DisclosurePolicy) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-ink">{label}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onChange("required_only")}
+          className={cn(
+            "rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors duration-150",
+            value === "required_only"
+              ? "border-accent bg-accent-wash text-accent"
+              : "border-rim bg-white text-dim hover:border-accent/30 hover:text-ink"
+          )}
+        >
+          Only when required
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("always")}
+          className={cn(
+            "rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors duration-150",
+            value === "always"
+              ? "border-accent bg-accent-wash text-accent"
+              : "border-rim bg-white text-dim hover:border-accent/30 hover:text-ink"
+          )}
+        >
+          Always include
+        </button>
       </div>
     </div>
   );

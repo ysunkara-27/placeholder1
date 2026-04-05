@@ -1076,6 +1076,208 @@ Each job should be normalized into a resolver input bundle before taxonomy mappi
 | `geo` | explicit locations, office list | description text | parent fallback |
 | `work_modality` | explicit remote/hybrid/onsite fields or location text | description text | unknown -> conservative default |
 
+### 9.18A Exact job-analysis workflow
+
+The resolver should analyze a job in **separate passes by dimension**, not as one blended classifier. This is the core safeguard against mislabeling a CS role at a finance company as a finance-function role, or a finance role at a software company as a software-sector job.
+
+**Stage 0: Build one normalized input bundle**
+
+Every job should first be reduced into a reusable normalized input object containing:
+
+- company name
+- normalized company slug
+- title
+- team
+- department
+- commitment
+- tags
+- raw location text(s)
+- office list
+- remote flag
+- plain-text description
+- source defaults / source notes
+
+**Stage 1: Company identity analysis**
+
+Purpose:
+
+- establish whether the company is known
+- attach deterministic company priors if present
+
+Important rule:
+
+- company priors influence **`industry`**
+- company priors do **not** directly decide **`job_function`**
+
+**Stage 2: Industry analysis**
+
+Purpose:
+
+- determine what sector the company/job belongs to
+
+Primary evidence:
+
+1. company prior
+2. company/source notes
+3. explicit sector phrases in title or description
+4. branch fallback
+
+Examples:
+
+- `payments`, `card issuing`, `spend platform` → `industry.finance.payments` / `industry.finance.fintech`
+- `drug discovery`, `genomics`, `therapeutics` → `industry.healthcare_biotech.biotech`
+- `autonomy`, `robotics`, `self-driving` → `industry.industrial.robotics_autonomy`
+- `developer tools`, `saas`, `enterprise software` → `industry.technology.devtools` / `industry.technology.enterprise_software`
+
+Fallback rule:
+
+- if no leaf is confident, assign the strongest parent branch
+- never leave `industry` empty
+
+**Stage 3: Job-function analysis**
+
+Purpose:
+
+- determine what the role actually does
+
+Primary evidence:
+
+1. title
+2. team
+3. department
+4. description
+5. tags
+
+Examples:
+
+- `Software Engineer Intern` → `job_function.engineering.software_engineering`
+- `Backend Engineer` → `job_function.engineering.software_engineering.backend`
+- `Corporate Finance Intern` → `job_function.business.finance_analysis`
+- `Quantitative Research Intern` → `job_function.data.quantitative_research`
+- `Research Scientist` → `job_function.research.research_science`
+
+Fallback rule:
+
+- if no leaf is confident, assign the broad branch (`engineering`, `data`, `business`, etc.)
+- company industry should not overwrite job function
+
+**Stage 4: Career-role analysis**
+
+Purpose:
+
+- determine the recruiting track or career stage
+
+Primary evidence:
+
+1. title
+2. commitment
+3. tags
+4. target term/year text
+5. description
+
+Examples:
+
+- `Intern`, `Internship` → `career_role.student.internship`
+- `Co-op` → `career_role.student.co_op`
+- `New Grad` → `career_role.early_career.new_grad`
+- `Associate` → `career_role.early_career.associate`
+- `Summer 2026` → `career_role.student.internship.summer`
+
+**Stage 5: Geography analysis**
+
+Purpose:
+
+- determine the physical or legal location path for the job
+
+Primary evidence:
+
+1. explicit location text
+2. office list
+3. description references
+4. parent fallback
+
+Examples:
+
+- `San Francisco, CA` → `geo.usa.west.california.san_francisco_bay_area`
+- `Austin, TX` → `geo.usa.south.texas.austin`
+- `Remote - US` → still preserve a country/root geo node where appropriate
+
+Fallback rule:
+
+- city if possible
+- otherwise state/province
+- otherwise region
+- otherwise country
+
+**Stage 6: Work-modality analysis**
+
+Purpose:
+
+- determine `remote`, `hybrid`, `onsite`, or `unknown`
+
+Primary evidence:
+
+1. explicit structured `remote` field
+2. location text
+3. description text
+
+Important rule:
+
+- `work_modality` is orthogonal to `geo`
+- a remote job may still carry geo restrictions for country/state eligibility
+
+**Stage 7: Education requirement analysis**
+
+Purpose:
+
+- extract explicit degree or field-of-study requirements when present
+
+Examples:
+
+- `Bachelor's in Computer Science, EE, or related field`
+- degree → `education_degree.undergraduate.bachelors`
+- fields → `education_field.engineering.computer_science`, `education_field.engineering.electrical_engineering`
+
+**Stage 8: Work-authorization analysis**
+
+Purpose:
+
+- detect explicit sponsorship, authorization, export-control, or visa constraints
+
+Examples:
+
+- `must be authorized to work in the US`
+- `no sponsorship available`
+- `requires ITAR eligibility`
+
+Important rule:
+
+- use this as a hard filter only when the posting language is explicit and confidence is high
+
+**Stage 9: Emit structured dimension outputs**
+
+Each dimension should emit:
+
+- primary node(s)
+- secondary node(s) where supported
+- confidence
+- resolution kind
+- evidence trail
+
+**Stage 10: Safeguard rules**
+
+These rules prevent cross-dimension confusion:
+
+- company prior affects `industry`, not `job_function`
+- title/team/department affect `job_function`, not company sector
+- title/commitment/timing affect `career_role`
+- fallback should prefer a broad parent branch over a wrong leaf
+- a job may validly carry both:
+  - `industry.finance.fintech`
+  - `job_function.engineering.software_engineering`
+
+That is the intended outcome for a software role at a finance company, and the inverse should also hold for finance/business roles at software companies.
+
 ### 9.19 Deterministic reduction outputs
 
 Each required dimension should emit a normalized result object.

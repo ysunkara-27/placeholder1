@@ -104,6 +104,135 @@ Exact verification run:
 
 - docs-only in this session; no code verification run executed
 
+## Session Handoff — 2026-04-05 (Taxonomy Foundation Migration Draft)
+
+Finished:
+
+- drafted the first Supabase taxonomy foundation migration at `supabase/migrations/20260405150000_taxonomy_foundation.sql`
+- added schema for taxonomy nodes, aliases, negative aliases, ancestry paths, company priors, job/profile taxonomy mappings, and taxonomy resolution logs
+- added the first dual-write-oriented taxonomy columns to `public.jobs` and `public.profiles`
+- added indexes, updated-at triggers, initial RLS policies, and a `rebuild_taxonomy_paths()` helper for ancestry expansion refreshes
+
+Still blocked:
+
+- the migration has not been applied against a live/local Supabase database yet
+- no seed migration exists yet for taxonomy nodes, aliases, or company priors
+- RPCs and app code still read legacy matching fields and do not yet use the new taxonomy schema
+
+Exact next step:
+
+- apply and validate the taxonomy foundation migration, then create the first seed migration for fallback nodes plus initial `industry`, `job_function`, `career_role`, and `geo` trees
+
+Exact verification run:
+
+- migration drafted only; no database apply/test run executed in this session
+
+## Session Handoff — 2026-04-05 (Taxonomy Seed Migration Draft)
+
+Finished:
+
+- drafted the first taxonomy seed migration at `supabase/migrations/20260405153000_taxonomy_seed_mvp.sql`
+- seeded initial trees for `industry`, `job_function`, `career_role`, `geo`, `education_degree`, `education_field`, `work_authorization`, and `employment_type`
+- added starter positive aliases, negative/disambiguation phrases, and initial company priors for the current internship source-company set
+- wired the seed migration to rebuild ancestry paths after inserts so branch expansion can be used by later resolver/matching code
+
+Still blocked:
+
+- the seed migration has not been applied against a live/local Supabase database yet
+- no application code uses the seeded taxonomy yet
+- the geo seed is still a starter set, not the full intended major-city/state coverage
+
+Exact next step:
+
+- apply both taxonomy migrations, validate schema/seed integrity, and begin implementing the TS resolver and dual-write ingest path against the seeded dimensions
+
+Exact verification run:
+
+- seed migration drafted only; no database apply/test run executed in this session
+
+## Session Handoff — 2026-04-05 (Profile Taxonomy Integration)
+
+Finished:
+
+- implemented profile-side taxonomy serialization in `lib/taxonomy/profile.ts`
+- updated `lib/platform/profile.ts` to read/write `profile_match_preferences`, `profile_application_facts`, `profile_taxonomy_summary`, and `profile_work_modality_allow`
+- extended onboarding and profile editing flows so they now capture and persist:
+  - work setup preferences (`remote` / `hybrid` / `onsite`)
+  - relocation openness
+  - GPA disclosure policy
+  - demographic disclosure policy
+- kept the user flow seamless by layering the new structured fields behind the existing profile/onboarding UX rather than exposing internal storage concepts
+- expanded profile completeness to reflect the new structured application inputs
+
+Still blocked:
+
+- job ingest and matching code still do not resolve jobs into taxonomy-backed dimensions
+- the new profile JSON payloads are being written, but UUID node-array fields are still placeholders until resolver-backed node resolution is implemented
+- migrations were drafted but not applied in this session, so the new persisted fields require DB rollout before this code can store them successfully in a real environment
+- `npm run test:apply-engine` is still blocked locally because the script expects `./.venv/bin/python`, which does not exist in this workspace
+
+Exact next step:
+
+- apply the taxonomy migrations, then implement TS-side job taxonomy resolution and dual-write ingest so browse matching can consume normalized job and profile dimensions together
+
+Exact verification run:
+
+- `npm run test:apply-engine` (blocked: `./.venv/bin/python` missing)
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
+## Session Handoff — 2026-04-05 (Job Taxonomy Integration)
+
+Finished:
+
+- added deterministic job taxonomy resolution in `lib/taxonomy/job.ts`
+- updated `lib/job-ingest.ts` so API ingest now computes and writes taxonomy summaries, work modality, multi-location text, review flags, and taxonomy version metadata alongside legacy fields
+- updated `lib/matching.ts` so browse/matching can use taxonomy-based industry, career-role, location, and work-setup overlap when normalized payloads are present, while still falling back to legacy fields
+- updated `scraper/ingest_jobs.py` so direct Supabase ingest writes the first taxonomy-oriented job summary fields instead of staying entirely on the old flat shape
+- extended generated Supabase TypeScript types for the new job/profile taxonomy columns so the app compiles against the draft schema
+
+Still blocked:
+
+- the Supabase project is not linked in this workspace, so `supabase db push --dry-run` fails with `Cannot find project ref. Have you run supabase link?`
+- because the migrations were not applied in this session, runtime writes to the new taxonomy columns still depend on DB rollout before they can succeed against the real database
+- UUID node-array columns are still placeholders until node-slug-to-node-id resolution is implemented after DB seed rollout
+- `npm run test:apply-engine` is still blocked locally because the script expects `./.venv/bin/python`
+
+Exact next step:
+
+- run `supabase link --project-ref qzwextagotdqbfoyeerz`, apply the two taxonomy migrations, then implement node-id resolution/backfill so slug summaries and UUID node arrays stay in sync
+
+Exact verification run:
+
+- `supabase db push --dry-run` (blocked: project not linked)
+- `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+- `npm run build`
+
+## Session Handoff — 2026-04-05 (Taxonomy Write-Time Resolution)
+
+Finished:
+
+- updated `docs/job-matching-standardization-plan.md` with the exact dimension-by-dimension job-analysis workflow for `industry`, `job_function`, `career_role`, `geo`, `work_modality`, `education`, and `work_authorization`
+- added `lib/taxonomy/node-resolution.ts` so taxonomy slug summaries can now be resolved into canonical node UUIDs via `taxonomy_nodes`
+- updated profile saves to resolve and persist taxonomy node arrays at write time instead of leaving those fields empty placeholders
+- updated job ingest to resolve and persist taxonomy node arrays at write time from the taxonomy summary payload
+- added `supabase/migrations/20260405153500_taxonomy_seed_fix.sql` so the corrected level-by-level taxonomy seed now exists in repo history instead of only as manual SQL-editor state
+
+Still blocked:
+
+- the DB still needs the corrective seed state applied/verified in every environment that previously used the partial seed
+- browse and routing still rely partly on slug-summary and legacy fallback logic; deeper node-array-first matching and explicit backfill tooling are still pending
+- `npm run test:apply-engine` remains blocked by the missing local `./.venv/bin/python`
+
+Exact next step:
+
+- verify the corrective seed counts in Supabase, then add explicit job/profile taxonomy backfill tooling so existing rows receive canonical node IDs without requiring re-save or re-ingest
+
+Exact verification run:
+
+- `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+- `npm run build`
+
 ## Session Handoff — 2026-04-05 (Visual System Pass)
 
 Finished:

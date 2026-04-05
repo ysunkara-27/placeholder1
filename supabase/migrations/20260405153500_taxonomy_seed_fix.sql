@@ -1,0 +1,486 @@
+-- Corrective seed migration for taxonomy MVP.
+-- The original seed migration inserted only roots and first-level branches.
+-- This migration is idempotent and can run after that partial seed.
+
+-- Depth 1
+with nodes(dimension, slug, label, parent_slug, depth, is_leaf) as (
+  values
+    ('industry', 'technology', 'Technology', 'root', 1, false),
+    ('industry', 'finance', 'Finance', 'root', 1, false),
+    ('industry', 'consulting', 'Consulting', 'root', 1, false),
+    ('industry', 'healthcare_biotech', 'Healthcare & Biotech', 'root', 1, false),
+    ('industry', 'research', 'Research', 'root', 1, false),
+    ('industry', 'industrial', 'Industrial', 'root', 1, false),
+    ('industry', 'consumer', 'Consumer', 'root', 1, false),
+    ('industry', 'public_sector', 'Public Sector', 'root', 1, false),
+    ('industry', 'other', 'Other', 'root', 1, true),
+
+    ('job_function', 'engineering', 'Engineering', 'root', 1, false),
+    ('job_function', 'data', 'Data', 'root', 1, false),
+    ('job_function', 'product', 'Product', 'root', 1, false),
+    ('job_function', 'business', 'Business', 'root', 1, false),
+    ('job_function', 'research', 'Research', 'root', 1, false),
+    ('job_function', 'design', 'Design', 'root', 1, false),
+    ('job_function', 'operations', 'Operations', 'root', 1, false),
+    ('job_function', 'other', 'Other', 'root', 1, true),
+
+    ('career_role', 'student', 'Student', 'root', 1, false),
+    ('career_role', 'early_career', 'Early Career', 'root', 1, false),
+    ('career_role', 'experienced', 'Experienced', 'root', 1, false),
+
+    ('geo', 'usa', 'United States', 'root', 1, false),
+    ('geo', 'canada', 'Canada', 'root', 1, false),
+
+    ('education_degree', 'undergraduate', 'Undergraduate', 'root', 1, false),
+    ('education_degree', 'graduate', 'Graduate', 'root', 1, false),
+
+    ('education_field', 'engineering', 'Engineering', 'root', 1, false),
+    ('education_field', 'business', 'Business', 'root', 1, false),
+    ('education_field', 'math_statistics', 'Math & Statistics', 'root', 1, false),
+    ('education_field', 'natural_sciences', 'Natural Sciences', 'root', 1, false),
+    ('education_field', 'humanities_social_sciences', 'Humanities & Social Sciences', 'root', 1, false),
+
+    ('work_authorization', 'eligible_to_work', 'Eligible to Work', 'root', 1, false),
+    ('work_authorization', 'sponsorship', 'Sponsorship', 'root', 1, false),
+    ('work_authorization', 'visa_program', 'Visa Program', 'root', 1, false),
+
+    ('employment_type', 'permanent', 'Permanent', 'root', 1, false),
+    ('employment_type', 'temporary', 'Temporary', 'root', 1, false)
+)
+insert into public.taxonomy_nodes (dimension, slug, label, parent_node_id, depth, is_leaf)
+select n.dimension, n.slug, n.label, p.id, n.depth, n.is_leaf
+from nodes n
+join public.taxonomy_nodes p
+  on p.dimension = n.dimension and p.slug = n.parent_slug
+on conflict (dimension, slug) do update
+set label = excluded.label,
+    parent_node_id = excluded.parent_node_id,
+    depth = excluded.depth,
+    is_leaf = excluded.is_leaf,
+    status = 'active';
+
+-- Depth 2
+with nodes(dimension, slug, label, parent_slug, depth, is_leaf) as (
+  values
+    ('industry', 'enterprise_software', 'Enterprise Software', 'technology', 2, true),
+    ('industry', 'devtools', 'Developer Tools', 'technology', 2, true),
+    ('industry', 'cybersecurity', 'Cybersecurity', 'technology', 2, true),
+    ('industry', 'ai_ml', 'AI / ML', 'technology', 2, true),
+    ('industry', 'data_infrastructure', 'Data Infrastructure', 'technology', 2, true),
+    ('industry', 'consumer_software', 'Consumer Software', 'technology', 2, true),
+    ('industry', 'fintech', 'Fintech', 'finance', 2, true),
+    ('industry', 'payments', 'Payments', 'finance', 2, true),
+    ('industry', 'investment_banking', 'Investment Banking', 'finance', 2, true),
+    ('industry', 'private_equity', 'Private Equity', 'finance', 2, true),
+    ('industry', 'hedge_fund', 'Hedge Fund', 'finance', 2, true),
+    ('industry', 'asset_management', 'Asset Management', 'finance', 2, true),
+    ('industry', 'management_consulting', 'Management Consulting', 'consulting', 2, true),
+    ('industry', 'strategy_consulting', 'Strategy Consulting', 'consulting', 2, true),
+    ('industry', 'operations_consulting', 'Operations Consulting', 'consulting', 2, true),
+    ('industry', 'biotech', 'Biotech', 'healthcare_biotech', 2, true),
+    ('industry', 'medical_devices', 'Medical Devices', 'healthcare_biotech', 2, true),
+    ('industry', 'healthcare_services', 'Healthcare Services', 'healthcare_biotech', 2, true),
+    ('industry', 'pharma', 'Pharma', 'healthcare_biotech', 2, true),
+    ('industry', 'applied_research', 'Applied Research', 'research', 2, true),
+    ('industry', 'academic_research', 'Academic Research', 'research', 2, true),
+    ('industry', 'national_lab', 'National Lab', 'research', 2, true),
+    ('industry', 'defense_technology', 'Defense Technology', 'industrial', 2, true),
+    ('industry', 'robotics_autonomy', 'Robotics & Autonomy', 'industrial', 2, true),
+    ('industry', 'semiconductor', 'Semiconductor', 'industrial', 2, true),
+    ('industry', 'logistics_infrastructure', 'Logistics Infrastructure', 'industrial', 2, true),
+    ('industry', 'marketplaces', 'Marketplaces', 'consumer', 2, true),
+    ('industry', 'mobility', 'Mobility', 'consumer', 2, true),
+    ('industry', 'ecommerce', 'E-commerce', 'consumer', 2, true),
+    ('industry', 'social_media', 'Social Media', 'consumer', 2, true),
+
+    ('job_function', 'software_engineering', 'Software Engineering', 'engineering', 2, false),
+    ('job_function', 'hardware_engineering', 'Hardware Engineering', 'engineering', 2, true),
+    ('job_function', 'qa_test', 'QA / Test', 'engineering', 2, true),
+    ('job_function', 'data_science', 'Data Science', 'data', 2, true),
+    ('job_function', 'data_analytics', 'Data Analytics', 'data', 2, true),
+    ('job_function', 'data_engineering', 'Data Engineering', 'data', 2, true),
+    ('job_function', 'quantitative_research', 'Quantitative Research', 'data', 2, true),
+    ('job_function', 'product_management', 'Product Management', 'product', 2, true),
+    ('job_function', 'technical_product_management', 'Technical Product Management', 'product', 2, true),
+    ('job_function', 'product_operations', 'Product Operations', 'product', 2, true),
+    ('job_function', 'strategy', 'Strategy', 'business', 2, true),
+    ('job_function', 'business_analyst', 'Business Analyst', 'business', 2, true),
+    ('job_function', 'finance_analysis', 'Finance Analysis', 'business', 2, true),
+    ('job_function', 'sales', 'Sales', 'business', 2, true),
+    ('job_function', 'customer_success', 'Customer Success', 'business', 2, true),
+    ('job_function', 'research_science', 'Research Science', 'research', 2, true),
+    ('job_function', 'applied_science', 'Applied Science', 'research', 2, true),
+    ('job_function', 'lab_research', 'Lab Research', 'research', 2, true),
+    ('job_function', 'ux_design', 'UX Design', 'design', 2, true),
+    ('job_function', 'operations_general', 'Operations', 'operations', 2, true),
+    ('job_function', 'supply_chain', 'Supply Chain', 'operations', 2, true),
+    ('job_function', 'logistics', 'Logistics', 'operations', 2, true),
+
+    ('career_role', 'internship', 'Internship', 'student', 2, false),
+    ('career_role', 'co_op', 'Co-op', 'student', 2, true),
+    ('career_role', 'part_time_student', 'Part-Time Student', 'student', 2, true),
+    ('career_role', 'new_grad', 'New Grad', 'early_career', 2, true),
+    ('career_role', 'associate', 'Associate', 'early_career', 2, true),
+    ('career_role', 'apprenticeship', 'Apprenticeship', 'early_career', 2, true),
+    ('career_role', 'entry_level', 'Entry Level', 'experienced', 2, true),
+    ('career_role', 'mid_level', 'Mid Level', 'experienced', 2, true),
+    ('career_role', 'senior', 'Senior', 'experienced', 2, true),
+
+    ('geo', 'northeast', 'Northeast', 'usa', 2, false),
+    ('geo', 'south', 'South', 'usa', 2, false),
+    ('geo', 'midwest', 'Midwest', 'usa', 2, false),
+    ('geo', 'west', 'West', 'usa', 2, false),
+    ('geo', 'ontario', 'Ontario', 'canada', 2, false),
+
+    ('education_degree', 'associates', 'Associate''s', 'undergraduate', 2, true),
+    ('education_degree', 'bachelors', 'Bachelor''s', 'undergraduate', 2, true),
+    ('education_degree', 'masters', 'Master''s', 'graduate', 2, true),
+    ('education_degree', 'mba', 'MBA', 'graduate', 2, true),
+    ('education_degree', 'doctorate', 'Doctorate', 'graduate', 2, true),
+
+    ('education_field', 'computer_science', 'Computer Science', 'engineering', 2, true),
+    ('education_field', 'electrical_engineering', 'Electrical Engineering', 'engineering', 2, true),
+    ('education_field', 'mechanical_engineering', 'Mechanical Engineering', 'engineering', 2, true),
+    ('education_field', 'bioengineering', 'Bioengineering', 'engineering', 2, true),
+    ('education_field', 'finance', 'Finance', 'business', 2, true),
+    ('education_field', 'accounting', 'Accounting', 'business', 2, true),
+    ('education_field', 'marketing', 'Marketing', 'business', 2, true),
+    ('education_field', 'economics', 'Economics', 'humanities_social_sciences', 2, true),
+    ('education_field', 'mathematics', 'Mathematics', 'math_statistics', 2, true),
+    ('education_field', 'statistics', 'Statistics', 'math_statistics', 2, true),
+    ('education_field', 'biology', 'Biology', 'natural_sciences', 2, true),
+    ('education_field', 'chemistry', 'Chemistry', 'natural_sciences', 2, true),
+    ('education_field', 'physics', 'Physics', 'natural_sciences', 2, true),
+
+    ('work_authorization', 'us_citizen', 'US Citizen', 'eligible_to_work', 2, true),
+    ('work_authorization', 'permanent_resident', 'Permanent Resident', 'eligible_to_work', 2, true),
+    ('work_authorization', 'unrestricted_work_auth', 'Unrestricted Work Authorization', 'eligible_to_work', 2, true),
+    ('work_authorization', 'student_work_auth', 'Student Work Authorization', 'eligible_to_work', 2, true),
+    ('work_authorization', 'no_sponsorship_needed', 'No Sponsorship Needed', 'sponsorship', 2, true),
+    ('work_authorization', 'future_sponsorship_needed', 'Future Sponsorship Needed', 'sponsorship', 2, true),
+    ('work_authorization', 'current_sponsorship_needed', 'Current Sponsorship Needed', 'sponsorship', 2, true),
+    ('work_authorization', 'f1_opt', 'F-1 OPT', 'visa_program', 2, true),
+    ('work_authorization', 'cpt', 'CPT', 'visa_program', 2, true),
+    ('work_authorization', 'h1b', 'H-1B', 'visa_program', 2, true),
+
+    ('employment_type', 'full_time', 'Full-Time', 'permanent', 2, true),
+    ('employment_type', 'part_time', 'Part-Time', 'permanent', 2, true),
+    ('employment_type', 'internship', 'Internship', 'temporary', 2, true),
+    ('employment_type', 'co_op', 'Co-op', 'temporary', 2, true),
+    ('employment_type', 'seasonal', 'Seasonal', 'temporary', 2, true),
+    ('employment_type', 'contract', 'Contract', 'temporary', 2, true)
+)
+insert into public.taxonomy_nodes (dimension, slug, label, parent_node_id, depth, is_leaf)
+select n.dimension, n.slug, n.label, p.id, n.depth, n.is_leaf
+from nodes n
+join public.taxonomy_nodes p
+  on p.dimension = n.dimension and p.slug = n.parent_slug
+on conflict (dimension, slug) do update
+set label = excluded.label,
+    parent_node_id = excluded.parent_node_id,
+    depth = excluded.depth,
+    is_leaf = excluded.is_leaf,
+    status = 'active';
+
+-- Depth 3
+with nodes(dimension, slug, label, parent_slug, depth, is_leaf) as (
+  values
+    ('job_function', 'backend', 'Backend', 'software_engineering', 3, true),
+    ('job_function', 'frontend', 'Frontend', 'software_engineering', 3, true),
+    ('job_function', 'full_stack', 'Full Stack', 'software_engineering', 3, true),
+    ('job_function', 'mobile', 'Mobile', 'software_engineering', 3, true),
+    ('job_function', 'infra_platform', 'Infrastructure / Platform', 'software_engineering', 3, true),
+    ('job_function', 'ml_engineering', 'ML Engineering', 'software_engineering', 3, true),
+
+    ('career_role', 'spring', 'Spring', 'internship', 3, true),
+    ('career_role', 'summer', 'Summer', 'internship', 3, true),
+    ('career_role', 'fall', 'Fall', 'internship', 3, true),
+    ('career_role', 'winter', 'Winter', 'internship', 3, true),
+
+    ('geo', 'california', 'California', 'west', 3, false),
+    ('geo', 'washington', 'Washington', 'west', 3, false),
+    ('geo', 'colorado', 'Colorado', 'west', 3, false),
+    ('geo', 'new_york', 'New York', 'northeast', 3, false),
+    ('geo', 'massachusetts', 'Massachusetts', 'northeast', 3, false),
+    ('geo', 'pennsylvania', 'Pennsylvania', 'northeast', 3, false),
+    ('geo', 'new_jersey', 'New Jersey', 'northeast', 3, false),
+    ('geo', 'texas', 'Texas', 'south', 3, false),
+    ('geo', 'georgia', 'Georgia', 'south', 3, false),
+    ('geo', 'florida', 'Florida', 'south', 3, false),
+    ('geo', 'north_carolina', 'North Carolina', 'south', 3, false),
+    ('geo', 'virginia', 'Virginia', 'south', 3, false),
+    ('geo', 'illinois', 'Illinois', 'midwest', 3, false),
+    ('geo', 'michigan', 'Michigan', 'midwest', 3, false),
+    ('geo', 'ohio', 'Ohio', 'midwest', 3, false),
+    ('geo', 'toronto', 'Toronto', 'ontario', 3, true)
+)
+insert into public.taxonomy_nodes (dimension, slug, label, parent_node_id, depth, is_leaf)
+select n.dimension, n.slug, n.label, p.id, n.depth, n.is_leaf
+from nodes n
+join public.taxonomy_nodes p
+  on p.dimension = n.dimension and p.slug = n.parent_slug
+on conflict (dimension, slug) do update
+set label = excluded.label,
+    parent_node_id = excluded.parent_node_id,
+    depth = excluded.depth,
+    is_leaf = excluded.is_leaf,
+    status = 'active';
+
+-- Depth 4
+with nodes(dimension, slug, label, parent_slug, depth, is_leaf) as (
+  values
+    ('geo', 'san_francisco_bay_area', 'San Francisco Bay Area', 'california', 4, true),
+    ('geo', 'los_angeles', 'Los Angeles', 'california', 4, true),
+    ('geo', 'san_diego', 'San Diego', 'california', 4, true),
+    ('geo', 'seattle', 'Seattle', 'washington', 4, true),
+    ('geo', 'denver', 'Denver', 'colorado', 4, true),
+    ('geo', 'new_york_city', 'New York City', 'new_york', 4, true),
+    ('geo', 'boston', 'Boston', 'massachusetts', 4, true),
+    ('geo', 'pittsburgh', 'Pittsburgh', 'pennsylvania', 4, true),
+    ('geo', 'austin', 'Austin', 'texas', 4, true),
+    ('geo', 'dallas', 'Dallas', 'texas', 4, true),
+    ('geo', 'houston', 'Houston', 'texas', 4, true),
+    ('geo', 'atlanta', 'Atlanta', 'georgia', 4, true),
+    ('geo', 'miami', 'Miami', 'florida', 4, true),
+    ('geo', 'raleigh', 'Raleigh', 'north_carolina', 4, true),
+    ('geo', 'chicago', 'Chicago', 'illinois', 4, true),
+    ('geo', 'detroit', 'Detroit', 'michigan', 4, true),
+    ('geo', 'columbus', 'Columbus', 'ohio', 4, true)
+)
+insert into public.taxonomy_nodes (dimension, slug, label, parent_node_id, depth, is_leaf)
+select n.dimension, n.slug, n.label, p.id, n.depth, n.is_leaf
+from nodes n
+join public.taxonomy_nodes p
+  on p.dimension = n.dimension and p.slug = n.parent_slug
+on conflict (dimension, slug) do update
+set label = excluded.label,
+    parent_node_id = excluded.parent_node_id,
+    depth = excluded.depth,
+    is_leaf = excluded.is_leaf,
+    status = 'active';
+
+-- Aliases
+with aliases(dimension, slug, alias, match_kind, weight) as (
+  values
+    ('industry', 'ai_ml', 'artificial intelligence', 'positive', 1.5),
+    ('industry', 'ai_ml', 'machine learning', 'positive', 1.5),
+    ('industry', 'ai_ml', 'foundation models', 'supporting', 1.2),
+    ('industry', 'enterprise_software', 'saas', 'supporting', 1.0),
+    ('industry', 'enterprise_software', 'enterprise software', 'positive', 1.5),
+    ('industry', 'devtools', 'developer tools', 'positive', 1.5),
+    ('industry', 'devtools', 'devtools', 'positive', 1.5),
+    ('industry', 'data_infrastructure', 'data platform', 'positive', 1.3),
+    ('industry', 'data_infrastructure', 'data infrastructure', 'positive', 1.3),
+    ('industry', 'fintech', 'fintech', 'positive', 1.5),
+    ('industry', 'payments', 'payments', 'positive', 1.4),
+    ('industry', 'investment_banking', 'investment banking', 'positive', 1.7),
+    ('industry', 'investment_banking', 'm&a', 'positive', 1.5),
+    ('industry', 'investment_banking', 'capital markets', 'positive', 1.5),
+    ('industry', 'private_equity', 'private equity', 'positive', 1.7),
+    ('industry', 'hedge_fund', 'hedge fund', 'positive', 1.7),
+    ('industry', 'asset_management', 'asset management', 'positive', 1.6),
+    ('industry', 'management_consulting', 'management consulting', 'positive', 1.6),
+    ('industry', 'strategy_consulting', 'strategy consulting', 'positive', 1.6),
+    ('industry', 'operations_consulting', 'operations consulting', 'positive', 1.6),
+    ('industry', 'biotech', 'biotech', 'positive', 1.6),
+    ('industry', 'biotech', 'drug discovery', 'positive', 1.4),
+    ('industry', 'biotech', 'genomics', 'positive', 1.4),
+    ('industry', 'medical_devices', 'medical device', 'positive', 1.5),
+    ('industry', 'healthcare_services', 'healthcare services', 'positive', 1.4),
+    ('industry', 'pharma', 'pharmaceutical', 'positive', 1.5),
+    ('industry', 'applied_research', 'applied research', 'positive', 1.5),
+    ('industry', 'academic_research', 'academic research', 'positive', 1.5),
+    ('industry', 'national_lab', 'national laboratory', 'positive', 1.5),
+    ('industry', 'defense_technology', 'defense technology', 'positive', 1.6),
+    ('industry', 'robotics_autonomy', 'robotics', 'positive', 1.4),
+    ('industry', 'robotics_autonomy', 'autonomy', 'positive', 1.4),
+    ('industry', 'semiconductor', 'semiconductor', 'positive', 1.5),
+    ('industry', 'logistics_infrastructure', 'logistics', 'supporting', 1.2),
+    ('industry', 'marketplaces', 'marketplace', 'positive', 1.3),
+    ('industry', 'mobility', 'mobility', 'positive', 1.3),
+    ('industry', 'ecommerce', 'e-commerce', 'positive', 1.3),
+    ('industry', 'social_media', 'social media', 'positive', 1.3),
+
+    ('job_function', 'software_engineering', 'software engineer', 'positive', 1.6),
+    ('job_function', 'software_engineering', 'software engineering', 'positive', 1.6),
+    ('job_function', 'backend', 'backend', 'positive', 1.5),
+    ('job_function', 'frontend', 'frontend', 'positive', 1.5),
+    ('job_function', 'full_stack', 'full stack', 'positive', 1.5),
+    ('job_function', 'mobile', 'mobile', 'positive', 1.4),
+    ('job_function', 'infra_platform', 'infrastructure', 'positive', 1.5),
+    ('job_function', 'infra_platform', 'platform', 'supporting', 1.2),
+    ('job_function', 'ml_engineering', 'ml engineer', 'positive', 1.5),
+    ('job_function', 'ml_engineering', 'machine learning engineer', 'positive', 1.6),
+    ('job_function', 'data_science', 'data science', 'positive', 1.5),
+    ('job_function', 'data_engineering', 'data engineer', 'positive', 1.5),
+    ('job_function', 'quantitative_research', 'quantitative research', 'positive', 1.6),
+    ('job_function', 'product_management', 'product manager', 'positive', 1.6),
+    ('job_function', 'technical_product_management', 'technical product manager', 'positive', 1.6),
+    ('job_function', 'business_analyst', 'business analyst', 'positive', 1.5),
+    ('job_function', 'finance_analysis', 'financial analyst', 'positive', 1.5),
+    ('job_function', 'strategy', 'strategy', 'supporting', 1.2),
+    ('job_function', 'research_science', 'research scientist', 'positive', 1.6),
+    ('job_function', 'applied_science', 'applied scientist', 'positive', 1.6),
+    ('job_function', 'lab_research', 'lab research', 'positive', 1.4),
+    ('job_function', 'ux_design', 'ux design', 'positive', 1.5),
+    ('job_function', 'ux_design', 'product design', 'supporting', 1.3),
+    ('job_function', 'operations_general', 'operations', 'supporting', 1.1),
+    ('job_function', 'supply_chain', 'supply chain', 'positive', 1.5),
+    ('job_function', 'logistics', 'logistics', 'positive', 1.5),
+
+    ('career_role', 'internship', 'internship', 'positive', 1.6),
+    ('career_role', 'internship', 'intern', 'positive', 1.5),
+    ('career_role', 'co_op', 'co-op', 'positive', 1.6),
+    ('career_role', 'co_op', 'coop', 'positive', 1.5),
+    ('career_role', 'new_grad', 'new grad', 'positive', 1.7),
+    ('career_role', 'new_grad', 'new graduate', 'positive', 1.7),
+    ('career_role', 'associate', 'associate', 'positive', 1.4),
+    ('career_role', 'entry_level', 'entry level', 'positive', 1.4),
+    ('career_role', 'summer', 'summer', 'positive', 1.4),
+    ('career_role', 'fall', 'fall', 'positive', 1.4),
+    ('career_role', 'spring', 'spring', 'positive', 1.4),
+    ('career_role', 'winter', 'winter', 'positive', 1.4),
+
+    ('geo', 'california', 'ca', 'positive', 1.3),
+    ('geo', 'new_york', 'ny', 'positive', 1.3),
+    ('geo', 'washington', 'wa', 'positive', 1.3),
+    ('geo', 'texas', 'tx', 'positive', 1.3),
+    ('geo', 'georgia', 'ga', 'positive', 1.3),
+    ('geo', 'illinois', 'il', 'positive', 1.3),
+    ('geo', 'massachusetts', 'ma', 'positive', 1.3),
+    ('geo', 'colorado', 'co', 'positive', 1.3),
+    ('geo', 'florida', 'fl', 'positive', 1.3),
+    ('geo', 'north_carolina', 'nc', 'positive', 1.3),
+    ('geo', 'virginia', 'va', 'positive', 1.3),
+    ('geo', 'new_jersey', 'nj', 'positive', 1.3),
+    ('geo', 'pennsylvania', 'pa', 'positive', 1.3),
+    ('geo', 'michigan', 'mi', 'positive', 1.3),
+    ('geo', 'ohio', 'oh', 'positive', 1.3),
+    ('geo', 'san_francisco_bay_area', 'san francisco', 'positive', 1.5),
+    ('geo', 'san_francisco_bay_area', 'bay area', 'positive', 1.5),
+    ('geo', 'new_york_city', 'nyc', 'positive', 1.5),
+    ('geo', 'new_york_city', 'new york city', 'positive', 1.5),
+    ('geo', 'seattle', 'seattle', 'positive', 1.5),
+    ('geo', 'austin', 'austin', 'positive', 1.5),
+    ('geo', 'chicago', 'chicago', 'positive', 1.5),
+    ('geo', 'boston', 'boston', 'positive', 1.5),
+    ('geo', 'atlanta', 'atlanta', 'positive', 1.5),
+    ('geo', 'toronto', 'toronto', 'positive', 1.5)
+)
+insert into public.taxonomy_aliases (node_id, alias, alias_normalized, match_kind, weight)
+select n.id, a.alias, lower(a.alias), a.match_kind, a.weight
+from aliases a
+join public.taxonomy_nodes n
+  on n.dimension = a.dimension and n.slug = a.slug
+on conflict (node_id, alias_normalized, match_kind) do update
+set alias = excluded.alias,
+    weight = excluded.weight;
+
+-- Negative aliases
+with negatives(dimension, slug, phrase, penalty) as (
+  values
+    ('job_function', 'software_engineering', 'sales engineer', 1.7),
+    ('job_function', 'software_engineering', 'solutions engineer', 1.6),
+    ('job_function', 'product_management', 'product analyst', 1.5),
+    ('job_function', 'operations_general', 'operations research', 1.6),
+    ('industry', 'applied_research', 'equity research', 1.6),
+    ('industry', 'investment_banking', 'retail banking', 1.6),
+    ('industry', 'biotech', 'medical billing', 1.5),
+    ('industry', 'biotech', 'insurance claims', 1.5)
+)
+insert into public.taxonomy_negative_aliases (node_id, phrase, phrase_normalized, penalty)
+select n.id, x.phrase, lower(x.phrase), x.penalty
+from negatives x
+join public.taxonomy_nodes n
+  on n.dimension = x.dimension and n.slug = x.slug
+on conflict (node_id, phrase_normalized) do update
+set penalty = excluded.penalty;
+
+-- Company priors
+with priors(company_slug, company_name, company_aliases, primary_slugs, secondary_slugs) as (
+  values
+    ('stripe', 'Stripe', array['Stripe'], array['fintech']::text[], array['payments', 'enterprise_software']::text[]),
+    ('scale_ai', 'Scale AI', array['Scale AI', 'ScaleAI'], array['ai_ml']::text[], array['applied_research', 'data_infrastructure']::text[]),
+    ('figma', 'Figma', array['Figma'], array['enterprise_software']::text[], array['consumer_software']::text[]),
+    ('databricks', 'Databricks', array['Databricks'], array['data_infrastructure']::text[], array['ai_ml', 'enterprise_software']::text[]),
+    ('coinbase', 'Coinbase', array['Coinbase'], array['fintech']::text[], array['payments']::text[]),
+    ('brex', 'Brex', array['Brex'], array['fintech']::text[], array['payments', 'enterprise_software']::text[]),
+    ('benchling', 'Benchling', array['Benchling'], array['biotech']::text[], array['enterprise_software']::text[]),
+    ('ramp', 'Ramp', array['Ramp'], array['fintech']::text[], array['payments', 'enterprise_software']::text[]),
+    ('plaid', 'Plaid', array['Plaid'], array['fintech']::text[], array['payments']::text[]),
+    ('airtable', 'Airtable', array['Airtable'], array['enterprise_software']::text[], array['consumer_software']::text[]),
+    ('duolingo', 'Duolingo', array['Duolingo'], array['consumer_software']::text[], array['ai_ml']::text[]),
+    ('robinhood', 'Robinhood', array['Robinhood'], array['fintech']::text[], array['consumer_software']::text[]),
+    ('doordash', 'DoorDash', array['DoorDash'], array['marketplaces']::text[], array['logistics_infrastructure']::text[]),
+    ('lyft', 'Lyft', array['Lyft'], array['mobility']::text[], array['marketplaces']::text[]),
+    ('notion', 'Notion', array['Notion'], array['enterprise_software']::text[], array['consumer_software']::text[]),
+    ('retool', 'Retool', array['Retool'], array['devtools']::text[], array['enterprise_software']::text[]),
+    ('rippling', 'Rippling', array['Rippling'], array['enterprise_software']::text[], array['fintech']::text[]),
+    ('lattice', 'Lattice', array['Lattice'], array['enterprise_software']::text[], array[]::text[]),
+    ('linear', 'Linear', array['Linear'], array['enterprise_software']::text[], array['devtools']::text[]),
+    ('verkada', 'Verkada', array['Verkada'], array['industrial']::text[], array['enterprise_software', 'defense_technology']::text[]),
+    ('anduril', 'Anduril', array['Anduril'], array['defense_technology']::text[], array['robotics_autonomy', 'applied_research']::text[]),
+    ('openai', 'OpenAI', array['OpenAI'], array['ai_ml']::text[], array['applied_research']::text[]),
+    ('anthropic', 'Anthropic', array['Anthropic'], array['ai_ml']::text[], array['applied_research']::text[]),
+    ('twilio', 'Twilio', array['Twilio'], array['enterprise_software']::text[], array['payments']::text[]),
+    ('asana', 'Asana', array['Asana'], array['enterprise_software']::text[], array[]::text[]),
+    ('instacart', 'Instacart', array['Instacart'], array['marketplaces']::text[], array['logistics_infrastructure']::text[]),
+    ('squarespace', 'Squarespace', array['Squarespace'], array['consumer_software']::text[], array['enterprise_software']::text[]),
+    ('chime', 'Chime', array['Chime'], array['fintech']::text[], array['consumer_software']::text[]),
+    ('gusto', 'Gusto', array['Gusto'], array['enterprise_software']::text[], array['fintech']::text[]),
+    ('affirm', 'Affirm', array['Affirm'], array['fintech']::text[], array['payments']::text[]),
+    ('flexport', 'Flexport', array['Flexport'], array['logistics_infrastructure']::text[], array['marketplaces']::text[]),
+    ('cruise', 'Cruise', array['Cruise'], array['robotics_autonomy']::text[], array['mobility', 'applied_research']::text[]),
+    ('waymo', 'Waymo', array['Waymo'], array['robotics_autonomy']::text[], array['mobility', 'applied_research']::text[]),
+    ('reddit', 'Reddit', array['Reddit'], array['social_media']::text[], array['consumer_software']::text[]),
+    ('pinterest', 'Pinterest', array['Pinterest'], array['social_media']::text[], array['consumer_software']::text[]),
+    ('microsoft', 'Microsoft', array['Microsoft'], array['enterprise_software']::text[], array['ai_ml', 'consumer_software']::text[]),
+    ('amazon', 'Amazon', array['Amazon'], array['ecommerce']::text[], array['enterprise_software', 'ai_ml', 'logistics_infrastructure']::text[]),
+    ('google', 'Google', array['Google', 'Alphabet'], array['consumer_software']::text[], array['ai_ml', 'enterprise_software']::text[])
+)
+insert into public.company_taxonomy_priors (
+  company_slug,
+  company_name,
+  company_aliases,
+  primary_industry_node_ids,
+  secondary_industry_node_ids,
+  default_job_function_node_ids,
+  confidence
+)
+select
+  p.company_slug,
+  p.company_name,
+  p.company_aliases,
+  coalesce(
+    array(
+      select n.id
+      from public.taxonomy_nodes n
+      where n.dimension = 'industry'
+        and n.slug = any(p.primary_slugs)
+      order by n.slug
+    ),
+    '{}'::uuid[]
+  ),
+  coalesce(
+    array(
+      select n.id
+      from public.taxonomy_nodes n
+      where n.dimension = 'industry'
+        and n.slug = any(p.secondary_slugs)
+      order by n.slug
+    ),
+    '{}'::uuid[]
+  ),
+  '{}'::uuid[],
+  'high'
+from priors p
+on conflict (company_slug) do update
+set company_name = excluded.company_name,
+    company_aliases = excluded.company_aliases,
+    primary_industry_node_ids = excluded.primary_industry_node_ids,
+    secondary_industry_node_ids = excluded.secondary_industry_node_ids,
+    default_job_function_node_ids = excluded.default_job_function_node_ids,
+    confidence = excluded.confidence,
+    updated_at = timezone('utc', now());
+
+select public.rebuild_taxonomy_paths();

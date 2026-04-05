@@ -67,6 +67,8 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Browse filtering now normalizes/falls back job industries at read time, but the live jobs table still needs a one-time repair for previously overwritten or mis-tagged rows
 - Profile targeting is still too coarse to express `Spring 2027 Internship` vs `Summer 2027 Internship` vs `New Grad 2027` vs `Associate`
 - A concrete taxonomy-based normalization spec now exists in `docs/job-matching-standardization-plan.md`, but the schema, resolvers, and profile/job persistence model are not implemented yet
+- Onboarding/profile flows now write taxonomy-oriented profile JSON payloads for match preferences and application facts, but job-side taxonomy resolution and DB rollout are still pending
+- Job ingest and matching code now have a first deterministic taxonomy layer in code, but the Supabase project still needs the new taxonomy migrations applied before those writes are production-real
 
 ### Immediate Production Priorities
 

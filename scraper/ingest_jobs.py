@@ -24,6 +24,82 @@ VALID_PORTALS = {
 BATCH_SIZE = 50
 
 
+def _normalize_slug(raw: str) -> str:
+    return "_".join(part for part in "".join(ch.lower() if ch.isalnum() else " " for ch in raw).split() if part)
+
+
+def _infer_work_modality(location: str, remote: bool, summary: str) -> tuple[str, str]:
+    if remote:
+        return "remote", "high"
+    text = f"{location} {summary}".lower()
+    if "hybrid" in text:
+        return "hybrid", "medium"
+    if "onsite" in text or "on-site" in text or "in office" in text:
+        return "onsite", "medium"
+    return "unknown", "low"
+
+
+def _geo_node_slugs(location: str) -> list[str]:
+    text = location.lower()
+    slugs: list[str] = []
+    city_map = {
+        "san francisco": "geo.usa.west.california.san_francisco_bay_area",
+        "bay area": "geo.usa.west.california.san_francisco_bay_area",
+        "los angeles": "geo.usa.west.california.los_angeles",
+        "san diego": "geo.usa.west.california.san_diego",
+        "seattle": "geo.usa.west.washington.seattle",
+        "denver": "geo.usa.west.colorado.denver",
+        "new york city": "geo.usa.northeast.new_york.new_york_city",
+        "nyc": "geo.usa.northeast.new_york.new_york_city",
+        "boston": "geo.usa.northeast.massachusetts.boston",
+        "pittsburgh": "geo.usa.northeast.pennsylvania.pittsburgh",
+        "austin": "geo.usa.south.texas.austin",
+        "dallas": "geo.usa.south.texas.dallas",
+        "houston": "geo.usa.south.texas.houston",
+        "atlanta": "geo.usa.south.georgia.atlanta",
+        "miami": "geo.usa.south.florida.miami",
+        "raleigh": "geo.usa.south.north_carolina.raleigh",
+        "chicago": "geo.usa.midwest.illinois.chicago",
+        "detroit": "geo.usa.midwest.michigan.detroit",
+        "columbus": "geo.usa.midwest.ohio.columbus",
+        "toronto": "geo.canada.ontario.toronto",
+    }
+    for match, slug in city_map.items():
+        if match in text:
+            slugs.append(slug)
+    slugs.append("geo.canada" if "canada" in text or "ontario" in text else "geo.usa")
+    return list(dict.fromkeys(slugs))
+
+
+def _build_taxonomy_summary(company: str, title: str, location: str, summary: str, role_family: str, target_term: str | None, remote: bool, industries: list[str]) -> dict[str, Any]:
+    work_modality, modality_confidence = _infer_work_modality(location, remote, summary)
+    career = []
+    if role_family == "co_op":
+        career = ["career_role.student.co_op", "employment_type.temporary.co_op"]
+    elif role_family == "new_grad":
+        career = ["career_role.early_career.new_grad", "employment_type.permanent.full_time"]
+    elif role_family == "associate":
+        career = ["career_role.early_career.associate", "employment_type.permanent.full_time"]
+    elif role_family == "part_time":
+        career = ["career_role.student.part_time_student", "employment_type.permanent.part_time"]
+    else:
+        career = ["career_role.student.internship", "employment_type.temporary.internship"]
+    if target_term in {"spring", "summer", "fall", "winter"}:
+        career.append(f"career_role.student.internship.{target_term}")
+    legacy_industries = list(dict.fromkeys(industries or ["SWE"]))
+    return {
+        "version": "taxonomy-mvp-v1",
+        "company_slug": _normalize_slug(company),
+        "industry_node_slugs": [f"legacy.{_normalize_slug(value)}" for value in legacy_industries],
+        "job_function_node_slugs": [],
+        "career_node_slugs": [value for value in career if value.startswith("career_role.")],
+        "geo_node_slugs": _geo_node_slugs(location),
+        "employment_type_node_slugs": [value for value in career if value.startswith("employment_type.")],
+        "work_modality": work_modality,
+        "work_modality_confidence": modality_confidence,
+    }
+
+
 def resolve_supabase_url(supabase_url: str | None = None) -> str:
     return (
         supabase_url
@@ -67,6 +143,18 @@ def _make_row(job: dict) -> dict:
             break
 
     portal = job.get("portal")
+    remote = job.get("remote", False)
+    work_modality, work_modality_confidence = _infer_work_modality(job["location"], remote, summary)
+    taxonomy_summary = _build_taxonomy_summary(
+        job["company"],
+        title,
+        job["location"],
+        summary,
+        role_family,
+        target_term,
+        remote,
+        job.get("industries", []),
+    )
     return {
         "company": job["company"],
         "title": title,
@@ -77,15 +165,29 @@ def _make_row(job: dict) -> dict:
         "experience_band": "early_career" if role_family == "associate" else ("new_grad" if role_family == "new_grad" else "student"),
         "is_early_career": True,
         "location": job["location"],
+        "locations_text": [part.strip() for part in job["location"].split("/") if part.strip()],
         "url": url,
         "application_url": application_url,
         "canonical_url": url,
         "canonical_application_url": application_url,
-        "remote": job.get("remote", False),
+        "remote": remote,
+        "work_modality": work_modality,
+        "work_modality_confidence": work_modality_confidence,
         "industries": job.get("industries", []),
+        "job_geo_node_ids": [],
+        "job_industry_node_ids": [],
+        "job_function_node_ids": [],
+        "job_career_node_ids": [],
+        "job_degree_requirement_node_ids": [],
+        "job_education_field_node_ids": [],
+        "job_work_auth_node_ids": [],
+        "job_employment_type_node_ids": [],
+        "job_taxonomy_summary": taxonomy_summary,
+        "taxonomy_resolution_version": taxonomy_summary["version"],
+        "taxonomy_needs_review": True,
         "portal": portal if portal in VALID_PORTALS else "company_website",
         "posted_at": job.get("posted_at", datetime.now(timezone.utc).isoformat()),
-        "status": "active",
+        "status": "pending",
         "metadata": {
             "tags": job.get("tags", []),
             "source": job.get("source", "scraper"),

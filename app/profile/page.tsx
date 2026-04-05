@@ -15,12 +15,14 @@ import type {
   AnnotatedResume,
   EEOData,
   TargetTerm,
+  DisclosurePolicy,
+  WorkModality,
 } from "@/lib/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   extractResumeFromProfileRow,
   mapProfileRowToPersistedProfile,
-  mapProfileToUpsertInput,
+  mapProfileToResolvedUpsertInput,
   type ProfileRow,
 } from "@/lib/platform/profile";
 import { clampText, MAX_COVER_LETTER_CHARS, isNearCharacterLimit } from "@/lib/upload-limits";
@@ -66,6 +68,8 @@ interface FormState {
   target_years: number[];
   locations: string[];
   remote_ok: boolean;
+  work_modality_allow: WorkModality[];
+  open_to_relocate: boolean;
   // gray_areas preserved in DB but not displayed
   gray_areas: unknown;
   annotatedResume: AnnotatedResume | null;
@@ -74,6 +78,8 @@ interface FormState {
   eeo: EEOData | null;
   graduation_year: number | null;
   graduation_term: TargetTerm | null;
+  gpa_disclosure_policy: DisclosurePolicy;
+  eeo_disclosure_policy: DisclosurePolicy;
 }
 
 const INITIAL: FormState = {
@@ -82,9 +88,10 @@ const INITIAL: FormState = {
   school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
   authorized_to_work: true, visa_type: "", earliest_start_date: "", weekly_availability_hours: "",
   industries: [], levels: [], target_role_families: [], target_terms: [], target_years: [],
-  locations: [], remote_ok: false, gray_areas: null,
+  locations: [], remote_ok: false, work_modality_allow: ["hybrid", "onsite"], open_to_relocate: false, gray_areas: null,
   annotatedResume: null, resumeUrl: null, cover_letter_template: "",
   eeo: null, graduation_year: null, graduation_term: null,
+  gpa_disclosure_policy: "required_only", eeo_disclosure_policy: "required_only",
 };
 
 function clampFormTextFields(form: Partial<FormState>): Partial<FormState> {
@@ -164,6 +171,8 @@ export default function ProfilePage() {
           target_years: mapped.target_years,
           locations: mapped.locations,
           remote_ok: mapped.remote_ok,
+          work_modality_allow: mapped.work_modality_allow,
+          open_to_relocate: mapped.open_to_relocate,
           gray_areas: mapped.gray_areas,
           eeo: mapped.eeo,
           annotatedResume: extractResumeFromProfileRow(profileRow),
@@ -173,6 +182,8 @@ export default function ProfilePage() {
           weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
           graduation_year: mapped.graduation_year,
           graduation_term: mapped.graduation_term,
+          gpa_disclosure_policy: mapped.gpa_disclosure_policy,
+          eeo_disclosure_policy: mapped.eeo_disclosure_policy,
         }));
 
         try {
@@ -197,6 +208,20 @@ export default function ProfilePage() {
                 current.target_years.length > 0
                   ? current.target_years
                   : draft.target_years || [],
+              work_modality_allow:
+                current.work_modality_allow.length > 0
+                  ? current.work_modality_allow
+                  : ((draft.work_modality_allow as WorkModality[]) ?? ["hybrid", "onsite"]),
+              open_to_relocate:
+                current.open_to_relocate || Boolean(draft.open_to_relocate),
+              gpa_disclosure_policy:
+                current.gpa_disclosure_policy !== "required_only"
+                  ? current.gpa_disclosure_policy
+                  : ((draft.gpa_disclosure_policy as DisclosurePolicy) ?? "required_only"),
+              eeo_disclosure_policy:
+                current.eeo_disclosure_policy !== "required_only"
+                  ? current.eeo_disclosure_policy
+                  : ((draft.eeo_disclosure_policy as DisclosurePolicy) ?? "required_only"),
             }));
           }
         } catch {}
@@ -266,7 +291,8 @@ export default function ProfilePage() {
       if (!session?.user.id) { router.replace("/auth?error=session_required"); return; }
 
       const { annotatedResume, resumeUrl: _resumeUrl, ...profileFields } = form;
-      const payload = mapProfileToUpsertInput({
+      const payload = await mapProfileToResolvedUpsertInput({
+        supabase,
         userId: session.user.id,
         userEmail: session.user.email ?? "",
         profile: {
@@ -422,10 +448,15 @@ export default function ProfilePage() {
                 targetYears={form.target_years}
                 locations={form.locations}
                 remoteOk={form.remote_ok}
+                workModalityAllow={form.work_modality_allow}
+                openToRelocate={form.open_to_relocate}
                 onChange={(patch) => {
                   const full: Partial<FormState> = { ...patch as Partial<FormState> };
                   if ("levels" in patch && Array.isArray(patch.levels)) {
                     full.target_role_families = patch.levels as any;
+                  }
+                  if ("work_modality_allow" in patch && Array.isArray((patch as any).work_modality_allow)) {
+                    full.remote_ok = (patch as any).work_modality_allow.includes("remote");
                   }
                   update(full);
                 }}
@@ -459,7 +490,9 @@ export default function ProfilePage() {
             >
               <StepAutofill
                 eeo={form.eeo}
-                onChange={(eeo) => update({ eeo })}
+                gpaDisclosurePolicy={form.gpa_disclosure_policy}
+                eeoDisclosurePolicy={form.eeo_disclosure_policy}
+                onChange={(patch) => update(patch)}
               />
             </EditSection>
 
@@ -694,13 +727,17 @@ function ProfileCompleteness({ form, userEmail }: { form: FormState; userEmail: 
   const fields: Array<{ label: string; filled: boolean; reason: string }> = [
     { label: "Email", filled: !!userEmail, reason: "Required on every application form" },
     { label: "Phone", filled: !!form.phone, reason: "SMS alerts + required on many portals" },
+    { label: "Current location", filled: !!(form.city && form.state_region), reason: "Needed for address sections and relocation questions" },
+    { label: "Work setup", filled: form.work_modality_allow.length > 0, reason: "Browse matching and apply routing need remote / hybrid / onsite preferences" },
     { label: "LinkedIn URL", filled: !!form.linkedin_url, reason: "Some portals make this required" },
     { label: "Resume PDF", filled: !!form.resumeUrl, reason: "No resume file = application blocked immediately" },
     { label: "Cover letter", filled: !!form.cover_letter_template, reason: "Portals that require a cover letter will skip it otherwise" },
     { label: "School", filled: !!form.school, reason: "Greenhouse and Workday pull this for the education section" },
+    { label: "Degree + major", filled: !!(form.degree && form.major), reason: "Education sections need normalized degree and field-of-study data" },
     { label: "Graduation date", filled: !!form.graduation, reason: "90% of ATS forms ask for this" },
     { label: "Start date", filled: !!form.earliest_start_date, reason: "'When can you start?' is asked on every form" },
     { label: "Work authorization", filled: !!form.visa_type, reason: "ITAR and export control questions need this" },
+    { label: "GPA policy", filled: !!form.gpa_disclosure_policy, reason: "Twin needs to know whether GPA should be withheld unless required" },
     { label: "EEO data", filled: !!(form.eeo?.gender), reason: "Pre-fills diversity sections on most portals" },
   ];
 

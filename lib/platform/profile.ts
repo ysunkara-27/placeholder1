@@ -1,14 +1,22 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AnnotatedResume,
+  DisclosurePolicy,
   EEOData,
   GrayAreaSuggestion,
   Industry,
   JobLevel,
   JobRoleFamily,
   TargetTerm,
+  WorkModality,
 } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
+import {
+  buildProfileTaxonomy,
+  hydrateProfileTaxonomy,
+} from "@/lib/taxonomy/profile";
+import { resolveTaxonomyNodeIds } from "@/lib/taxonomy/node-resolution";
 
 export interface PersistedProfile {
   name: string;
@@ -42,6 +50,10 @@ export interface PersistedProfile {
   target_years: number[];
   graduation_year: number | null;
   graduation_term: TargetTerm | null;
+  work_modality_allow: WorkModality[];
+  open_to_relocate: boolean;
+  gpa_disclosure_policy: DisclosurePolicy;
+  eeo_disclosure_policy: DisclosurePolicy;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -77,6 +89,11 @@ function inferGraduationTerm(
 }
 
 export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfile {
+  const taxonomyHydration = hydrateProfileTaxonomy(
+    (row as any).profile_match_preferences ?? null,
+    (row as any).profile_application_facts ?? null
+  );
+
   return {
     name: row.full_name ?? "",
     phone: row.phone ?? "",
@@ -109,6 +126,10 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     target_years: ((row as any).target_years ?? []) as number[],
     graduation_year: (row as any).graduation_year ?? null,
     graduation_term: ((row as any).graduation_term as TargetTerm | null) ?? null,
+    work_modality_allow: taxonomyHydration.work_modality_allow,
+    open_to_relocate: taxonomyHydration.open_to_relocate,
+    gpa_disclosure_policy: taxonomyHydration.gpa_disclosure_policy,
+    eeo_disclosure_policy: taxonomyHydration.eeo_disclosure_policy,
   };
 }
 
@@ -127,6 +148,35 @@ export function mapProfileToUpsertInput(args: {
     profile.graduation,
     (profile as any).graduation_term ?? null
   );
+  const taxonomy = buildProfileTaxonomy({
+    city: profile.city,
+    state_region: profile.state_region,
+    country: profile.country,
+    school: profile.school,
+    major: profile.major,
+    major2: profile.major2,
+    degree: profile.degree,
+    graduation: profile.graduation,
+    gpa: profile.gpa,
+    industries: profile.industries,
+    levels: profile.levels,
+    target_role_families: profile.target_role_families,
+    target_terms: profile.target_terms,
+    target_years: profile.target_years,
+    locations: profile.locations,
+    remote_ok: profile.remote_ok,
+    work_modality_allow: profile.work_modality_allow,
+    open_to_relocate: profile.open_to_relocate,
+    authorized_to_work: profile.authorized_to_work,
+    visa_type: profile.visa_type,
+    earliest_start_date: profile.earliest_start_date,
+    weekly_availability_hours: profile.weekly_availability_hours,
+    linkedin_url: profile.linkedin_url,
+    website_url: profile.website_url,
+    github_url: profile.github_url,
+    gpa_disclosure_policy: profile.gpa_disclosure_policy,
+    eeo_disclosure_policy: profile.eeo_disclosure_policy,
+  });
 
   return ({
     id: userId,
@@ -165,11 +215,64 @@ export function mapProfileToUpsertInput(args: {
     target_years: (profile as any).target_years ?? [],
     graduation_year: graduationYear,
     graduation_term: graduationTerm,
+    profile_match_preferences: taxonomy.matchPreferences as any,
+    profile_application_facts: taxonomy.applicationFacts as any,
+    profile_work_modality_allow: taxonomy.matchPreferences.work_modality_allow,
+    profile_taxonomy_summary: taxonomy.summary as any,
+    profile_geo_allow_node_ids: [],
+    profile_industry_allow_node_ids: [],
+    profile_job_function_allow_node_ids: [],
+    profile_career_allow_node_ids: [],
+    profile_degree_node_ids: [],
+    profile_education_field_node_ids: [],
+    profile_work_auth_node_ids: [],
+    profile_employment_type_allow_node_ids: [],
     notification_pref: profile.phone ? "sms" : "email",
     sms_provider: profile.phone ? "plivo" : null,
     sms_opt_in: Boolean(profile.phone),
     onboarding_completed: Boolean(resume),
   }) as Database["public"]["Tables"]["profiles"]["Insert"];
+}
+
+export async function mapProfileToResolvedUpsertInput(args: {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  userEmail: string;
+  profile: PersistedProfile;
+  resume: AnnotatedResume | null;
+}) {
+  const base = mapProfileToUpsertInput(args);
+  const matchPreferences = (base.profile_match_preferences ?? {}) as Record<string, any>;
+  const applicationFacts = (base.profile_application_facts ?? {}) as Record<string, any>;
+
+  const resolved = await resolveTaxonomyNodeIds(args.supabase, {
+    geo: [
+      ...((matchPreferences.geo_preferences?.node_slugs ?? []) as string[]),
+      ...((applicationFacts.current_location?.node_slugs ?? []) as string[]),
+    ],
+    industry: ((matchPreferences.industries?.node_slugs ?? []) as string[]),
+    career_role: ((matchPreferences.career_roles?.node_slugs ?? []) as string[]),
+    education_degree: (
+      (applicationFacts.education_records ?? []) as Array<Record<string, any>>
+    ).flatMap((record) => (record.degree_node_slugs ?? []) as string[]),
+    education_field: (
+      (applicationFacts.education_records ?? []) as Array<Record<string, any>>
+    ).flatMap((record) => (record.major_node_slugs ?? []) as string[]),
+    work_authorization: ((applicationFacts.work_authorization?.node_slugs ?? []) as string[]),
+    employment_type: ((matchPreferences.employment_types?.node_slugs ?? []) as string[]),
+  });
+
+  return {
+    ...base,
+    profile_geo_allow_node_ids: resolved.geo?.ids ?? [],
+    profile_industry_allow_node_ids: resolved.industry?.ids ?? [],
+    profile_job_function_allow_node_ids: [],
+    profile_career_allow_node_ids: resolved.career_role?.ids ?? [],
+    profile_degree_node_ids: resolved.education_degree?.ids ?? [],
+    profile_education_field_node_ids: resolved.education_field?.ids ?? [],
+    profile_work_auth_node_ids: resolved.work_authorization?.ids ?? [],
+    profile_employment_type_allow_node_ids: resolved.employment_type?.ids ?? [],
+  } satisfies Database["public"]["Tables"]["profiles"]["Insert"];
 }
 
 export function extractResumeFromProfileRow(row: ProfileRow) {

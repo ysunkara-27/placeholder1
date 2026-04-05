@@ -7,6 +7,8 @@ import {
   inferQualificationTags,
 } from "@/lib/job-normalization";
 import { normalizeJobIndustries } from "@/lib/job-industries";
+import { buildJobTaxonomy } from "@/lib/taxonomy/job";
+import { resolveTaxonomyNodeIds } from "@/lib/taxonomy/node-resolution";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
 type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
@@ -140,6 +142,18 @@ export function mapJobIngestPayloadToInsert(
     jdSummary: payload.jd_summary,
     level,
   });
+  const taxonomy = buildJobTaxonomy({
+    company: payload.company.trim(),
+    title: payload.title.trim(),
+    level,
+    role_family: qualification.role_family,
+    target_term: qualification.target_term,
+    target_year: qualification.target_year,
+    location: payload.location.trim(),
+    remote: payload.remote,
+    industries: dedupeStrings(payload.industries),
+    jd_summary: payload.jd_summary ?? "",
+  });
 
   return {
     company: payload.company.trim(),
@@ -152,10 +166,24 @@ export function mapJobIngestPayloadToInsert(
     canonical_application_url: canonicalApplicationUrl,
     remote: payload.remote,
     industries: normalizeJobIndustries(
-      dedupeStrings(payload.industries),
+      taxonomy.legacy_industries,
       payload.title,
       payload.jd_summary ?? ""
     ),
+    locations_text: taxonomy.locations_text,
+    work_modality: taxonomy.work_modality,
+    work_modality_confidence: taxonomy.work_modality_confidence,
+    job_geo_node_ids: [],
+    job_industry_node_ids: [],
+    job_function_node_ids: [],
+    job_career_node_ids: [],
+    job_degree_requirement_node_ids: [],
+    job_education_field_node_ids: [],
+    job_work_auth_node_ids: [],
+    job_employment_type_node_ids: [],
+    job_taxonomy_summary: taxonomy.summary as Json,
+    taxonomy_resolution_version: taxonomy.taxonomy_resolution_version,
+    taxonomy_needs_review: taxonomy.taxonomy_needs_review,
     portal,
     role_family: qualification.role_family,
     target_term: qualification.target_term,
@@ -181,6 +209,25 @@ export async function upsertJobFromIngestPayload(
   payload: JobIngestPayload
 ): Promise<JobRow> {
   const insert = mapJobIngestPayloadToInsert(payload);
+  const taxonomySummary = (insert.job_taxonomy_summary ?? {}) as Record<string, any>;
+  const resolved = await resolveTaxonomyNodeIds(supabase, {
+    geo: (taxonomySummary.geo_node_slugs ?? []) as string[],
+    industry: (taxonomySummary.industry_node_slugs ?? []) as string[],
+    job_function: (taxonomySummary.job_function_node_slugs ?? []) as string[],
+    career_role: (taxonomySummary.career_node_slugs ?? []) as string[],
+    education_degree: (taxonomySummary.degree_requirement_node_slugs ?? []) as string[],
+    education_field: (taxonomySummary.education_field_node_slugs ?? []) as string[],
+    work_authorization: (taxonomySummary.work_auth_node_slugs ?? []) as string[],
+    employment_type: (taxonomySummary.employment_type_node_slugs ?? []) as string[],
+  });
+  insert.job_geo_node_ids = resolved.geo?.ids ?? [];
+  insert.job_industry_node_ids = resolved.industry?.ids ?? [];
+  insert.job_function_node_ids = resolved.job_function?.ids ?? [];
+  insert.job_career_node_ids = resolved.career_role?.ids ?? [];
+  insert.job_degree_requirement_node_ids = resolved.education_degree?.ids ?? [];
+  insert.job_education_field_node_ids = resolved.education_field?.ids ?? [];
+  insert.job_work_auth_node_ids = resolved.work_authorization?.ids ?? [];
+  insert.job_employment_type_node_ids = resolved.employment_type?.ids ?? [];
 
   const { data: existing, error: existingError } = await supabase
     .from("jobs")
@@ -214,6 +261,34 @@ export async function upsertJobFromIngestPayload(
         existing.title,
         existing.jd_summary ?? insert.jd_summary ?? ""
       ),
+      locations_text:
+        existing.locations_text?.length ? existing.locations_text : insert.locations_text,
+      work_modality:
+        existing.work_modality ?? insert.work_modality,
+      work_modality_confidence:
+        existing.work_modality_confidence ?? insert.work_modality_confidence,
+      job_geo_node_ids:
+        existing.job_geo_node_ids?.length ? existing.job_geo_node_ids : insert.job_geo_node_ids,
+      job_industry_node_ids:
+        existing.job_industry_node_ids?.length ? existing.job_industry_node_ids : insert.job_industry_node_ids,
+      job_function_node_ids:
+        existing.job_function_node_ids?.length ? existing.job_function_node_ids : insert.job_function_node_ids,
+      job_career_node_ids:
+        existing.job_career_node_ids?.length ? existing.job_career_node_ids : insert.job_career_node_ids,
+      job_degree_requirement_node_ids:
+        existing.job_degree_requirement_node_ids?.length ? existing.job_degree_requirement_node_ids : insert.job_degree_requirement_node_ids,
+      job_education_field_node_ids:
+        existing.job_education_field_node_ids?.length ? existing.job_education_field_node_ids : insert.job_education_field_node_ids,
+      job_work_auth_node_ids:
+        existing.job_work_auth_node_ids?.length ? existing.job_work_auth_node_ids : insert.job_work_auth_node_ids,
+      job_employment_type_node_ids:
+        existing.job_employment_type_node_ids?.length ? existing.job_employment_type_node_ids : insert.job_employment_type_node_ids,
+      job_taxonomy_summary:
+        (existing.job_taxonomy_summary as Json) ?? insert.job_taxonomy_summary ?? {},
+      taxonomy_resolution_version:
+        existing.taxonomy_resolution_version ?? insert.taxonomy_resolution_version,
+      taxonomy_needs_review:
+        existing.taxonomy_needs_review ?? insert.taxonomy_needs_review ?? false,
       portal: existing.portal || insert.portal,
       role_family: existing.role_family || insert.role_family,
       target_term: existing.target_term || insert.target_term,

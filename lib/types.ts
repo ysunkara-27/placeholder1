@@ -23,11 +23,19 @@ export type Industry =
   | "Research"
   | "Data"
   | "Design"
+  | "Hardware"
+  | "MechEng"
+  | "CivilEng"
+  | "ChemEng"
+  | "AeroEng"
+  | "LifeSci"
   | "Marketing"
   | "Legal"
   | "Healthcare"
   | "Operations"
-  | "Sales";
+  | "Sales"
+  | "Policy"
+  | "Education";
 
 export type JobLevel =
   | "internship"
@@ -46,6 +54,10 @@ export type JobRoleFamily =
 export type TargetTerm = string; // e.g. "2026 Summer", "2026 Fall", "Full Time"
 
 export type ExperienceBand = "student" | "new_grad" | "early_career";
+
+export type WorkModality = "remote" | "hybrid" | "onsite";
+
+export type DisclosurePolicy = "required_only" | "always";
 
 
 export type NotificationPref = "sms" | "email";

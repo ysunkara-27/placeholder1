@@ -16,12 +16,14 @@ import type {
   AnnotatedResume,
   EEOData,
   TargetTerm,
+  DisclosurePolicy,
+  WorkModality,
 } from "@/lib/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   extractResumeFromProfileRow,
   mapProfileRowToPersistedProfile,
-  mapProfileToUpsertInput,
+  mapProfileToResolvedUpsertInput,
   type ProfileRow,
 } from "@/lib/platform/profile";
 import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
@@ -70,6 +72,8 @@ interface FormState {
   target_years: number[];
   locations: string[];
   remote_ok: boolean;
+  work_modality_allow: WorkModality[];
+  open_to_relocate: boolean;
   gray_areas: unknown;
   // Step 4: resume
   annotatedResume: AnnotatedResume | null;
@@ -79,6 +83,8 @@ interface FormState {
   eeo: EEOData | null;
   graduation_year: number | null;
   graduation_term: TargetTerm | null;
+  gpa_disclosure_policy: DisclosurePolicy;
+  eeo_disclosure_policy: DisclosurePolicy;
 }
 
 const INITIAL: FormState = {
@@ -86,13 +92,15 @@ const INITIAL: FormState = {
   linkedin_url: "", website_url: "", github_url: "",
   school: "", major: "", major2: "", degree: "", gpa: "", graduation: "",
   authorized_to_work: true, visa_type: "", earliest_start_date: "", weekly_availability_hours: "",
-  industries: [], levels: [], target_role_families: [], target_terms: [], target_years: [], locations: [], remote_ok: false, gray_areas: null,
+  industries: [], levels: [], target_role_families: [], target_terms: [], target_years: [], locations: [], remote_ok: false, work_modality_allow: ["hybrid", "onsite"], open_to_relocate: false, gray_areas: null,
   annotatedResume: null,
   resumeUrl: null,
   cover_letter_template: "",
   eeo: null,
   graduation_year: null,
   graduation_term: null,
+  gpa_disclosure_policy: "required_only",
+  eeo_disclosure_policy: "required_only",
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -114,6 +122,7 @@ function isStepValid(step: StepId, form: FormState): boolean {
       return (
         form.industries.length > 0 &&
         form.levels.length > 0 &&
+        form.work_modality_allow.length > 0 &&
         (form.locations.length > 0 || form.remote_ok)
       );
     case "resume":
@@ -170,7 +179,9 @@ function hasStepProgress(step: StepId, form: FormState): boolean {
         form.target_terms.length ||
         form.target_years.length ||
         form.locations.length ||
-        form.remote_ok
+        form.remote_ok ||
+        form.work_modality_allow.length ||
+        form.open_to_relocate
       );
     case "resume":
       return Boolean(
@@ -182,7 +193,9 @@ function hasStepProgress(step: StepId, form: FormState): boolean {
       return Boolean(
         form.eeo ||
         form.graduation_year ||
-        form.graduation_term
+        form.graduation_term ||
+        form.gpa_disclosure_policy !== "required_only" ||
+        form.eeo_disclosure_policy !== "required_only"
       );
     default:
       return false;
@@ -310,6 +323,8 @@ export default function OnboardingPage() {
             target_years: mapped.target_years,
             locations: mapped.locations,
             remote_ok: mapped.remote_ok,
+            work_modality_allow: mapped.work_modality_allow,
+            open_to_relocate: mapped.open_to_relocate,
             gray_areas: mapped.gray_areas,
             eeo: mapped.eeo,
             annotatedResume: extractResumeFromProfileRow(profileRow),
@@ -322,6 +337,8 @@ export default function OnboardingPage() {
             weekly_availability_hours: (mapped as any).weekly_availability_hours ?? "",
             graduation_year: mapped.graduation_year,
             graduation_term: mapped.graduation_term,
+            gpa_disclosure_policy: mapped.gpa_disclosure_policy,
+            eeo_disclosure_policy: mapped.eeo_disclosure_policy,
           }));
 
           // Restore draft for fields not in Supabase yet
@@ -347,6 +364,20 @@ export default function OnboardingPage() {
                   current.target_years.length > 0
                     ? current.target_years
                     : draft.target_years || [],
+                work_modality_allow:
+                  current.work_modality_allow.length > 0
+                    ? current.work_modality_allow
+                    : ((draft.work_modality_allow as WorkModality[]) ?? ["hybrid", "onsite"]),
+                open_to_relocate:
+                  current.open_to_relocate || Boolean(draft.open_to_relocate),
+                gpa_disclosure_policy:
+                  current.gpa_disclosure_policy !== "required_only"
+                    ? current.gpa_disclosure_policy
+                    : ((draft.gpa_disclosure_policy as DisclosurePolicy) ?? "required_only"),
+                eeo_disclosure_policy:
+                  current.eeo_disclosure_policy !== "required_only"
+                    ? current.eeo_disclosure_policy
+                    : ((draft.eeo_disclosure_policy as DisclosurePolicy) ?? "required_only"),
               }));
             }
           } catch {/* ignore */}
@@ -401,7 +432,8 @@ export default function OnboardingPage() {
       }
 
       const { annotatedResume, resumeUrl: _resumeUrl, ...profileFields } = form;
-      const payload = mapProfileToUpsertInput({
+      const payload = await mapProfileToResolvedUpsertInput({
+        supabase,
         userId: session.user.id,
         userEmail: session.user.email ?? "",
         profile: {
@@ -572,10 +604,15 @@ export default function OnboardingPage() {
                   targetYears={form.target_years}
                   locations={form.locations}
                   remoteOk={form.remote_ok}
+                  workModalityAllow={form.work_modality_allow}
+                  openToRelocate={form.open_to_relocate}
                   onChange={(patch) => {
                     const full: Partial<FormState> = { ...patch as Partial<FormState> };
                     if ("levels" in patch && Array.isArray(patch.levels)) {
                       full.target_role_families = patch.levels as any;
+                    }
+                    if ("work_modality_allow" in patch && Array.isArray((patch as any).work_modality_allow)) {
+                      full.remote_ok = (patch as any).work_modality_allow.includes("remote");
                     }
                     update(full);
                   }}
@@ -594,7 +631,9 @@ export default function OnboardingPage() {
               {currentStep.id === "autofill" && (
                 <StepAutofill
                   eeo={form.eeo}
-                  onChange={(eeo) => update({ eeo })}
+                  gpaDisclosurePolicy={form.gpa_disclosure_policy}
+                  eeoDisclosurePolicy={form.eeo_disclosure_policy}
+                  onChange={(patch) => update(patch)}
                 />
               )}
             </motion.div>

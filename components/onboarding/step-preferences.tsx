@@ -8,7 +8,7 @@ import {
   TARGET_TERM_OPTIONS,
   cn,
 } from "@/lib/utils";
-import type { Industry, JobLevel, TargetTerm } from "@/lib/types";
+import type { Industry, JobLevel, TargetTerm, WorkModality } from "@/lib/types";
 import { CheckCircle2, MapPin, Wifi, X } from "lucide-react";
 
 const LOCATION_REGIONS = [
@@ -68,6 +68,8 @@ interface Props {
   targetYears: number[];
   locations: string[];
   remoteOk: boolean;
+  workModalityAllow: WorkModality[];
+  openToRelocate: boolean;
   onChange: (
     patch: Partial<{
       industries: Industry[];
@@ -76,6 +78,8 @@ interface Props {
       target_years: number[];
       locations: string[];
       remote_ok: boolean;
+      work_modality_allow: WorkModality[];
+      open_to_relocate: boolean;
     }>
   ) => void;
 }
@@ -87,6 +91,8 @@ export function StepPreferences({
   targetYears,
   locations,
   remoteOk,
+  workModalityAllow,
+  openToRelocate,
   onChange,
 }: Props) {
   const [cityInput, setCityInput] = useState("");
@@ -105,6 +111,13 @@ export function StepPreferences({
     if (!t || locations.includes(t)) return;
     onChange({ locations: [...locations, t] });
     setCityInput("");
+  }
+  function toggleWorkModality(value: WorkModality) {
+    onChange({
+      work_modality_allow: workModalityAllow.includes(value)
+        ? workModalityAllow.filter((modality) => modality !== value)
+        : [...workModalityAllow, value],
+    });
   }
 
   // ── Toggle helpers ────────────────────────────────────────────────────────
@@ -208,6 +221,88 @@ export function StepPreferences({
               </button>
             );
           })}
+        </div>
+      </SubSection>
+
+      <SubSection label="Work setup">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            {
+              value: "remote" as WorkModality,
+              label: "Remote",
+              description: "Include jobs with no office commute.",
+              icon: Wifi,
+            },
+            {
+              value: "hybrid" as WorkModality,
+              label: "Hybrid",
+              description: "Include roles that mix office and remote work.",
+              icon: MapPin,
+            },
+            {
+              value: "onsite" as WorkModality,
+              label: "Onsite",
+              description: "Include office-first roles in your selected places.",
+              icon: CheckCircle2,
+            },
+          ].map(({ value, label, description, icon: Icon }) => {
+            const selected = workModalityAllow.includes(value);
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => toggleWorkModality(value)}
+                className={cn(
+                  "rounded-xl border p-4 text-left transition-all duration-150 shadow-soft-card",
+                  selected
+                    ? "border-accent bg-accent-wash"
+                    : "border-rim bg-white hover:border-accent/30 hover:bg-surface"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full",
+                      selected ? "bg-accent text-white" : "bg-surface text-dim"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-ink">{label}</p>
+                    <p className="text-xs leading-5 text-dim">{description}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onChange({ open_to_relocate: true })}
+            className={cn(
+              "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors duration-150",
+              openToRelocate
+                ? "border-accent bg-accent-wash text-accent"
+                : "border-rim bg-white text-dim hover:border-accent/30 hover:text-ink"
+            )}
+          >
+            Open to relocate
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ open_to_relocate: false })}
+            className={cn(
+              "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors duration-150",
+              !openToRelocate
+                ? "border-accent bg-accent-wash text-accent"
+                : "border-rim bg-white text-dim hover:border-accent/30 hover:text-ink"
+            )}
+          >
+            Prefer selected locations only
+          </button>
         </div>
       </SubSection>
 

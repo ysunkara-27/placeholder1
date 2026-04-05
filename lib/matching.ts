@@ -17,6 +17,43 @@ export interface MatchResult {
   rejections: string[];
 }
 
+function sharedPrefixDepth(a: string, b: string) {
+  const left = a.split(".");
+  const right = b.split(".");
+  let depth = 0;
+  while (depth < left.length && depth < right.length && left[depth] === right[depth]) {
+    depth += 1;
+  }
+  return depth;
+}
+
+function taxonomyOverlapScore(jobSlugs: string[], profileSlugs: string[]) {
+  if (jobSlugs.length === 0 || profileSlugs.length === 0) {
+    return { exact: 0, branch: 0, any: false };
+  }
+  let exact = 0;
+  let branch = 0;
+  for (const jobSlug of jobSlugs) {
+    for (const profileSlug of profileSlugs) {
+      const depth = sharedPrefixDepth(jobSlug, profileSlug);
+      if (depth >= Math.max(jobSlug.split(".").length, profileSlug.split(".").length)) {
+        exact += 1;
+      } else if (depth >= 2) {
+        branch += 1;
+      }
+    }
+  }
+  return { exact, branch, any: exact > 0 || branch > 0 };
+}
+
+function readTaxonomyProfile(profile: ProfileRow) {
+  return (profile.profile_match_preferences ?? {}) as Record<string, any>;
+}
+
+function readTaxonomyJob(job: JobRow) {
+  return (job.job_taxonomy_summary ?? {}) as Record<string, any>;
+}
+
 function normalizeRoleFamily(job: JobRow): JobRoleFamily {
   const raw = job.role_family;
   if (
@@ -98,6 +135,8 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   const reasons: string[] = [];
   const rejections: string[] = [];
   let score = 0;
+  const profileTaxonomy = readTaxonomyProfile(profile);
+  const jobTaxonomy = readTaxonomyJob(job);
 
   const profileIndustries = (profile.industries ?? []) as Industry[];
   const profileLevels = (profile.levels ?? []) as JobLevel[];
@@ -115,8 +154,29 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   const jobTargetTerm = normalizeTargetTerm(job);
   const jobTargetYear = job.target_year ?? null;
 
+  const profileIndustryNodes = ((profileTaxonomy.industries?.node_slugs ?? []) as string[]).filter(Boolean);
+  const profileCareerNodes = ((profileTaxonomy.career_roles?.node_slugs ?? []) as string[]).filter(Boolean);
+  const profileGeoNodes = ((profileTaxonomy.geo_preferences?.node_slugs ?? []) as string[]).filter(Boolean);
+  const profileWorkModalities = ((profile.profile_work_modality_allow ?? []) as string[]).filter(Boolean);
+
+  const jobIndustryNodes = ((jobTaxonomy.industry_node_slugs ?? []) as string[]).filter(Boolean);
+  const jobCareerNodes = ((jobTaxonomy.career_node_slugs ?? []) as string[]).filter(Boolean);
+  const jobGeoNodes = ((jobTaxonomy.geo_node_slugs ?? []) as string[]).filter(Boolean);
+  const jobWorkModality = (job.work_modality ?? jobTaxonomy.work_modality ?? null) as string | null;
+
   // 1. Industry match (40)
-  if (profileIndustries.length === 0) {
+  if (profileIndustryNodes.length > 0 && jobIndustryNodes.length > 0) {
+    const overlap = taxonomyOverlapScore(jobIndustryNodes, profileIndustryNodes);
+    if (overlap.exact > 0) {
+      score += 40;
+      reasons.push("Industry taxonomy exact match");
+    } else if (overlap.branch > 0) {
+      score += 26;
+      reasons.push("Industry taxonomy branch match");
+    } else {
+      rejections.push("Industry taxonomy mismatch");
+    }
+  } else if (profileIndustries.length === 0) {
     score += 40;
     reasons.push("Open to all industries");
   } else if (jobIndustries.length === 0) {
@@ -135,7 +195,18 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   }
 
   // 2. Role family / level match (20)
-  if (roleFamilyMatches(targetRoleFamilies, profileLevels, jobRoleFamily, jobLevel)) {
+  if (profileCareerNodes.length > 0 && jobCareerNodes.length > 0) {
+    const overlap = taxonomyOverlapScore(jobCareerNodes, profileCareerNodes);
+    if (overlap.exact > 0) {
+      score += 20;
+      reasons.push("Career-role taxonomy exact match");
+    } else if (overlap.branch > 0) {
+      score += 12;
+      reasons.push("Career-role taxonomy branch match");
+    } else {
+      rejections.push("Career-role taxonomy mismatch");
+    }
+  } else if (roleFamilyMatches(targetRoleFamilies, profileLevels, jobRoleFamily, jobLevel)) {
     score += 20;
     reasons.push(`Role family match: ${jobRoleFamily}`);
   } else {
@@ -156,9 +227,25 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   }
 
   // 4. Location match (20)
-  if (job.remote && remoteOk) {
+  if (jobWorkModality && profileWorkModalities.length > 0 && !profileWorkModalities.includes(jobWorkModality)) {
+    rejections.push(`Work setup mismatch (want: ${profileWorkModalities.join(", ")}, got: ${jobWorkModality})`);
+  } else if (job.remote && remoteOk) {
     score += 20;
     reasons.push("Remote role, user is open to remote");
+  } else if (jobGeoNodes.length > 0 && profileGeoNodes.length > 0 && jobWorkModality !== "remote") {
+    const overlap = taxonomyOverlapScore(jobGeoNodes, profileGeoNodes);
+    if (overlap.exact > 0) {
+      score += 20;
+      reasons.push("Location taxonomy exact match");
+    } else if (overlap.branch > 0) {
+      score += 12;
+      reasons.push("Location taxonomy branch match");
+    } else if (remoteOk && job.remote) {
+      score += 20;
+      reasons.push("Remote role accepted");
+    } else {
+      rejections.push("Location taxonomy mismatch");
+    }
   } else if (profileLocations.length === 0 && remoteOk) {
     score += 20;
     reasons.push("Open to any location");
