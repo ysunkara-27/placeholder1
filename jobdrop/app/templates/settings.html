@@ -1,0 +1,777 @@
+{% set meta_description = meta_description|default('Manage your JobDrop account settings and notification preferences.') %}
+{% set job_posting_jsonld = job_posting_jsonld|default(None) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - JOBDROP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Futura:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics-compat.js"></script>
+    <!-- Stripe.js -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WBBSHSTV5Z');
+    </script>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="keywords" content="internships, jobs, settings, jobdrop, account, notification, careers, apply">
+    <meta name="robots" content="index, follow">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ request.url }}">
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="Settings - JobDrop">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Settings - JobDrop">
+    <meta name="twitter:description" content="{{ meta_description }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Structured Data (JSON-LD) Placeholder -->
+    {% if job_posting_jsonld %}
+    <script type="application/ld+json">
+      {{ job_posting_jsonld|safe }}
+    </script>
+    {% endif %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="logo">
+                    <span class="logo-text">JobDrop</span>
+                    <div class="logo-icon">💼</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/filter" class="nav-link">Find Jobs</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/request" class="nav-link">Request</a>
+                <a href="/tracking" class="nav-link">Tracking</a>
+                
+                <!-- Auth Section -->
+                <div class="auth-section">
+                    <button id="sign-in-btn" class="btn btn-outline" style="display: none;">
+                        <i class="fab fa-google"></i> Sign In
+                    </button>
+                    
+                    <div id="user-menu" class="user-menu" style="display: none;">
+                        <div class="user-profile">
+                            <img id="user-avatar" class="user-avatar" src="" alt="">
+                            <div class="user-info">
+                                <span id="user-name" class="user-name"></span>
+                                <span id="user-plan" class="user-plan">Free</span>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="dropdown-toggle" id="user-dropdown">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-content">
+                                <a href="/settings" class="active"><i class="fas fa-cog"></i> Account Settings</a>
+                                <!-- Subscription management removed - all features are now free -->
+                                <button id="sign-out-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile menu toggle -->
+            <button class="mobile-menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Settings Section -->
+    <section class="settings-section">
+        <div class="container">
+            <div class="settings-header">
+                <h1 class="section-title">Account Settings</h1>
+                <p class="settings-subtitle">Manage your account and subscription preferences</p>
+            </div>
+
+            <div class="settings-grid">
+                <!-- Account Settings Card -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h2>Account Information</h2>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="profile-info">
+                            <div class="profile-avatar">
+                                <img id="settings-avatar" src="" alt="Profile">
+                                <button id="change-avatar-btn" class="secondary-btn">Change Photo</button>
+                            </div>
+                            <div class="profile-details">
+                                <div class="form-group">
+                                    <label for="display-name">Display Name</label>
+                                    <input type="text" id="display-name" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="email">Email</label>
+                                    <input type="email" id="email" class="form-input" readonly>
+                                </div>
+                                <button id="update-profile-btn" class="primary-btn">Update Profile</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Free Access Notice -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h2>Access Level</h2>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="free-access-notice">
+                            <h3>🎉 Unlimited Free Access</h3>
+                            <p>All features are now completely free! You have unlimited access to:</p>
+                            <div class="free-features">
+                                <ul>
+                                    <li><i class="fas fa-check text-success"></i> All internship listings</li>
+                                    <li><i class="fas fa-check text-success"></i> Advanced search and filters</li>
+                                    <li><i class="fas fa-check text-success"></i> Company requests</li>
+                                    <li><i class="fas fa-check text-success"></i> Email notifications (coming soon)</li>
+                                </ul>
+                            </div>
+                            <p><strong>No subscriptions, no limits, no fees - just sign in for email tracking!</strong></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone Card -->
+                <div class="settings-card danger-zone">
+                    <div class="settings-card-header">
+                        <h2>Danger Zone</h2>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="danger-actions">
+                            <div class="danger-action">
+                                <div class="danger-action-info">
+                                    <h3>Delete Account</h3>
+                                    <p>Permanently delete your account and all associated data</p>
+                                </div>
+                                <button id="delete-account-btn" class="danger-btn">Delete Account</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <span class="logo-text">JobDrop</span>
+                        <div class="logo-icon">💼</div>
+                    </div>
+                    <p>Connecting talent with opportunities, one drop at a time.</p>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="footer-section">
+                        <h4>Platform</h4>
+                        <a href="/">Home</a>
+                        <a href="/filter">Find Jobs</a>
+                        <a href="/companies">Companies</a>
+                        <a href="/request">Request</a>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Support</h4>
+                        <!-- Pricing removed - all features are now free -->
+                        <a href="#" id="footer-support">Support</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 JobDrop. All rights reserved.</p>
+                <div class="footer-stats">
+                    <span>Tracking <strong id="footer-companies-count">0</strong> companies</span>
+                    <span>•</span>
+                    <span><strong id="footer-jobs-count">0</strong> opportunities</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div id="payment-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Payment Method</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="payment-form">
+                    <div id="card-element"></div>
+                    <div id="card-errors" class="error-message"></div>
+                    <button id="submit-payment" class="primary-btn">Add Payment Method</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-account-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete Account</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="warning-text">⚠️ This action cannot be undone. All your data will be permanently deleted.</p>
+                <div class="form-group">
+                    <label for="confirm-delete">Type "DELETE" to confirm</label>
+                    <input type="text" id="confirm-delete" class="form-input" placeholder="DELETE">
+                </div>
+                <button id="confirm-delete-account" class="danger-btn" disabled>Delete Account</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .upgrade-options {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+            margin-top: var(--spacing-md);
+        }
+        
+        .upgrade-options button {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+        }
+
+        .upgrade-options .primary-btn {
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        }
+
+        .upgrade-options .secondary-btn {
+            background: white;
+            border: 2px solid var(--primary-500);
+            color: var(--primary-500);
+        }
+
+        .upgrade-options .secondary-btn:hover {
+            background: var(--primary-50);
+        }
+    </style>
+
+    <script>
+        // Firebase configuration - loaded securely from server
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}",
+            measurementId: "{{ firebase_config.measurementId }}"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const analytics = firebase.analytics();
+        const auth = firebase.auth();
+
+        // Initialize Stripe
+        const stripe = Stripe('{{ stripe_publishable_key }}');
+        const elements = stripe.elements();
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        // Global variables
+        let currentUser = null;
+        let subscriptionStatus = null;
+
+        // DOM elements
+        const signInBtn = document.getElementById('sign-in-btn');
+        const userMenu = document.getElementById('user-menu');
+        const userAvatar = document.getElementById('user-avatar');
+        const userName = document.getElementById('user-name');
+        const userPlan = document.getElementById('user-plan');
+        const signOutBtn = document.getElementById('sign-out-btn');
+        const settingsAvatar = document.getElementById('settings-avatar');
+        const displayNameInput = document.getElementById('display-name');
+        const emailInput = document.getElementById('email');
+        const updateProfileBtn = document.getElementById('update-profile-btn');
+        const subscriptionStatusDiv = document.getElementById('subscription-status');
+        const subscriptionActionsDiv = document.getElementById('subscription-actions');
+        const paymentMethodsDiv = document.getElementById('payment-methods');
+        const addPaymentMethodBtn = document.getElementById('add-payment-method-btn');
+        const deleteAccountBtn = document.getElementById('delete-account-btn');
+        const paymentModal = document.getElementById('payment-modal');
+        const deleteAccountModal = document.getElementById('delete-account-modal');
+        const confirmDeleteInput = document.getElementById('confirm-delete');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-account');
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            setupAuthListeners();
+            setupEventListeners();
+            
+            // Handle Stripe redirect params
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('success') === 'true') {
+                showSuccessMessage('Payment successful! Your subscription has been activated.');
+                // Clean up URL
+                window.history.replaceState({}, document.title, '/settings');
+            } else if (urlParams.get('canceled') === 'true') {
+                showErrorMessage('Payment was canceled. You can try again at any time.');
+                // Clean up URL
+                window.history.replaceState({}, document.title, '/settings');
+            }
+        });
+        
+        function showSuccessMessage(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-success';
+            successDiv.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <span>${message}</span>
+                <button onclick="this.parentNode.remove()" class="close-btn">&times;</button>
+            `;
+            successDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                max-width: 400px;
+            `;
+            document.body.appendChild(successDiv);
+            setTimeout(() => successDiv.remove(), 5000);
+        }
+        
+        function showErrorMessage(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-error';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${message}</span>
+                <button onclick="this.parentNode.remove()" class="close-btn">&times;</button>
+            `;
+            errorDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                max-width: 400px;
+            `;
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function setupAuthListeners() {
+            // Show loading state initially
+            document.body.style.opacity = '0.5';
+            
+            auth.onAuthStateChanged(async (user) => {
+                console.log('🔄 Settings page auth state:', user ? `User: ${user.email}` : 'No user');
+                
+                if (user) {
+                    currentUser = user;
+                    
+                    // Show the page content
+                    document.body.style.opacity = '1';
+                    signInBtn.style.display = 'none';
+                    userMenu.style.display = 'flex';
+                    userAvatar.src = user.photoURL || 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png';
+                    userName.textContent = user.displayName || user.email;
+                    
+                    // Update settings page
+                    settingsAvatar.src = user.photoURL || 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png';
+                    displayNameInput.value = user.displayName || '';
+                    emailInput.value = user.email || '';
+                    
+                    // Load subscription status and update user plan display
+                    await loadSubscriptionStatus();
+                    // Load payment methods
+                    await loadPaymentMethods();
+                    
+                    // Load footer stats
+                    await loadFooterStats();
+                } else {
+                    // Add a small delay to ensure auth state is properly determined
+                    setTimeout(() => {
+                        console.log('❌ No user found, redirecting to home');
+                        window.location.href = '/';
+                    }, 1000);
+                }
+            });
+
+            signOutBtn.addEventListener('click', () => {
+                auth.signOut();
+            });
+
+            // Add event listeners for sign in
+            document.getElementById('sign-in-btn').addEventListener('click', signIn);
+        }
+
+        function setupEventListeners() {
+            // Profile update
+            updateProfileBtn.addEventListener('click', updateProfile);
+            
+            // Payment method
+            addPaymentMethodBtn.addEventListener('click', () => {
+                paymentModal.style.display = 'block';
+            });
+
+            // Close modals
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    paymentModal.style.display = 'none';
+                    deleteAccountModal.style.display = 'none';
+                });
+            });
+
+            // Delete account
+            deleteAccountBtn.addEventListener('click', () => {
+                deleteAccountModal.style.display = 'block';
+            });
+
+            confirmDeleteInput.addEventListener('input', (e) => {
+                confirmDeleteBtn.disabled = e.target.value !== 'DELETE';
+            });
+
+            confirmDeleteBtn.addEventListener('click', deleteAccount);
+
+            // Payment form submission
+            document.getElementById('submit-payment').addEventListener('click', async (e) => {
+                e.preventDefault();
+                const { paymentMethod, error } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                });
+
+                if (error) {
+                    document.getElementById('card-errors').textContent = error.message;
+                } else {
+                    // Send payment method to server
+                    try {
+                        const token = await currentUser.getIdToken();
+                        const response = await fetch('/api/payment-methods', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                payment_method_id: paymentMethod.id
+                            })
+                        });
+
+                        if (response.ok) {
+                            paymentModal.style.display = 'none';
+                            loadPaymentMethods();
+                        } else {
+                            const data = await response.json();
+                            document.getElementById('card-errors').textContent = data.error;
+                        }
+                    } catch (error) {
+                        document.getElementById('card-errors').textContent = 'Failed to add payment method';
+                    }
+                }
+            });
+        }
+
+        async function updateProfile() {
+            try {
+                await currentUser.updateProfile({
+                    displayName: displayNameInput.value
+                });
+                // Refresh user data
+                await currentUser.reload();
+                // Show success message
+                alert('Profile updated successfully');
+            } catch (error) {
+                alert('Failed to update profile: ' + error.message);
+            }
+        }
+
+        async function loadSubscriptionStatus() {
+            try {
+                console.log('🔄 Checking user subscription...');
+                const token = await currentUser.getIdToken();
+                console.log('✅ Got Firebase token');
+                
+                // First, verify auth and potentially get early adopter status
+                const authResponse = await fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    console.log('✅ Auth verified:', authData);
+                    
+                    if (authData.early_adopter_status) {
+                        console.log('🎉 Early adopter status:', authData.early_adopter_status);
+                    }
+                }
+                
+                // Then check subscription status
+                const response = await fetch('/api/subscription/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log('📡 Subscription API response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    subscriptionStatus = data.subscription;
+                    
+                    // Update user plan in navbar
+                    if (subscriptionStatus && subscriptionStatus.status === 'active') {
+                        if (subscriptionStatus.type === 'early_adopter') {
+                            userPlan.textContent = `Early Adopter #${subscriptionStatus.early_adopter_number}`;
+                            userPlan.className = 'user-plan early-adopter';
+                        } else {
+                            userPlan.textContent = subscriptionStatus.price_id.includes('forever') ? 'Forever' : 'Pro';
+                            userPlan.className = 'user-plan premium';
+                        }
+                    } else {
+                        userPlan.textContent = 'Free';
+                        userPlan.className = 'user-plan';
+                    }
+                    
+                    // Update subscription UI in settings page
+                    updateSubscriptionUI(subscriptionStatus);
+                    console.log('✅ Subscription status loaded:', subscriptionStatus);
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Subscription API error:', response.status, errorText);
+                    // Set default free status
+                    userPlan.textContent = 'Free';
+                    userPlan.className = 'user-plan';
+                }
+            } catch (error) {
+                console.error('❌ Error checking subscription:', error);
+                // Set default free status
+                userPlan.textContent = 'Free';
+                userPlan.className = 'user-plan';
+            }
+        }
+
+        async function checkEarlyAdopterAvailability() {
+            // Early adopter functionality removed - all users get free access
+            console.log('✅ Early adopter program ended - all features are now free');
+        }
+
+        function updateSubscriptionUI(subscription) {
+            if (!subscription) {
+                // No subscription - show free status
+                subscriptionStatusDiv.innerHTML = `
+                    <div class="subscription-info">
+                        <h3>Current Plan</h3>
+                        <p class="subscription-status free">Free</p>
+                        <p class="subscription-details">
+                            You have access to all features for free!
+                        </p>
+                    </div>
+                `;
+                subscriptionActionsDiv.style.display = 'none';
+                return;
+            }
+            
+            const status = subscription.status;
+            const isActive = status === 'active' || status === 'trialing';
+            const isEarlyAdopter = subscription.type === 'early_adopter';
+            
+            if (isEarlyAdopter) {
+                subscriptionStatusDiv.innerHTML = `
+                    <div class="subscription-info">
+                        <h3>Early Adopter</h3>
+                        <p class="subscription-status early-adopter">🎉 Early Adopter #${subscription.early_adopter_number}</p>
+                        <p class="subscription-details">
+                            Congratulations! You have forever free access to all features.
+                            <br><small>Granted on: ${new Date(subscription.granted_at).toLocaleDateString()}</small>
+                        </p>
+                    </div>
+                `;
+                
+                subscriptionActionsDiv.style.display = 'block';
+                subscriptionActionsDiv.innerHTML = `
+                    <div class="early-adopter-benefits">
+                        <h4>Your Benefits:</h4>
+                        <ul>
+                            <li><i class="fas fa-check text-success"></i> Unlimited access to all job listings</li>
+                            <li><i class="fas fa-check text-success"></i> Priority company requests</li>
+                            <li><i class="fas fa-check text-success"></i> Early access to new features</li>
+                            <li><i class="fas fa-check text-success"></i> No subscription fees - ever!</li>
+                        </ul>
+                    </div>
+                `;
+            } else {
+                subscriptionStatusDiv.innerHTML = `
+                    <div class="subscription-info">
+                        <h3>Current Plan</h3>
+                        <p class="subscription-status ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+                        <p class="subscription-details">
+                            ${isActive ? 'Next billing date: ' + new Date(subscription.current_period_end).toLocaleDateString() : ''}
+                        </p>
+                    </div>
+                `;
+
+                subscriptionActionsDiv.style.display = 'block';
+                subscriptionActionsDiv.innerHTML = `
+                    ${isActive ? `
+                        <button onclick="cancelSubscription()" class="secondary-btn">Cancel Subscription</button>
+                    ` : `
+                        <div class="upgrade-options">
+                            <button onclick="upgradeSubscription('forever')" class="primary-btn">
+                                <i class="fas fa-infinity"></i> Forever Access - $9.99
+                            </button>
+                            <button onclick="upgradeSubscription('monthly')" class="secondary-btn">
+                                <i class="fas fa-calendar-alt"></i> Monthly Pro - $3.99/mo
+                            </button>
+                        </div>
+                    `}
+                `;
+            }
+        }
+
+        async function loadPaymentMethods() {
+            // Payment functionality removed - all features are now free
+            console.log('✅ Payment functionality removed - all features are now free');
+            if (paymentMethodsDiv) {
+                paymentMethodsDiv.innerHTML = `
+                    <div class="no-payment-methods">
+                        <p>💳 Payment functionality has been removed - all features are now completely free!</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function upgradeSubscription(planType = 'monthly') {
+            // Payment functionality removed - all features are now free
+            console.log('✅ Payment functionality removed - all features are now free');
+            alert('🎉 All features are now completely free! No payment required.');
+        }
+
+        async function cancelSubscription() {
+            // Payment functionality removed - all features are now free
+            console.log('✅ Payment functionality removed - all features are now free');
+            alert('🎉 All features are now completely free! No subscription to cancel.');
+        }
+
+        async function removePaymentMethod(paymentMethodId) {
+            // Payment functionality removed - all features are now free
+            console.log('✅ Payment functionality removed - all features are now free');
+            alert('💳 Payment functionality has been removed - all features are now completely free!');
+        }
+
+        async function deleteAccount() {
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch('/api/user/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    await currentUser.delete();
+                    window.location.href = '/';
+                } else {
+                    alert('Failed to delete account');
+                }
+            } catch (error) {
+                alert('Failed to delete account: ' + error.message);
+            }
+        }
+
+        function signIn() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
+            
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log('✅ Google sign-in successful', result.user);
+                })
+                .catch((error) => {
+                    console.error('❌ Google sign-in failed:', error);
+                    if (error.code === 'auth/popup-blocked') {
+                        alert('🚫 Popup was blocked by your browser. Please allow popups for this site and try again.');
+                    } else if (error.code === 'auth/popup-closed-by-user') {
+                        console.log('ℹ️ User closed the popup');
+                    } else {
+                        alert(`❌ Sign-in failed: ${error.message}`);
+                    }
+                });
+        }
+
+        async function loadFooterStats() {
+            try {
+                const response = await fetch('/api/jobs');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update footer stats
+                    const companiesCount = document.getElementById('footer-companies-count');
+                    const jobsCount = document.getElementById('footer-jobs-count');
+                    
+                    if (companiesCount) {
+                        const uniqueCompanies = [...new Set(data.internships.map(job => job.company_name))];
+                        companiesCount.textContent = uniqueCompanies.length;
+                    }
+                    
+                    if (jobsCount) {
+                        jobsCount.textContent = data.internships.length;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading footer stats:', error);
+            }
+        }
+    </script>
+</body>
+</html> 

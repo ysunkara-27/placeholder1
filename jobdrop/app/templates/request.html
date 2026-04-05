@@ -1,0 +1,901 @@
+{% set meta_description = meta_description|default('Request your target company to be tracked for internships and jobs on JobDrop.') %}
+{% set job_posting_jsonld = job_posting_jsonld|default(None) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Company - JobDrop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WBBSHSTV5Z');
+    </script>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="keywords" content="internships, jobs, request company, jobdrop, companies, careers, apply">
+    <meta name="robots" content="index, follow">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ request.url }}">
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="Request Company - JobDrop">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Request Company - JobDrop">
+    <meta name="twitter:description" content="{{ meta_description }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Structured Data (JSON-LD) Placeholder -->
+    {% if job_posting_jsonld %}
+    <script type="application/ld+json">
+      {{ job_posting_jsonld|safe }}
+    </script>
+    {% endif %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="logo">
+                    <span class="logo-text">JobDrop</span>
+                    <div class="logo-icon">💼</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/filter" class="nav-link">Find Jobs</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/request" class="nav-link active">Request</a>
+                <a href="/tracking" class="nav-link">Tracking</a>
+                
+                <!-- Auth Section -->
+                <div class="auth-section">
+                    <button id="sign-in-btn" class="btn btn-outline" style="display: none;">
+                        <i class="fab fa-google"></i> Sign In
+                    </button>
+                    
+                    <div id="user-menu" class="user-menu" style="display: none;">
+                        <div class="user-profile">
+                            <img id="user-avatar" class="user-avatar" src="" alt="">
+                            <div class="user-info">
+                                <span id="user-name" class="user-name"></span>
+                                <span id="user-plan" class="user-plan">Free</span>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="dropdown-toggle" id="user-dropdown">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-content">
+                                <a href="/settings"><i class="fas fa-cog"></i> Account Settings</a>
+                                <button id="sign-out-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Request Header -->
+    <section class="request-header">
+        <div class="container">
+            <h1>Request a Company</h1>
+            <p>Help us expand our coverage by suggesting companies you'd like us to track</p>
+        </div>
+    </section>
+
+    <!-- Request Form Section -->
+    <section class="request-form-section">
+        <div class="container">
+            <div class="form-container">
+                <div class="form-card">
+                    <div class="form-header">
+                        <div class="form-icon">🏢</div>
+                        <h2>Company Request Form</h2>
+                        <p>Fill out the form below and we'll review your request. Premium users get priority processing!</p>
+                    </div>
+                    
+                    <form id="company-request-form" class="request-form">
+                        <div class="form-group">
+                            <label for="company-name">Company Name *</label>
+                            <input type="text" id="company-name" name="company-name" required 
+                                   placeholder="e.g., Google, Microsoft, Apple">
+                            <small>Enter the official company name</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="company-website">Company Website *</label>
+                            <input type="url" id="company-website" name="company-website" required 
+                                   placeholder="https://www.company.com">
+                            <small>Main company website URL</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="careers-url">Careers Page URL</label>
+                            <input type="url" id="careers-url" name="careers-url" 
+                                   placeholder="https://www.company.com/careers">
+                            <small>Direct link to their careers/jobs page (if known)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="company-industry">Industry</label>
+                            <select id="company-industry" name="company-industry">
+                                <option value="">Select Industry</option>
+                                <option value="technology">Technology</option>
+                                <option value="finance">Finance & Banking</option>
+                                <option value="consulting">Consulting</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="media">Media & Entertainment</option>
+                                <option value="retail">Retail & E-commerce</option>
+                                <option value="automotive">Automotive</option>
+                                <option value="aerospace">Aerospace & Defense</option>
+                                <option value="energy">Energy & Utilities</option>
+                                <option value="government">Government</option>
+                                <option value="nonprofit">Non-profit</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="company-size">Company Size</label>
+                            <select id="company-size" name="company-size">
+                                <option value="">Select Size</option>
+                                <option value="startup">Startup (1-50 employees)</option>
+                                <option value="small">Small (51-200 employees)</option>
+                                <option value="medium">Medium (201-1000 employees)</option>
+                                <option value="large">Large (1001-10000 employees)</option>
+                                <option value="enterprise">Enterprise (10000+ employees)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="request-reason">Why should we track this company?</label>
+                            <textarea id="request-reason" name="request-reason" rows="4" 
+                                      placeholder="Tell us why this company would be valuable to track for internships..."></textarea>
+                            <small>Help us understand the value of adding this company</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="user-email">Your Email (optional)</label>
+                            <input type="email" id="user-email" name="user-email" 
+                                   placeholder="email@example.com">
+                            <small>We'll notify you when the company is added</small>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-large" id="submit-btn">
+                                <i class="fas fa-paper-plane"></i>
+                                Submit Request
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Success Message -->
+                    <div id="success-message" class="success-message" style="display: none;">
+                        <div class="success-icon">✅</div>
+                        <h3>Request Submitted!</h3>
+                        <p>Thanks for your suggestion! We'll review it and add the company to our tracking system soon.</p>
+                        <button onclick="resetForm()" class="btn btn-outline">Submit Another</button>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="error-message" class="error-message" style="display: none;">
+                        <div class="error-icon">❌</div>
+                        <h3>Something went wrong</h3>
+                        <p id="error-text">Please try again or contact support if the issue persists.</p>
+                        <button onclick="hideError()" class="btn btn-outline">Try Again</button>
+                    </div>
+                </div>
+                
+                <!-- Premium Benefits -->
+                <div class="benefits-card" id="free-benefits">
+                    <div class="benefits-header">
+                        <div class="benefits-icon">🎉</div>
+                        <h3>Free for Everyone</h3>
+                    </div>
+                    <ul class="benefits-list">
+                        <li><i class="fas fa-check"></i> Fast request processing for all users</li>
+                        <li><i class="fas fa-check"></i> All companies added as quickly as possible</li>
+                        <li><i class="fas fa-check"></i> Email notifications for everyone (coming soon)</li>
+                        <li><i class="fas fa-check"></i> Full access to all features</li>
+                    </ul>
+                    <p class="free-message">
+                        <i class="fas fa-heart"></i>
+                        All features are now completely free - just sign in for email tracking!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Current Companies Section -->
+    <section class="current-companies-section">
+        <div class="container">
+            <h2>Companies We Currently Track</h2>
+            <p>We're already monitoring these companies for new opportunities</p>
+            
+            <!-- Search -->
+            <div class="company-search">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="company-filter" placeholder="Search tracked companies...">
+                </div>
+            </div>
+            
+            <!-- Companies Tags -->
+            <div id="companies-tags" class="companies-tags">
+                <div class="loading-spinner"></div>
+            </div>
+            
+            <div class="view-all-companies">
+                <a href="/companies" class="btn btn-outline">
+                    <i class="fas fa-eye"></i>
+                    View All Companies
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Firebase initialization - loaded securely from server
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}",
+            measurementId: "{{ firebase_config.measurementId }}"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let userSubscription = null;
+        let allCompanies = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            setupAuthStateListener();
+            loadCompanies();
+            loadFooterStats();
+            setupEventListeners();
+        }
+
+        function setupAuthStateListener() {
+            auth.onAuthStateChanged(async (user) => {
+                currentUser = user;
+                updateAuthUI();
+                
+                if (user) {
+                    await checkUserSubscription();
+                    // Pre-fill email if user is signed in
+                    document.getElementById('user-email').value = user.email;
+                }
+                
+                updatePremiumBenefits();
+            });
+        }
+
+        async function checkUserSubscription() {
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch('/api/subscription/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userSubscription = data.subscription;
+                    updateSubscriptionUI();
+                }
+            } catch (error) {
+                console.error('Error checking subscription:', error);
+            }
+        }
+
+        function updateAuthUI() {
+            const signInBtn = document.getElementById('sign-in-btn');
+            const userMenu = document.getElementById('user-menu');
+            
+            if (currentUser) {
+                signInBtn.style.display = 'none';
+                userMenu.style.display = 'flex';
+                
+                document.getElementById('user-name').textContent = currentUser.displayName || currentUser.email;
+                document.getElementById('user-avatar').src = currentUser.photoURL || '/static/default-avatar.png';
+                
+                // Check subscription status for signed-in users
+                checkUserSubscription();
+            } else {
+                signInBtn.style.display = 'block';
+                userMenu.style.display = 'none';
+            }
+        }
+
+        async function checkUserSubscription() {
+            try {
+                console.log('🔄 Checking user subscription...');
+                const token = await currentUser.getIdToken();
+                console.log('✅ Got Firebase token');
+                
+                // First, verify auth and potentially get early adopter status
+                const authResponse = await fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    console.log('✅ Auth verified:', authData);
+                    
+                    if (authData.early_adopter_status) {
+                        console.log('🎉 Early adopter status:', authData.early_adopter_status);
+                    }
+                }
+                
+                // Then check subscription status
+                const response = await fetch('/api/subscription/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log('📡 Subscription API response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userSubscription = data.subscription;
+                    updateSubscriptionUI();
+                    updatePremiumBenefits();
+                    console.log('✅ Subscription status loaded:', userSubscription);
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Subscription API error:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('❌ Error checking subscription:', error);
+            }
+        }
+
+        function updateSubscriptionUI() {
+            const userPlan = document.getElementById('user-plan');
+            
+            if (userSubscription && userSubscription.status === 'active') {
+                if (userSubscription.type === 'early_adopter') {
+                    userPlan.textContent = `Early Adopter #${userSubscription.early_adopter_number}`;
+                    userPlan.className = 'user-plan early-adopter';
+                } else {
+                    userPlan.textContent = userSubscription.price_id.includes('forever') ? 'Forever' : 'Pro';
+                    userPlan.className = 'user-plan premium';
+                }
+            } else {
+                userPlan.textContent = 'Free';
+                userPlan.className = 'user-plan';
+            }
+        }
+
+        function updatePremiumBenefits() {
+            // Premium benefits removed - all features are now free
+            console.log('✅ All features are now free - no premium benefits needed');
+        }
+
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/api/companies');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    allCompanies = data.companies;
+                    renderCompanies();
+                }
+            } catch (error) {
+                console.error('Error loading companies:', error);
+            }
+        }
+
+        function renderCompanies() {
+            const companiesContainer = document.getElementById('companies-tags');
+            const filterValue = document.getElementById('company-filter').value.toLowerCase();
+            
+            const filteredCompanies = allCompanies.filter(company => 
+                company.name.toLowerCase().includes(filterValue)
+            );
+            
+            companiesContainer.innerHTML = '';
+            
+            filteredCompanies.slice(0, 50).forEach(company => {
+                const tag = document.createElement('span');
+                tag.className = 'company-tag';
+                tag.textContent = company.name;
+                tag.onclick = () => window.open(company.website, '_blank');
+                companiesContainer.appendChild(tag);
+            });
+            
+            if (filteredCompanies.length > 50) {
+                const moreTag = document.createElement('span');
+                moreTag.className = 'company-tag more-tag';
+                moreTag.textContent = `+${filteredCompanies.length - 50} more`;
+                companiesContainer.appendChild(moreTag);
+            }
+        }
+
+        function setupEventListeners() {
+            // Auth
+            document.getElementById('sign-in-btn').addEventListener('click', signIn);
+            document.getElementById('sign-out-btn').addEventListener('click', signOut);
+            
+            // Form submission
+            document.getElementById('company-request-form').addEventListener('submit', handleFormSubmit);
+            
+            // Company search
+            document.getElementById('company-filter').addEventListener('input', debounce(renderCompanies, 300));
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const originalText = submitBtn.innerHTML;
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            
+            try {
+                const formData = {
+                    company_name: document.getElementById('company-name').value,
+                    website: document.getElementById('company-website').value,
+                    careers_url: document.getElementById('careers-url').value,
+                    industry: document.getElementById('company-industry').value,
+                    company_size: document.getElementById('company-size').value,
+                    reason: document.getElementById('request-reason').value,
+                    user_email: document.getElementById('user-email').value,
+                    is_premium: userSubscription && userSubscription.status === 'active'
+                };
+                
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (currentUser) {
+                    const token = await currentUser.getIdToken();
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch('/api/company-request', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    showSuccess();
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Failed to submit request');
+                }
+                
+            } catch (error) {
+                console.error('Error submitting request:', error);
+                showError('Network error. Please check your connection and try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById('company-request-form').style.display = 'none';
+            document.getElementById('success-message').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        function showError(message) {
+            document.getElementById('error-text').textContent = message;
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('success-message').style.display = 'none';
+        }
+
+        function hideError() {
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        function resetForm() {
+            document.getElementById('company-request-form').reset();
+            document.getElementById('company-request-form').style.display = 'block';
+            document.getElementById('success-message').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
+            
+            // Re-fill email if user is signed in
+            if (currentUser) {
+                document.getElementById('user-email').value = currentUser.email;
+            }
+        }
+
+        function openSubscriptionModal() {
+            // This would open the subscription modal from the main page
+            alert('Subscription upgrade coming soon! Premium users get priority company request processing.');
+        }
+
+        function signIn() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider);
+        }
+
+        function signOut() {
+            auth.signOut();
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        async function loadFooterStats() {
+            try {
+                const response = await fetch('/api/internships');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateFooterStats(data);
+                }
+            } catch (error) {
+                console.error('Error loading footer stats:', error);
+            }
+        }
+
+        function updateFooterStats(data) {
+            // Update footer stats
+            const companiesCount = document.getElementById('footer-companies-count');
+            const jobsCount = document.getElementById('footer-jobs-count');
+            
+            if (companiesCount && data.internships) {
+                const uniqueCompanies = [...new Set(data.internships.map(job => job.company_name))];
+                companiesCount.textContent = uniqueCompanies.length;
+            }
+            
+            if (jobsCount && data.internships) {
+                jobsCount.textContent = data.internships.length;
+            }
+        }
+    </script>
+
+    <!-- Request page specific styles -->
+    <style>
+        .request-header {
+            background: linear-gradient(135deg, var(--secondary-500), var(--primary-500));
+            color: white;
+            padding: var(--spacing-2xl) 0;
+            text-align: center;
+        }
+
+        .request-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-sm);
+            color: white;
+        }
+
+        .request-header p {
+            font-size: 1.125rem;
+            opacity: 0.9;
+        }
+
+        .request-form-section {
+            padding: var(--spacing-3xl) 0;
+            background: var(--gray-50);
+        }
+
+        .form-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: var(--spacing-3xl);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--spacing-3xl);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .form-icon {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-header h2 {
+            font-size: 1.75rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--gray-800);
+        }
+
+        .form-header p {
+            color: var(--gray-600);
+        }
+
+        .request-form {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: var(--spacing-md);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            transition: border-color var(--transition-fast);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group small {
+            color: var(--gray-500);
+            font-size: 0.75rem;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-actions {
+            margin-top: var(--spacing-lg);
+        }
+
+        .success-message,
+        .error-message {
+            text-align: center;
+            padding: var(--spacing-2xl);
+        }
+
+        .success-icon,
+        .error-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .success-message h3 {
+            color: var(--success-600);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .error-message h3 {
+            color: var(--error-600);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .benefits-card {
+            background: var(--premium-gradient);
+            color: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--spacing-2xl);
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .benefits-header {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .benefits-icon {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .benefits-card h3 {
+            color: white;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .benefits-list {
+            list-style: none;
+            margin-bottom: var(--spacing-xl);
+            text-align: left;
+        }
+
+        .benefits-list li {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .benefits-list i {
+            color: var(--premium-gold);
+            font-size: 1.125rem;
+        }
+
+        .current-companies-section {
+            padding: var(--spacing-3xl) 0;
+            background: white;
+        }
+
+        .current-companies-section h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .current-companies-section p {
+            text-align: center;
+            color: var(--gray-600);
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .company-search {
+            max-width: 400px;
+            margin: 0 auto var(--spacing-2xl);
+        }
+
+        .company-search .search-box {
+            position: relative;
+        }
+
+        .company-search .search-box i {
+            position: absolute;
+            left: var(--spacing-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        .company-search .search-box input {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-3xl);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+        }
+
+        .companies-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-2xl);
+            min-height: 100px;
+            align-items: flex-start;
+            align-content: flex-start;
+        }
+
+        .company-tag {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .company-tag:hover {
+            background: var(--primary-100);
+            color: var(--primary-700);
+            transform: translateY(-1px);
+        }
+
+        .more-tag {
+            background: var(--primary-100);
+            color: var(--primary-700);
+            cursor: default;
+        }
+
+        .view-all-companies {
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .form-container {
+                grid-template-columns: 1fr;
+            }
+
+            .request-header h1 {
+                font-size: 2rem;
+            }
+
+            .form-card {
+                padding: var(--spacing-xl);
+            }
+        }
+    </style>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <span class="logo-text">JobDrop</span>
+                        <div class="logo-icon">💼</div>
+                    </div>
+                    <p>Connecting talent with opportunities, one drop at a time.</p>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="footer-section">
+                        <h4>Platform</h4>
+                        <a href="/">Home</a>
+                        <a href="/filter">Find Jobs</a>
+                        <a href="/companies">Companies</a>
+                        <a href="/request">Request</a>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Support</h4>
+                        <a href="#" id="footer-pricing">Pricing</a>
+                        <a href="#" id="footer-support">Support</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 JobDrop. All rights reserved.</p>
+                <div class="footer-stats">
+                    <span>Tracking <strong id="footer-companies-count">0</strong> companies</span>
+                    <span>•</span>
+                    <span><strong id="footer-jobs-count">0</strong> opportunities</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html> 

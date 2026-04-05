@@ -1,0 +1,1224 @@
+{% set meta_description = meta_description|default('Find the latest internship opportunities from top companies. Filter, track, and apply easily with JobDrop.') %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobDrop - Latest Internship Opportunities</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics-compat.js"></script>
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WBBSHSTV5Z');
+    </script>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="keywords" content="internships, jobs, student jobs, job search, jobdrop, companies, careers, apply">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ request.url }}">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.5;
+            color: #1f2937;
+            background: #fafbfc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            text-decoration: none;
+        }
+        
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .btn-outline {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-outline:hover {
+            background: #f9fafb;
+        }
+        
+        /* Stats Section */
+        .stats-section {
+            background: white;
+            padding: 24px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            text-align: center;
+        }
+        
+        .stat-item {
+            padding: 16px;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
+        
+        .stat-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .stat-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 32px 0;
+        }
+        
+        /* Filters */
+        .filters-section {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .filter-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .filter-input, .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .search-section {
+            grid-column: 1 / -1;
+        }
+        
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            padding-left: 40px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            color: #6b7280;
+            z-index: 1;
+        }
+        
+        .filter-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        /* Jobs Section */
+        .jobs-section {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .jobs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .jobs-count {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .jobs-grid {
+            display: grid;
+            gap: 16px;
+        }
+        
+        /* Job Cards */
+        .job-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .job-card:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        /* NEW: Newly scraped job cards */
+        .job-card.newly-scraped-card {
+            border-left: 4px solid #10b981;
+            background: linear-gradient(to right, #f0fdf4, #ffffff);
+        }
+        
+        /* NEW: Newly scraped badge */
+        .job-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .job-badge.newly-scraped {
+            background: #10b981;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* NEW: Relevance score indicator */
+        .relevance-score {
+            background: #3b82f6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        
+        /* NEW: Newly scraped text styling */
+        .newly-scraped-text {
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        /* Enhanced search info */
+        #search-info {
+            display: flex;
+            gap: 16px;
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+        
+        #relevance-info {
+            color: #3b82f6;
+            font-weight: 500;
+        }
+        
+        #latest-scrape-info {
+            color: #10b981;
+            font-weight: 500;
+        }
+        
+        /* Enhanced filter styling */
+        .search-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .search-bar input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .search-bar input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        
+        .filter-row select {
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+        }
+        
+        .filter-row select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .job-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            text-decoration: none;
+            margin-bottom: 4px;
+        }
+        
+        .job-title:hover {
+            color: #2563eb;
+        }
+        
+        .job-company {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .job-meta {
+            display: flex;
+            gap: 16px;
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .job-description {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .job-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        
+        .job-tag {
+            background: #f3f4f6;
+            color: #6b7280;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .job-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .job-date {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        
+        .btn-apply {
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .btn-apply:hover {
+            background: #059669;
+        }
+        
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* User Menu */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .user-plan {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .dropdown {
+            position: relative;
+        }
+        
+        .dropdown-content {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 8px 0;
+            min-width: 180px;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        
+        .dropdown-content a,
+        .dropdown-content button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            text-decoration: none;
+            color: #374151;
+            border: none;
+            background: none;
+            width: 100%;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .dropdown-content a:hover,
+        .dropdown-content button:hover {
+            background: #f3f4f6;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .jobs-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .job-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .job-meta {
+                flex-wrap: wrap;
+            }
+            
+            .job-footer {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">JobDrop</a>
+                
+                <div class="auth-section">
+                    <button id="sign-in-btn" class="btn btn-outline" style="display: none;">
+                        Sign In
+                    </button>
+                    
+                    <div id="user-menu" class="user-menu" style="display: none;">
+                        <div class="user-profile">
+                            <img id="user-avatar" class="user-avatar" src="" alt="">
+                            <div class="user-info">
+                                <span id="user-name" class="user-name"></span>
+                                <span id="user-plan" class="user-plan">Free</span>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-outline">▼</button>
+                            <div class="dropdown-content">
+                                <a href="/settings">Account Settings</a>
+                                <button id="sign-out-btn">Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Last Scraped</div>
+                    <div class="stat-value" id="last-scraped">Loading...</div>
+            </div>
+                <div class="stat-item">
+                    <div class="stat-label">Companies Tracking</div>
+                    <div class="stat-value">
+                        <a href="#companies" class="stat-link" id="companies-count">Loading...</a>
+        </div>
+                </div>
+                    <div class="stat-item">
+                    <div class="stat-label">Latest Internships Found</div>
+                    <div class="stat-value" id="latest-count">Loading...</div>
+                    </div>
+                    <div class="stat-item">
+                    <div class="stat-label">Total in Database</div>
+                    <div class="stat-value" id="total-count">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Filters -->
+            <section class="filters-section">
+                <div class="filters-grid">
+                    <!-- Search and Filter Section -->
+                    <div class="search-section">
+                        <div class="search-bar">
+                            <input type="text" id="search-input" placeholder="Search for software engineering, data science, consulting..." />
+                            <button onclick="searchJobs()" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                                Search
+                            </button>
+                        </div>
+                        
+                        <div class="filter-row">
+                            <select id="type-filter">
+                                <option value="">All Categories</option>
+                                <option value="software">Software Engineering</option>
+                                <option value="data">Data Science & Analytics</option>
+                                <option value="engineering">Engineering</option>
+                                <option value="finance">Finance</option>
+                                <option value="consulting">Consulting</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="business">Business</option>
+                            </select>
+                            
+                            <select id="position-type-filter">
+                                <option value="">All Positions</option>
+                                <option value="internship">Internships</option>
+                                <option value="co_op">Co-ops</option>
+                                <option value="new_graduate">New Graduate</option>
+                                <option value="fellowship">Fellowship</option>
+                                <option value="trainee_program">Trainee Program</option>
+                            </select>
+                            
+                            <select id="company-filter">
+                                <option value="">All Companies</option>
+                            </select>
+                            
+                            <select id="region-filter">
+                                <option value="">All Regions</option>
+                                <option value="North America">North America</option>
+                                <option value="Europe">Europe</option>
+                                <option value="Asia">Asia</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            
+                            <!-- NEW: Enhanced time/date filtering -->
+                            <select id="time-filter">
+                                <option value="">Any Time (Latest First)</option>
+                                <option value="latest_scrape">Latest Scrape Only</option>
+                                <option value="24hours">Past 24 Hours</option>
+                                <option value="week">Past Week</option>
+                                <option value="month">Past Month</option>
+                                <option value="2026-Summer">2026 Summer</option>
+                                <option value="2026-Fall">2026 Fall</option>
+                                <option value="2026-Spring">2026 Spring</option>
+                                <option value="2025-Summer">2025 Summer</option>
+                                <option value="2025-Fall">2025 Fall</option>
+                                <option value="2025-Spring">2025 Spring</option>
+                            </select>
+                            
+                            <!-- NEW: Sort controls -->
+                            <select id="sort-filter">
+                                <option value="latest">Latest First</option>
+                                <option value="relevance">Best Match</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Results header with enhanced info -->
+                    <div class="results-header">
+                        <div id="jobs-count">Loading opportunities...</div>
+                        <div id="search-info" style="display: none;">
+                            <span id="relevance-info"></span>
+                            <span id="latest-scrape-info"></span>
+                        </div>
+                    </div>
+            
+                <div class="filter-actions">
+                    <button id="reset-filters" class="btn btn-secondary">Reset</button>
+                    <button id="apply-filters" class="btn btn-primary">Apply Filters</button>
+        </div>
+    </section>
+
+            <!-- Jobs Section -->
+            <section class="jobs-section">
+                <div class="jobs-header">
+                    <h2>Internship Opportunities</h2>
+                    <div class="jobs-count" id="jobs-count">Loading...</div>
+                </div>
+                
+                <div id="loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading internships...
+                    </div>
+                    
+                <div id="jobs-container" class="jobs-grid" style="display: none;">
+                    <!-- Jobs will be loaded here -->
+                </div>
+                
+                <!-- Load More Button -->
+                <div class="load-more-section" style="text-align: center; padding: 40px 0;">
+                    <button id="load-more-btn" class="btn btn-primary" style="display: none;" onclick="loadMoreJobs()">
+                        <i class="fas fa-plus"></i> Load More Jobs
+                    </button>
+                </div>
+            </section>
+                </div>
+    </main>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}",
+            measurementId: "{{ firebase_config.measurementId }}"
+        };
+
+            firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let allJobs = [];
+        let allCompanies = [];
+        
+        // Pagination variables
+        let currentPage = 1;
+        let totalPages = 1;
+        let hasMore = false;
+        let isLoading = false;
+        let lastApiResponse = null; // To store the last API response for metadata
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            setupAuth();
+            loadStats();
+            loadCompanies();
+            loadJobs();
+            setupEventListeners();
+        });
+
+        // Authentication
+        function setupAuth() {
+            auth.onAuthStateChanged(function(user) {
+                currentUser = user;
+                updateAuthUI();
+            });
+        }
+
+        function updateAuthUI() {
+            const signInBtn = document.getElementById('sign-in-btn');
+            const userMenu = document.getElementById('user-menu');
+            
+            if (currentUser) {
+                signInBtn.style.display = 'none';
+                userMenu.style.display = 'flex';
+                
+                document.getElementById('user-name').textContent = currentUser.displayName || currentUser.email;
+                document.getElementById('user-avatar').src = currentUser.photoURL || '/static/default-avatar.png';
+            } else {
+                signInBtn.style.display = 'flex';
+                userMenu.style.display = 'none';
+            }
+        }
+
+        function signIn() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider);
+                }
+
+        function signOut() {
+            auth.signOut();
+            }
+            
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update stats display
+                    document.getElementById('companies-count').textContent = data.unique_companies;
+                    document.getElementById('total-count').textContent = data.total_internships;
+                    document.getElementById('latest-count').textContent = data.jobs_added_today;
+                    
+                    // Format last scraped date
+                    if (data.recent_scrapes && data.recent_scrapes.length > 0) {
+                        const lastScrapedDate = new Date(data.recent_scrapes[0].date);
+                        document.getElementById('last-scraped').textContent = lastScrapedDate.toLocaleDateString();
+            }
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                }
+            }
+            
+        // Load companies for filter
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/api/companies');
+                if (response.ok) {
+                    const data = await response.json();
+                    allCompanies = data.companies || [];
+                    
+                    const companyFilter = document.getElementById('company-filter');
+                    companyFilter.innerHTML = '<option value="">All Companies</option>';
+                    
+                    allCompanies.forEach(company => {
+                        const option = document.createElement('option');
+                        option.value = company;
+                        option.textContent = company;
+                        companyFilter.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading companies:', error);
+            }
+        }
+
+        // Load jobs (reset pagination)
+        async function loadJobs() {
+            currentPage = 1;
+            allJobs = [];
+            await loadJobsPage();
+        }
+
+        // Load jobs page (with pagination)
+        async function loadJobsPage() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            const loading = document.getElementById('loading');
+            const jobsContainer = document.getElementById('jobs-container');
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            
+            if (currentPage === 1) {
+                loading.style.display = 'block';
+                jobsContainer.style.display = 'none';
+            } else {
+                loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                loadMoreBtn.disabled = true;
+            }
+
+            try {
+                const url = buildApiUrl();
+                const headers = {};
+                
+                if (currentUser) {
+                    const token = await currentUser.getIdToken();
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await fetch(url, { headers });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (currentPage === 1) {
+                        allJobs = data.internships || [];
+                    } else {
+                        allJobs.push(...(data.internships || []));
+                    }
+                    
+                    // Update pagination info
+                    if (data.pagination) {
+                        currentPage = data.pagination.page;
+                        totalPages = data.pagination.total_pages;
+                        hasMore = data.pagination.has_more;
+                    }
+                    
+                    renderJobs();
+                    updateJobsCount(data.pagination ? data.pagination.total_matching : allJobs.length);
+                    updateLoadMoreButton();
+                    lastApiResponse = data; // Store the response for metadata
+                }
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+            } finally {
+                isLoading = false;
+                if (currentPage === 1) {
+                    loading.style.display = 'none';
+                    jobsContainer.style.display = 'grid';
+                } else {
+                    loadMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Load More Jobs';
+                    loadMoreBtn.disabled = false;
+                }
+            }
+        }
+
+        // Load more jobs
+        async function loadMoreJobs() {
+            if (hasMore && !isLoading) {
+                currentPage++;
+                await loadJobsPage();
+            }
+        }
+
+        // Update load more button visibility
+        function updateLoadMoreButton() {
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            if (hasMore && allJobs.length > 0) {
+                loadMoreBtn.style.display = 'block';
+                loadMoreBtn.innerHTML = `<i class="fas fa-plus"></i> Load More Jobs (${currentPage}/${totalPages})`;
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
+        }
+
+        // Build API URL with filters and pagination
+        function buildApiUrl() {
+            const params = new URLSearchParams();
+            
+            const search = document.getElementById('search-input').value.trim();
+            const type = document.getElementById('type-filter').value;
+            const positionType = document.getElementById('position-type-filter').value;
+            const company = document.getElementById('company-filter').value;
+            const region = document.getElementById('region-filter').value;
+            const time = document.getElementById('time-filter').value;
+            const sortBy = document.getElementById('sort-filter').value; // NEW: Sort preference
+            
+            // Add pagination parameters
+            params.append('page', currentPage);
+            params.append('per_page', 50);
+            
+            if (search) params.append('search', search);
+            if (type) params.append('type', type);
+            if (positionType) params.append('position_type', positionType);
+            if (company) params.append('company', company);
+            if (region && region !== 'All Regions') params.append('region', region);
+            if (sortBy) params.append('sort_by', sortBy); // NEW: Sort parameter
+            
+            // Enhanced time filtering
+            if (time) {
+                if (time.includes('-')) {
+                    // Handle semester-year format (e.g., "2026-Summer")
+                    const [year, semester] = time.split('-');
+                    if (year) params.append('year', year);
+                    if (semester) params.append('semester', semester);
+                } else if (['latest_scrape', '24hours', 'today', 'week', 'month'].includes(time)) {
+                    // Handle date filters
+                    params.append('date_filter', time);
+                } else {
+                    // Handle program types like 'year_round', 'short_term', etc.
+                    params.append('tags', time);
+                }
+            }
+            
+            return `/api/internships?${params.toString()}`;
+        }
+
+        // Enhanced search function
+        function searchJobs() {
+            currentPage = 1;
+            allJobs = [];
+            loadJobs();
+        }
+
+        // Trigger search on Enter key
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchJobs();
+            }
+        });
+
+        // Auto-search when sort changes
+        document.getElementById('sort-filter').addEventListener('change', function() {
+            currentPage = 1;
+            allJobs = [];
+            loadJobs();
+        });
+
+        // Render jobs
+        function renderJobs() {
+            const container = document.getElementById('jobs-container');
+            
+            if (allJobs.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;">No internships found matching your criteria.</div>';
+                return;
+            }
+            
+            // Show search/metadata info if available
+            updateSearchInfo();
+            
+            container.innerHTML = allJobs.map(job => {
+                // Generate tags display
+                const tags = [];
+                if (job.tags && job.tags.length > 0) {
+                    tags.push(...job.tags.slice(0, 4)); // Show max 4 tags
+                }
+                if (job.types && job.types.length > 0) {
+                    tags.push(...job.types.slice(0, 2)); // Add max 2 types
+                }
+                if (job.position_type) {
+                    tags.push(job.position_type);
+                }
+                
+                // Remove duplicates and limit total to 5 tags
+                const uniqueTags = [...new Set(tags)].slice(0, 5);
+                const tagsHtml = uniqueTags.length > 0 ? 
+                    `<div class="job-tags">${uniqueTags.map(tag => 
+                        `<span class="job-tag">${tag.replace(/_/g, ' ')}</span>`
+                    ).join('')}</div>` : '';
+                
+                // NEW: Newly scraped badge
+                const newlyScrapedBadge = job.is_newly_scraped ? 
+                    '<div class="job-badge newly-scraped">NEW</div>' : '';
+                
+                // NEW: Relevance indicator for search results
+                const relevanceIndicator = job.relevance_score > 0 ? 
+                    `<div class="relevance-score" title="Relevance Score">Match: ${job.relevance_score}%</div>` : '';
+                
+                return `
+                    <div class="job-card ${job.is_newly_scraped ? 'newly-scraped-card' : ''}">
+                        ${newlyScrapedBadge}
+                        <div class="job-header">
+                            <div>
+                                <a href="${job.link}" target="_blank" class="job-title">${job.title}</a>
+                                <div class="job-company">${job.company_name}</div>
+                            </div>
+                            ${relevanceIndicator}
+                        </div>
+                        <div class="job-meta">
+                            <span>📍 ${job.location}</span>
+                            ${job.semester && job.year ? `<span>📅 ${job.semester} ${job.year}</span>` : ''}
+                            ${job.region ? `<span>🌍 ${job.region}</span>` : ''}
+                            ${job.position_type ? `<span>💼 ${job.position_type.replace(/_/g, ' ')}</span>` : ''}
+                        </div>
+                        <div class="job-description">
+                            ${job.snippet || job.description || 'No description available'}
+                        </div>
+                        ${tagsHtml}
+                        <div class="job-footer">
+                            <div class="job-date">
+                                ${job.is_newly_scraped ? 
+                                    `<span class="newly-scraped-text">✨ Just added: ${new Date(job.scraped_at).toLocaleDateString()}</span>` :
+                                    `Added: ${new Date(job.scraped_at).toLocaleDateString()}`
+                                }
+                            </div>
+                            <a href="${job.link}" target="_blank" class="btn btn-apply">Apply</a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // NEW: Update search and metadata info
+        function updateSearchInfo() {
+            const searchInfo = document.getElementById('search-info');
+            const relevanceInfo = document.getElementById('relevance-info');
+            const latestScrapeInfo = document.getElementById('latest-scrape-info');
+            
+            if (lastApiResponse && lastApiResponse.metadata) {
+                const metadata = lastApiResponse.metadata;
+                
+                // Show search info if there's an active search
+                if (metadata.has_active_search) {
+                    searchInfo.style.display = 'block';
+                    
+                    // Count jobs with relevance scores
+                    const relevantJobs = allJobs.filter(job => job.relevance_score > 0).length;
+                    relevanceInfo.textContent = `${relevantJobs} relevant matches found`;
+                } else {
+                    searchInfo.style.display = 'none';
+                }
+                
+                // Show latest scrape info
+                if (metadata.latest_scrape_date && metadata.latest_scrape_count > 0) {
+                    const newlyScrapedJobs = allJobs.filter(job => job.is_newly_scraped).length;
+                    if (newlyScrapedJobs > 0) {
+                        latestScrapeInfo.textContent = `${newlyScrapedJobs} newly added (${metadata.latest_scrape_date})`;
+                    }
+                }
+            }
+        }
+
+        // Update jobs count
+        function updateJobsCount(count) {
+            const countElement = document.getElementById('jobs-count');
+            countElement.textContent = `${count} opportunities found • Latest first`;
+            }
+            
+        // Event listeners
+        function setupEventListeners() {
+            document.getElementById('sign-in-btn').addEventListener('click', signIn);
+            document.getElementById('sign-out-btn').addEventListener('click', signOut);
+            
+            document.getElementById('apply-filters').addEventListener('click', loadJobs);
+            document.getElementById('reset-filters').addEventListener('click', resetFilters);
+            
+            // Auto-apply filters on change
+            ['search-input', 'type-filter', 'position-type-filter', 'company-filter', 'region-filter', 'time-filter'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', debounce(loadJobs, 300));
+                    if (element.type === 'text') {
+                        element.addEventListener('input', debounce(loadJobs, 500));
+                    }
+                    }
+                });
+        }
+
+        // Reset filters
+        function resetFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('type-filter').value = '';
+            document.getElementById('position-type-filter').value = '';
+            document.getElementById('company-filter').value = '';
+            document.getElementById('region-filter').value = 'North America';
+            document.getElementById('time-filter').value = ''; // No default time filter - show latest from all terms
+            loadJobs();
+        }
+
+        // Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Companies scroll functionality
+        document.getElementById('companies-count').addEventListener('click', function(e) {
+            e.preventDefault();
+            // Show companies in a simple modal or expand section
+            // For now, just redirect to companies page
+            window.location.href = '/companies';
+        });
+    </script>
+</body>
+</html>

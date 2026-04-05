@@ -1,0 +1,25 @@
+Flask==3.0.0
+firebase-admin==6.4.0
+python-dotenv==1.0.0
+gunicorn==21.2.0
+flask-cors==4.0.0
+Werkzeug==3.0.1
+click==8.1.7
+itsdangerous==2.1.2
+Jinja2==3.1.3
+MarkupSafe==2.1.5
+requests==2.31.0
+urllib3==2.1.0
+certifi==2024.2.2
+charset-normalizer==3.3.2
+idna==3.6
+# stripe==7.11.0 # Removed - payment functionality disabled
+
+# Backend dependencies
+playwright==1.40.0
+google-generativeai>=0.8.0
+pandas==2.1.4
+rich==13.7.0
+
+# Email notification dependencies
+# smtplib is part of Python standard library - no installation needed

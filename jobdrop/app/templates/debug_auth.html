@@ -1,0 +1,320 @@
+{% set meta_description = meta_description|default('Debug authentication and test JobDrop login features.') %}
+{% set job_posting_jsonld = job_posting_jsonld|default(None) %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Debug - JobDrop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #3367d6;
+        }
+        .btn.test {
+            background: #34a853;
+        }
+        .btn.test:hover {
+            background: #2d8f47;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4285f4;
+            background: #f8f9fa;
+        }
+        .error {
+            border-left-color: #ea4335;
+            background: #fef7f7;
+            color: #d93025;
+        }
+        .success {
+            border-left-color: #34a853;
+            background: #f7fef7;
+            color: #137333;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+    </style>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WBBSHSTV5Z');
+    </script>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="keywords" content="internships, jobs, debug, auth, jobdrop, login, careers, apply">
+    <meta name="robots" content="noindex, nofollow">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ request.url }}">
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="Debug Auth - JobDrop">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Debug Auth - JobDrop">
+    <meta name="twitter:description" content="{{ meta_description }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Structured Data (JSON-LD) Placeholder -->
+    {% if job_posting_jsonld %}
+    <script type="application/ld+json">
+      {{ job_posting_jsonld|safe }}
+    </script>
+    {% endif %}
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Authentication Debug Tool</h1>
+        <p>Use this page to debug authentication issues without the complexity of the main app.</p>
+        
+        <div id="status" class="status">
+            <strong>Status:</strong> Not authenticated
+        </div>
+        
+        <div>
+            <button class="btn" onclick="testGoogleSignIn()">🔐 Test Google Sign-In</button>
+            <button class="btn test" onclick="simulateAuth()">✅ Simulate Auth (Testing)</button>
+            <button class="btn" onclick="testAPI()">📡 Test API Call</button>
+            <button class="btn" onclick="checkFirebaseConfig()">⚙️ Check Config</button>
+            <button class="btn" onclick="clearAuth()">🚪 Sign Out</button>
+        </div>
+        
+        <div id="user-info" style="display: none;">
+            <h3>User Information:</h3>
+            <pre id="user-details"></pre>
+        </div>
+        
+        <div id="api-response" style="display: none;">
+            <h3>API Response:</h3>
+            <pre id="api-details"></pre>
+        </div>
+        
+        <div id="debug-logs">
+            <h3>Debug Logs:</h3>
+            <pre id="logs"></pre>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+
+    <script>
+        let currentUser = null;
+        
+        // Firebase configuration - loaded securely from server
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}",
+            measurementId: "{{ firebase_config.measurementId }}"
+        };
+
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            log('✅ Firebase initialized successfully');
+        } catch (error) {
+            log('❌ Firebase initialization failed: ' + error.message);
+        }
+
+        const auth = firebase.auth();
+
+        // Auth state listener
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            updateUI();
+            if (user) {
+                log(`✅ User signed in: ${user.email}`);
+                showUserInfo(user);
+            } else {
+                log('ℹ️ User signed out');
+                hideUserInfo();
+            }
+        });
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logs = document.getElementById('logs');
+            logs.textContent += `[${timestamp}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+
+        function updateUI() {
+            const status = document.getElementById('status');
+            if (currentUser) {
+                status.className = 'status success';
+                status.innerHTML = `<strong>Status:</strong> Authenticated as ${currentUser.email}`;
+            } else {
+                status.className = 'status';
+                status.innerHTML = '<strong>Status:</strong> Not authenticated';
+            }
+        }
+
+        function showUserInfo(user) {
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('user-details').textContent = JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                emailVerified: user.emailVerified,
+                photoURL: user.photoURL
+            }, null, 2);
+        }
+
+        function hideUserInfo() {
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('api-response').style.display = 'none';
+        }
+
+        async function testGoogleSignIn() {
+            try {
+                log('🔄 Attempting Google sign-in...');
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                const result = await auth.signInWithPopup(provider);
+                log('✅ Google sign-in successful');
+                return result.user;
+            } catch (error) {
+                log('❌ Google sign-in failed: ' + error.message);
+                if (error.code === 'auth/popup-blocked') {
+                    log('💡 Try allowing popups or use redirect method');
+                }
+                if (error.code === 'auth/unauthorized-domain') {
+                    log('💡 Domain not authorized in Firebase Console');
+                }
+            }
+        }
+
+        function simulateAuth() {
+            // Create a fake user for testing
+            currentUser = {
+                uid: 'test-user-123',
+                email: 'test@jobdrop.com',
+                displayName: 'Test User',
+                emailVerified: true,
+                photoURL: null,
+                getIdToken: () => Promise.resolve('test-token-12345')
+            };
+            
+            log('✅ Simulated authentication active');
+            showUserInfo(currentUser);
+            updateUI();
+        }
+
+        async function testAPI() {
+            if (!currentUser) {
+                log('❌ No user authenticated - cannot test API');
+                return;
+            }
+
+            try {
+                log('🔄 Testing API call...');
+                
+                let token;
+                if (typeof currentUser.getIdToken === 'function') {
+                    token = await currentUser.getIdToken();
+                } else {
+                    token = 'test-token-12345';
+                }
+
+                const response = await fetch('/api/internships', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                log(`✅ API call successful - ${response.status}`);
+                
+                document.getElementById('api-response').style.display = 'block';
+                document.getElementById('api-details').textContent = JSON.stringify({
+                    status: response.status,
+                    internships_count: data.internships?.length || 0,
+                    total_available: data.total_available || 'N/A',
+                    has_subscription: data.has_subscription || false,
+                    message: data.message || 'N/A'
+                }, null, 2);
+
+            } catch (error) {
+                log('❌ API call failed: ' + error.message);
+            }
+        }
+
+        function checkFirebaseConfig() {
+            log('🔍 Checking Firebase configuration...');
+            
+            const checks = [
+                { name: 'Firebase app', check: !!firebase.apps.length },
+                { name: 'Auth instance', check: !!auth },
+                { name: 'API key', check: !!firebaseConfig.apiKey },
+                { name: 'Auth domain', check: !!firebaseConfig.authDomain },
+                { name: 'Project ID', check: !!firebaseConfig.projectId }
+            ];
+
+            checks.forEach(item => {
+                log(`${item.check ? '✅' : '❌'} ${item.name}: ${item.check ? 'OK' : 'MISSING'}`);
+            });
+
+            // Check if we're on localhost
+            if (window.location.hostname === 'localhost') {
+                log('ℹ️ Running on localhost - make sure this domain is authorized in Firebase Console');
+            }
+        }
+
+        function clearAuth() {
+            if (auth.currentUser) {
+                auth.signOut();
+            } else {
+                currentUser = null;
+                updateUI();
+                hideUserInfo();
+                log('✅ Cleared simulated auth');
+            }
+        }
+
+        // Initialize
+        checkFirebaseConfig();
+    </script>
+</body>
+</html> 

@@ -1,0 +1,695 @@
+{% set meta_description = meta_description|default('Track your job applications and manage your internship search with JobDrop.') %}
+{% set job_posting_jsonld = job_posting_jsonld|default(None) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Applications - JobDrop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WBBSHSTV5Z');
+    </script>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="keywords" content="internships, jobs, application tracking, jobdrop, careers, apply">
+    <meta name="robots" content="index, follow">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ request.url }}">
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="My Applications - JobDrop">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="My Applications - JobDrop">
+    <meta name="twitter:description" content="{{ meta_description }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+    <!-- Structured Data (JSON-LD) Placeholder -->
+    {% if job_posting_jsonld %}
+    <script type="application/ld+json">
+      {{ job_posting_jsonld|safe }}
+    </script>
+    {% endif %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="logo">
+                    <span class="logo-text">JobDrop</span>
+                    <div class="logo-icon">💼</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/filter" class="nav-link">Find Jobs</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/request" class="nav-link">Request</a>
+                <a href="/tracking" class="nav-link active">Tracking</a>
+                
+                <!-- Auth Section -->
+                <div class="auth-section">
+                    <button id="sign-in-btn" class="btn btn-outline" style="display: none;">
+                        <i class="fab fa-google"></i> Sign In
+                    </button>
+                    
+                    <div id="user-menu" class="user-menu" style="display: none;">
+                        <div class="user-profile">
+                            <img id="user-avatar" class="user-avatar" src="" alt="">
+                            <div class="user-info">
+                                <span id="user-name" class="user-name"></span>
+                                <span id="user-plan" class="user-plan">Free</span>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="dropdown-toggle" id="user-dropdown">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-content">
+                                <a href="/settings"><i class="fas fa-cog"></i> Account Settings</a>
+                                <button id="sign-out-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile menu toggle -->
+            <button class="mobile-menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Tracking Content -->
+    <div class="container" style="max-width: 700px; margin: 0 auto; padding: 2rem 0;">
+        <h1>My Tracked Applications</h1>
+        <div id="tracking-content">
+            <div id="not-signed-in" style="display:none;">
+                <p>You must <button class="btn btn-primary" onclick="signIn()">sign in</button> to view your tracked applications.</p>
+            </div>
+            <div id="signed-in-content" style="display:none;">
+                <div id="applied-jobs-section">
+                    <h3>Applied Jobs</h3>
+                    <div class="status-tabs">
+                        <button class="status-tab active" data-status="applied">Applied</button>
+                        <button class="status-tab" data-status="interview">Interview</button>
+                        <button class="status-tab" data-status="offer">Offer</button>
+                        <button class="status-tab" data-status="rejected">Rejected</button>
+                    </div>
+                    <ul id="applied-jobs-list" class="job-list"></ul>
+                    <div id="no-applied-jobs" style="display:none; color: #888;">No applications tracked yet.</div>
+                </div>
+                
+                <div id="saved-jobs-section" style="margin-top: 2rem;">
+                    <h3>Saved Jobs</h3>
+                    <ul id="saved-jobs-list" class="job-list"></ul>
+                    <div id="no-saved-jobs" style="display:none; color: #888;">No saved jobs yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Firebase initialization
+    const firebaseConfig = {
+        apiKey: "{{ firebase_config.apiKey }}",
+        authDomain: "{{ firebase_config.authDomain }}",
+        projectId: "{{ firebase_config.projectId }}",
+        storageBucket: "{{ firebase_config.storageBucket }}",
+        messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+        appId: "{{ firebase_config.appId }}",
+        measurementId: "{{ firebase_config.measurementId }}"
+    };
+    
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+
+    let currentUser = null;
+    let userApplications = {};
+    let userSavedJobs = {};
+    let currentStatusFilter = 'applied';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupAuthStateListener();
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        // Auth buttons
+        document.getElementById('sign-in-btn').addEventListener('click', signIn);
+        document.getElementById('sign-out-btn').addEventListener('click', signOut);
+        
+        // User dropdown
+        const dropdownToggle = document.getElementById('user-dropdown');
+        const dropdownContent = document.querySelector('.dropdown-content');
+        
+        dropdownToggle.addEventListener('click', function() {
+            dropdownContent.classList.toggle('show');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.dropdown')) {
+                dropdownContent.classList.remove('show');
+            }
+        });
+        
+        // Status tab functionality
+        document.querySelectorAll('.status-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                currentStatusFilter = this.getAttribute('data-status');
+                renderAppliedJobs();
+            });
+        });
+    }
+
+    function setupAuthStateListener() {
+        // Check if Firebase is available
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            auth.onAuthStateChanged(async (user) => {
+                currentUser = user;
+                updateAuthUI();
+                
+                if (user) {
+                    document.getElementById('not-signed-in').style.display = 'none';
+                    document.getElementById('signed-in-content').style.display = 'block';
+                    await loadUserApplications();
+                } else {
+                    // Fallback to localStorage when user is not signed in
+                    loadFromLocalStorage();
+                    showTrackingContent();
+                }
+            });
+        } else {
+            // Fallback: Use localStorage when Firebase isn't available
+            console.log('🔄 Firebase not available, using localStorage for tracking page');
+            loadFromLocalStorage();
+            showTrackingContent();
+        }
+    }
+
+    function showTrackingContent() {
+        document.getElementById('not-signed-in').style.display = 'none';
+        document.getElementById('signed-in-content').style.display = 'block';
+    }
+
+    function loadFromLocalStorage() {
+        try {
+            const savedJobs = localStorage.getItem('jobdrop_saved_jobs');
+            const applications = localStorage.getItem('jobdrop_applications');
+            
+            userSavedJobs = savedJobs ? JSON.parse(savedJobs) : {};
+            userApplications = applications ? JSON.parse(applications) : {};
+            
+            console.log('✅ Loaded from localStorage for tracking:', Object.keys(userSavedJobs).length, 'saved jobs,', Object.keys(userApplications).length, 'applications');
+            
+            // Render the data
+            renderAppliedJobs();
+            renderSavedJobs();
+        } catch (error) {
+            console.error('❌ Error loading from localStorage:', error);
+            userSavedJobs = {};
+            userApplications = {};
+        }
+    }
+
+    function saveToLocalStorage() {
+        try {
+            localStorage.setItem('jobdrop_saved_jobs', JSON.stringify(userSavedJobs));
+            localStorage.setItem('jobdrop_applications', JSON.stringify(userApplications));
+            console.log('✅ Saved to localStorage from tracking page');
+        } catch (error) {
+            console.error('❌ Error saving to localStorage:', error);
+        }
+    }
+
+    function updateAuthUI() {
+        const signInBtn = document.getElementById('sign-in-btn');
+        const userMenu = document.getElementById('user-menu');
+        
+        if (currentUser) {
+            signInBtn.style.display = 'none';
+            userMenu.style.display = 'flex';
+            
+            document.getElementById('user-name').textContent = currentUser.displayName || currentUser.email;
+            document.getElementById('user-avatar').src = currentUser.photoURL || '/static/default-avatar.png';
+        } else {
+            signInBtn.style.display = 'block';
+            userMenu.style.display = 'none';
+        }
+    }
+
+    async function loadUserApplications() {
+        if (!currentUser) {
+            console.log('❌ No current user, skipping application loading');
+            return;
+        }
+        
+        try {
+            console.log('🔄 Loading user applications from tracking page...');
+            const token = await currentUser.getIdToken();
+            console.log('✅ Token obtained for loading applications');
+            
+            const response = await fetch('/api/applications/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            console.log(`📡 Applications status response: ${response.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📨 Applications data received:', data);
+                
+                userApplications = data.applications || {};
+                userSavedJobs = data.saved_jobs || {};
+                console.log('✅ User applications loaded:', Object.keys(userApplications).length);
+                console.log('✅ User saved jobs loaded:', Object.keys(userSavedJobs).length);
+                
+                renderAppliedJobs();
+                renderSavedJobs();
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Failed to load applications:', response.status, errorData);
+            }
+        } catch (error) {
+            console.error('❌ Error loading user applications:', error);
+            console.error('❌ Error details:', error.message, error.stack);
+        }
+    }
+
+    function renderAppliedJobs() {
+        const list = document.getElementById('applied-jobs-list');
+        const noJobs = document.getElementById('no-applied-jobs');
+        list.innerHTML = '';
+        
+        // Filter jobs by current status
+        const filteredJobs = Object.entries(userApplications).filter(([jobId, job]) => {
+            return job.status === currentStatusFilter;
+        });
+        
+        if (filteredJobs.length === 0) {
+            noJobs.style.display = 'block';
+            noJobs.textContent = `No ${currentStatusFilter} applications yet.`;
+            return;
+        }
+        
+        noJobs.style.display = 'none';
+        filteredJobs.forEach(([jobId, job]) => {
+            const li = document.createElement('li');
+            li.className = 'job-list-item application-item';
+            
+            const statusDate = job[`${currentStatusFilter}_at`] || job.applied_at;
+            const statusLabel = currentStatusFilter.charAt(0).toUpperCase() + currentStatusFilter.slice(1);
+            
+            li.innerHTML = `
+                <div class="job-info">
+                    <strong>${job.job_title}</strong> at <span>${job.company_name}</span><br>
+                    <small>${statusLabel}: ${statusDate ? new Date(statusDate).toLocaleString() : ''}</small>
+                    ${job.deadline ? `<br><small>Deadline: ${job.deadline}</small>` : ''}
+                </div>
+                <div class="job-actions">
+                    <a href="${job.application_link || job.link || job.url || '#'}" target="_blank" class="btn btn-primary btn-small">
+                        View Job
+                    </a>
+                    ${currentStatusFilter === 'applied' ? `
+                        <button onclick="updateJobStatus('${jobId}', 'interview')" class="btn btn-outline btn-small">
+                            Mark Interview
+                        </button>
+                    ` : ''}
+                    ${currentStatusFilter === 'interview' ? `
+                        <button onclick="updateJobStatus('${jobId}', 'offer')" class="btn btn-outline btn-small">
+                            Got Offer
+                        </button>
+                        <button onclick="updateJobStatus('${jobId}', 'rejected')" class="btn btn-outline btn-small">
+                            Rejected
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function renderSavedJobs() {
+        const list = document.getElementById('saved-jobs-list');
+        const noJobs = document.getElementById('no-saved-jobs');
+        list.innerHTML = '';
+        const jobs = Object.entries(userSavedJobs);
+        if (jobs.length === 0) {
+            noJobs.style.display = 'block';
+            return;
+        }
+        noJobs.style.display = 'none';
+        jobs.forEach(([jobId, job]) => {
+            const li = document.createElement('li');
+            li.className = 'job-list-item saved-job-item';
+            li.innerHTML = `
+                <div class="job-info">
+                    <strong>${job.job_title}</strong> at <span>${job.company_name}</span><br>
+                    <small>Saved: ${job.saved_at ? new Date(job.saved_at).toLocaleString() : ''}</small>
+                    ${job.deadline ? `<br><small>Deadline: ${job.deadline}</small>` : ''}
+                </div>
+                <div class="job-actions">
+                    <a href="${job.application_link || job.link || job.url || '#'}" target="_blank" class="btn btn-primary btn-small">
+                        Apply Now
+                    </a>
+                    <button onclick="markAsApplied('${jobId}')" class="btn btn-outline btn-small">
+                        Mark as Applied
+                    </button>
+                    <button onclick="removeSavedJob('${jobId}')" class="btn btn-text btn-small">
+                        Remove
+                    </button>
+                </div>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    async function markAsApplied(jobId) {
+        // If Firebase is available and user is authenticated, use server-side storage
+        if (typeof firebase !== 'undefined' && firebase.auth && currentUser) {
+            // Original Firebase implementation
+        } else {
+            // Fallback: Use localStorage when Firebase isn't available
+            console.log('🔄 Using localStorage fallback for marking as applied');
+            
+            const savedJob = userSavedJobs[jobId];
+            if (savedJob) {
+                userApplications[jobId] = {
+                    ...savedJob,
+                    status: 'applied',
+                    applied_at: new Date().toISOString()
+                };
+                delete userSavedJobs[jobId];
+                
+                saveToLocalStorage();
+                renderAppliedJobs();
+                renderSavedJobs();
+                console.log('✅ Job successfully marked as applied locally');
+            } else {
+                console.warn('⚠️ Saved job not found in local data');
+            }
+            return;
+        }
+        
+        try {
+            console.log(`🔄 Marking job ${jobId} as applied...`);
+            const token = await currentUser.getIdToken();
+            console.log('✅ Token obtained for marking as applied');
+            
+            const response = await fetch('/api/applications/mark', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ 
+                    job_id: jobId,
+                    status: 'applied'
+                })
+            });
+            
+            console.log(`📡 Mark applied response: ${response.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📨 Mark applied response:', data);
+                
+                // Move from saved to applied
+                const savedJob = userSavedJobs[jobId];
+                if (savedJob) {
+                    userApplications[jobId] = {
+                        ...savedJob,
+                        status: 'applied',
+                        applied_at: new Date().toISOString()
+                    };
+                    delete userSavedJobs[jobId];
+                    
+                    // Remove from saved jobs
+                    await removeSavedJob(jobId, false);
+                    
+                    renderAppliedJobs();
+                    renderSavedJobs();
+                    console.log('✅ Job successfully marked as applied');
+                } else {
+                    console.warn('⚠️ Saved job not found in local data');
+                }
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Failed to mark as applied:', response.status, errorData);
+                alert('Failed to mark job as applied. Please try again.');
+            }
+        } catch (error) {
+            console.error('❌ Error marking as applied:', error);
+            console.error('❌ Error details:', error.message, error.stack);
+            alert('Failed to mark job as applied. Please check your connection and try again.');
+        }
+    }
+
+    async function removeSavedJob(jobId, updateUI = true) {
+        // If Firebase is available and user is authenticated, use server-side storage
+        if (typeof firebase !== 'undefined' && firebase.auth && currentUser) {
+            // Original Firebase implementation
+        } else {
+            // Fallback: Use localStorage when Firebase isn't available
+            console.log('🔄 Using localStorage fallback for removing saved job');
+            
+            delete userSavedJobs[jobId];
+            saveToLocalStorage();
+            if (updateUI) {
+                renderSavedJobs();
+            }
+            console.log('✅ Saved job removed locally');
+            return;
+        }
+        
+        try {
+            console.log(`🔄 Removing saved job ${jobId}...`);
+            const token = await currentUser.getIdToken();
+            console.log('✅ Token obtained for removing saved job');
+            
+            const response = await fetch('/api/applications/unsave', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ job_id: jobId })
+            });
+            
+            console.log(`📡 Remove saved job response: ${response.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📨 Remove saved job response:', data);
+                
+                delete userSavedJobs[jobId];
+                if (updateUI) {
+                    renderSavedJobs();
+                }
+                console.log('✅ Saved job removed successfully');
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Failed to remove saved job:', response.status, errorData);
+                if (updateUI) {
+                    alert('Failed to remove saved job. Please try again.');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error removing saved job:', error);
+            console.error('❌ Error details:', error.message, error.stack);
+            if (updateUI) {
+                alert('Failed to remove saved job. Please check your connection and try again.');
+            }
+        }
+    }
+
+    async function updateJobStatus(jobId, newStatus) {
+        if (!currentUser) {
+            console.log('❌ No current user, cannot update status');
+            return;
+        }
+        
+        try {
+            console.log(`🔄 Updating job ${jobId} status to ${newStatus}...`);
+            const token = await currentUser.getIdToken();
+            
+            const response = await fetch('/api/applications/mark', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ 
+                    job_id: jobId,
+                    status: newStatus
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📨 Status update response:', data);
+                
+                // Update local state
+                userApplications[jobId] = data.job;
+                
+                // Re-render the current view
+                renderAppliedJobs();
+                console.log('✅ Job status updated successfully');
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Failed to update status:', response.status, errorData);
+                alert('Failed to update job status. Please try again.');
+            }
+        } catch (error) {
+            console.error('❌ Error updating job status:', error);
+            alert('Failed to update job status. Please check your connection and try again.');
+        }
+    }
+
+    function signIn() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider);
+    }
+
+    function signOut() {
+        auth.signOut();
+    }
+    </script>
+    <style>
+    .job-list { list-style: none; padding: 0; }
+    .job-list-item { padding: 1rem; border-bottom: 1px solid #eee; }
+    
+    .status-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+    }
+    
+    .status-tab {
+        background: none;
+        border: none;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: 500;
+        color: #666;
+        transition: all 0.2s;
+    }
+    
+    .status-tab:hover {
+        background-color: #f5f5f5;
+        color: #333;
+    }
+    
+    .status-tab.active {
+        background-color: #0066cc;
+        color: white;
+    }
+    
+    .application-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .saved-job-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .job-info {
+        flex: 1;
+    }
+    
+    .job-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    .btn-small {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        text-decoration: none;
+        border-radius: 4px;
+        border: 1px solid;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary {
+        background-color: #0066cc;
+        border-color: #0066cc;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0052a3;
+    }
+    
+    .btn-outline {
+        background-color: white;
+        border-color: #ddd;
+        color: #333;
+    }
+    
+    .btn-outline:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .btn-text {
+        background-color: transparent;
+        border-color: transparent;
+        color: #666;
+    }
+    
+    .btn-text:hover {
+        color: #333;
+        background-color: #f5f5f5;
+    }
+    
+    @media (max-width: 768px) {
+        .saved-job-item {
+            flex-direction: column;
+        }
+        
+        .job-actions {
+            align-self: stretch;
+        }
+        
+        .btn-small {
+            flex: 1;
+            text-align: center;
+        }
+    }
+    </style>
+</body>
+</html> 

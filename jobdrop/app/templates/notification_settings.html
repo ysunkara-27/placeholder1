@@ -1,0 +1,590 @@
+{% set meta_description = meta_description|default('Manage your JobDrop notification preferences and stay updated on new jobs.') %}
+{% set job_posting_jsonld = job_posting_jsonld|default(None) %}
+<!-- Email Notification Settings Card -->
+<div class="settings-card">
+    <div class="settings-card-header">
+        <h2>📧 Email Notifications</h2>
+        <p>Stay updated on new opportunities from companies you're interested in</p>
+    </div>
+    <div class="settings-card-body">
+        <!-- Notification Toggle -->
+        <div class="form-group">
+            <label class="toggle-label">
+                <input type="checkbox" id="email-notifications-enabled" class="toggle-input">
+                <span class="toggle-slider"></span>
+                Enable email notifications
+            </label>
+            <small>Receive daily emails about new job opportunities</small>
+        </div>
+
+        <!-- Notification Frequency -->
+        <div class="form-group" id="notification-frequency-group">
+            <label for="notification-frequency">Notification Frequency</label>
+            <select id="notification-frequency" class="form-input">
+                <option value="daily">Daily digest</option>
+                <option value="weekly">Weekly summary</option>
+                <option value="instant">Instant (when found)</option>
+            </select>
+            <small>How often you want to receive notifications</small>
+        </div>
+
+        <!-- Company Interests -->
+        <div class="form-group" id="company-interests-group">
+            <label for="company-search">Companies You're Interested In</label>
+            <div class="company-search-container">
+                <input type="text" id="company-search" class="form-input" placeholder="Search for companies..." autocomplete="off">
+                <button type="button" id="add-company-btn" class="secondary-btn">Add Company</button>
+            </div>
+            <div id="company-suggestions" class="company-suggestions"></div>
+            <small>Add companies you want to track for new opportunities</small>
+            
+            <!-- Selected Companies -->
+            <div id="selected-companies" class="selected-companies">
+                <h4>Your Company Interests:</h4>
+                <div id="company-list" class="company-list">
+                    <!-- Companies will be dynamically loaded here -->
+                </div>
+                <p id="no-companies-message" class="no-items-message" style="display: none;">
+                    No companies selected yet. Start by searching for companies above.
+                </p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="form-actions">
+            <button type="button" id="save-notification-preferences" class="primary-btn">
+                <i class="fas fa-save"></i>
+                Save Preferences
+            </button>
+            <button type="button" id="send-test-email" class="secondary-btn">
+                <i class="fas fa-envelope"></i>
+                Send Test Email
+            </button>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="notification-status" class="status-message" style="display: none;"></div>
+    </div>
+</div>
+
+<style>
+/* Notification Settings Styles */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    margin-bottom: 0;
+}
+
+.toggle-input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 50px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 24px;
+    margin-right: 15px;
+    transition: background-color 0.3s;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: white;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+}
+
+.toggle-input:checked + .toggle-slider {
+    background-color: #3498db;
+}
+
+.toggle-input:checked + .toggle-slider::before {
+    transform: translateX(26px);
+}
+
+.company-search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.company-search-container input {
+    flex: 1;
+}
+
+.company-suggestions {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    position: absolute;
+    z-index: 1000;
+    width: 100%;
+    display: none;
+    top: 100%;
+    left: 0;
+}
+
+.company-suggestion {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.company-suggestion:hover {
+    background-color: #f8f9fa;
+}
+
+.company-suggestion:last-child {
+    border-bottom: none;
+}
+
+.selected-companies {
+    margin-top: 20px;
+}
+
+.selected-companies h4 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.company-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.company-tag {
+    background-color: #e8f4fd;
+    color: #2c3e50;
+    padding: 8px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.company-tag .remove-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.company-tag .remove-btn:hover {
+    background-color: #ff6b6b;
+    color: white;
+}
+
+.status-message {
+    margin-top: 15px;
+    padding: 15px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.status-message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.disabled-section {
+    opacity: 0.5;
+    pointer-events: none;
+}
+</style>
+
+<script>
+// Notification Settings JavaScript
+class NotificationSettings {
+    constructor() {
+        this.preferences = {};
+        this.availableCompanies = [];
+        this.init();
+    }
+
+    init() {
+        this.loadPreferences();
+        this.loadAvailableCompanies();
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Toggle notifications
+        document.getElementById('email-notifications-enabled').addEventListener('change', (e) => {
+            this.toggleNotificationSections(e.target.checked);
+        });
+
+        // Save preferences
+        document.getElementById('save-notification-preferences').addEventListener('click', () => {
+            this.savePreferences();
+        });
+
+        // Send test email
+        document.getElementById('send-test-email').addEventListener('click', () => {
+            this.sendTestEmail();
+        });
+
+        // Company search
+        const companySearch = document.getElementById('company-search');
+        companySearch.addEventListener('input', (e) => {
+            this.searchCompanies(e.target.value);
+        });
+
+        // Add company
+        document.getElementById('add-company-btn').addEventListener('click', () => {
+            this.addCompany();
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.company-search-container')) {
+                this.hideSuggestions();
+            }
+        });
+    }
+
+    async loadPreferences() {
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/notifications/preferences', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                this.preferences = await response.json();
+                this.updateUI();
+            }
+        } catch (error) {
+            console.error('Error loading preferences:', error);
+        }
+    }
+
+    async loadAvailableCompanies() {
+        try {
+            const response = await fetch('/api/companies');
+            if (response.ok) {
+                const data = await response.json();
+                this.availableCompanies = data.companies || [];
+            }
+        } catch (error) {
+            console.error('Error loading companies:', error);
+        }
+    }
+
+    updateUI() {
+        // Update checkboxes and dropdowns
+        document.getElementById('email-notifications-enabled').checked = 
+            this.preferences.email_notifications_enabled || false;
+        
+        document.getElementById('notification-frequency').value = 
+            this.preferences.notification_frequency || 'daily';
+
+        // Update company list
+        this.updateCompanyList();
+
+        // Toggle sections based on enabled state
+        this.toggleNotificationSections(this.preferences.email_notifications_enabled || false);
+    }
+
+    updateCompanyList() {
+        const companies = this.preferences.interested_companies || [];
+        const container = document.getElementById('company-list');
+        const noMessage = document.getElementById('no-companies-message');
+
+        container.innerHTML = '';
+
+        if (companies.length === 0) {
+            noMessage.style.display = 'block';
+        } else {
+            noMessage.style.display = 'none';
+            companies.forEach(company => {
+                const tag = this.createCompanyTag(company);
+                container.appendChild(tag);
+            });
+        }
+    }
+
+    createCompanyTag(companyName) {
+        const tag = document.createElement('div');
+        tag.className = 'company-tag';
+        tag.innerHTML = `
+            <span>${companyName}</span>
+            <button type="button" class="remove-btn" onclick="notificationSettings.removeCompany('${companyName}')">&times;</button>
+        `;
+        return tag;
+    }
+
+    toggleNotificationSections(enabled) {
+        const sections = [
+            'notification-frequency-group',
+            'company-interests-group'
+        ];
+
+        sections.forEach(sectionId => {
+            const section = document.getElementById(sectionId);
+            if (enabled) {
+                section.classList.remove('disabled-section');
+            } else {
+                section.classList.add('disabled-section');
+            }
+        });
+    }
+
+    searchCompanies(query) {
+        if (query.length < 2) {
+            this.hideSuggestions();
+            return;
+        }
+
+        const matches = this.availableCompanies.filter(company => 
+            company.toLowerCase().includes(query.toLowerCase()) &&
+            !(this.preferences.interested_companies || []).includes(company)
+        ).slice(0, 10);
+
+        this.showSuggestions(matches);
+    }
+
+    showSuggestions(companies) {
+        const container = document.getElementById('company-suggestions');
+        container.innerHTML = '';
+
+        if (companies.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        companies.forEach(company => {
+            const suggestion = document.createElement('div');
+            suggestion.className = 'company-suggestion';
+            suggestion.textContent = company;
+            suggestion.addEventListener('click', () => {
+                this.selectCompany(company);
+            });
+            container.appendChild(suggestion);
+        });
+
+        container.style.display = 'block';
+    }
+
+    hideSuggestions() {
+        document.getElementById('company-suggestions').style.display = 'none';
+    }
+
+    selectCompany(companyName) {
+        document.getElementById('company-search').value = companyName;
+        this.hideSuggestions();
+    }
+
+    async addCompany() {
+        const input = document.getElementById('company-search');
+        const companyName = input.value.trim();
+
+        if (!companyName) {
+            this.showStatus('Please enter a company name', 'error');
+            return;
+        }
+
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/notifications/add-company', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ company_name: companyName })
+            });
+
+            if (response.ok) {
+                // Update local preferences
+                if (!this.preferences.interested_companies) {
+                    this.preferences.interested_companies = [];
+                }
+                this.preferences.interested_companies.push(companyName);
+                
+                // Update UI
+                this.updateCompanyList();
+                input.value = '';
+                this.hideSuggestions();
+                
+                this.showStatus(`Added ${companyName} to your interests!`, 'success');
+            } else {
+                const error = await response.json();
+                this.showStatus(error.error || 'Failed to add company', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding company:', error);
+            this.showStatus('Failed to add company', 'error');
+        }
+    }
+
+    async removeCompany(companyName) {
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/notifications/remove-company', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ company_name: companyName })
+            });
+
+            if (response.ok) {
+                // Update local preferences
+                this.preferences.interested_companies = 
+                    (this.preferences.interested_companies || []).filter(c => c !== companyName);
+                
+                // Update UI
+                this.updateCompanyList();
+                this.showStatus(`Removed ${companyName} from your interests`, 'success');
+            } else {
+                const error = await response.json();
+                this.showStatus(error.error || 'Failed to remove company', 'error');
+            }
+        } catch (error) {
+            console.error('Error removing company:', error);
+            this.showStatus('Failed to remove company', 'error');
+        }
+    }
+
+    async savePreferences() {
+        const preferences = {
+            email_notifications_enabled: document.getElementById('email-notifications-enabled').checked,
+            notification_frequency: document.getElementById('notification-frequency').value
+        };
+
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/notifications/preferences', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(preferences)
+            });
+
+            if (response.ok) {
+                this.preferences = {...this.preferences, ...preferences};
+                this.showStatus('Preferences saved successfully!', 'success');
+            } else {
+                const error = await response.json();
+                this.showStatus(error.error || 'Failed to save preferences', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving preferences:', error);
+            this.showStatus('Failed to save preferences', 'error');
+        }
+    }
+
+    async sendTestEmail() {
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/notifications/test-email', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                this.showStatus('Test email sent! Check your inbox.', 'success');
+            } else {
+                const error = await response.json();
+                this.showStatus(error.error || 'Failed to send test email', 'error');
+            }
+        } catch (error) {
+            console.error('Error sending test email:', error);
+            this.showStatus('Failed to send test email', 'error');
+        }
+    }
+
+    showStatus(message, type) {
+        const statusDiv = document.getElementById('notification-status');
+        statusDiv.textContent = message;
+        statusDiv.className = `status-message ${type}`;
+        statusDiv.style.display = 'block';
+
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Initialize when DOM is loaded and user is authenticated
+let notificationSettings;
+if (typeof currentUser !== 'undefined' && currentUser) {
+    notificationSettings = new NotificationSettings();
+} else {
+    // Wait for auth state to be ready
+    const checkAuth = setInterval(() => {
+        if (typeof currentUser !== 'undefined' && currentUser) {
+            notificationSettings = new NotificationSettings();
+            clearInterval(checkAuth);
+        }
+    }, 100);
+}
+</script>
+
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-WBBSHSTV5Z"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-WBBSHSTV5Z');
+</script>
+<!-- SEO Meta Tags -->
+<meta name="description" content="{{ meta_description }}">
+<meta name="keywords" content="internships, jobs, notifications, jobdrop, careers, apply">
+<meta name="robots" content="index, follow">
+<!-- Canonical URL -->
+<link rel="canonical" href="{{ request.url }}">
+<!-- Open Graph Tags -->
+<meta property="og:title" content="Notification Settings - JobDrop">
+<meta property="og:description" content="{{ meta_description }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+<!-- Twitter Card Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Notification Settings - JobDrop">
+<meta name="twitter:description" content="{{ meta_description }}">
+<meta name="twitter:image" content="{{ url_for('static', filename='jobdrop-og.png', _external=True) }}">
+<!-- Structured Data (JSON-LD) Placeholder -->
+{% if job_posting_jsonld %}
+<script type="application/ld+json">
+  {{ job_posting_jsonld|safe }}
+</script>
+{% endif %}
