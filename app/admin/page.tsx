@@ -199,6 +199,7 @@ function ReviewQueue({
         industries: job.industries ?? [],
         target_term: job.target_term ?? null,
         jd_summary: job.jd_summary ?? null,
+        job_url: job.application_url || job.url || null,
       }),
     })
       .then((res) => res.json() as Promise<{ suggestions?: Suggestions; error?: string }>)

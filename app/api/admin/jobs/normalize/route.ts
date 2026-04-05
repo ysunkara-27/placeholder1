@@ -16,6 +16,26 @@ async function assertAdmin(): Promise<NextResponse | null> {
   return null;
 }
 
+async function fetchPageText(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TwinBot/1.0)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .slice(0, 8000);
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const denied = await assertAdmin();
   if (denied) return denied;
@@ -25,39 +45,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
   }
 
-  const { company, title, level, location, industries, target_term, jd_summary } = await request.json() as {
-    company: string;
-    title: string;
-    level: string;
-    location: string;
-    industries: string[];
-    target_term: string | null;
-    jd_summary: string | null;
-  };
+  const { company, title, level, location, industries, target_term, jd_summary, job_url } =
+    await request.json() as {
+      company: string;
+      title: string;
+      level: string;
+      location: string;
+      industries: string[];
+      target_term: string | null;
+      jd_summary: string | null;
+      job_url: string | null;
+    };
 
-  const VALID_INDUSTRIES = ["SWE","Data","PM","Design","Hardware","MechEng","CivilEng","ChemEng","AeroEng","LifeSci","Research","Healthcare","Finance","Consulting","Marketing","Operations","Sales","Policy","Education"];
+  const VALID_INDUSTRIES = [
+    "SWE","Data","PM","Design","Hardware",
+    "MechEng","CivilEng","ChemEng","AeroEng",
+    "LifeSci","Research","Healthcare",
+    "Finance","Consulting","Marketing","Operations","Sales",
+    "Policy","Education",
+  ];
 
-  const prompt = `Normalize this job posting data scraped from the web. Return ONLY valid JSON, no markdown.
+  // Fetch real page content if we have a URL and no existing JD summary
+  const pageText = (!jd_summary && job_url) ? await fetchPageText(job_url) : null;
 
-Input:
+  const prompt = `You are normalizing a job posting record in our database. Return ONLY valid JSON, no markdown.
+
+Database record:
 company: "${company}"
 title: "${title}"
 level: "${level}"
 location: "${location}"
+remote: (infer from location/title)
 industries: ${JSON.stringify(industries)}
 target_term: ${target_term ?? "null"}
 jd_summary: ${jd_summary ?? "null"}
+${pageText ? `\nRaw page content scraped from the job posting URL:\n"""\n${pageText}\n"""` : ""}
 
-Rules:
-- title: strip location info (e.g. "- New York, NY"), remove year/term refs (Summer 2026, Fall 2025, 2026 Intern), remove duplicate company name if prepended. Keep the core role name, preserve "Intern" / "Internship" / "Co-op" if present.
-- level: valid values are internship, new_grad, co_op, associate, part_time. Only suggest a change if the title clearly implies a different level than what is given.
-- location: standardize US cities to "City, ST" (e.g. "New York, NY"). For remote-only roles use "Remote". For international keep "City, Country". Strip zip codes and extra detail.
-- industries: ALWAYS return this field. Pick 1-3 values from this exact list that best describe the role's function: ${VALID_INDUSTRIES.join(", ")}. Return as a JSON array.
-- target_term: ALWAYS return this field. The full program timeframe as a short string. Examples: "2026 Summer", "2026 Fall", "2026 Spring", "Full Time". Extract year and season from the title. If only a season is clear with no year, just use the season e.g. "Summer". If it is a full-time/permanent role, use "Full Time".
-- jd_summary: If the current value is null or empty, generate a 2-3 sentence description of what this role likely involves based on the title and company. Be specific and practical. If a real description already exists (non-null), omit this field entirely.
+Rules — return ONLY fields that need to change:
+- title: strip appended location (e.g. "- New York, NY"), remove year/term refs (Summer 2026, Fall 2025, 2026 Intern), remove prepended company name. Keep core role name; preserve "Intern" / "Internship" / "Co-op".
+- level: valid values: internship, new_grad, co_op, associate, part_time. Only change if title clearly implies something different.
+- location: standardize to "City, ST" for US (e.g. "New York, NY"), "Remote" for remote-only, "City, Country" for international. Strip zip codes and extra detail.
+- industries: ALWAYS include. Pick 1-3 from: ${VALID_INDUSTRIES.join(", ")}. Return as a JSON array.
+- target_term: ALWAYS include. Full program timeframe string — e.g. "2026 Summer", "2026 Fall", "Full Time". Extract year + season from title or page content. Use "Full Time" for permanent roles.
+- jd_summary: ALWAYS include if jd_summary is currently null/empty. Extract the actual job description text from the page content above — copy the responsibilities and requirements directly, do not rephrase. 2-4 sentences max. If jd_summary already has a value, omit this field.
 
-Return a JSON object with ONLY changed fields, EXCEPT industries and target_term which must always be included.
-Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries": ["SWE"], "target_term": "2026 Summer"}`;
+Return JSON with only changed fields (industries and target_term always included).
+Example: {"title": "Software Engineer Intern", "industries": ["SWE"], "target_term": "2026 Summer", "jd_summary": "Build and maintain backend services..."}`;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
@@ -69,7 +102,7 @@ Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries"
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0,
-          maxOutputTokens: 512,
+          maxOutputTokens: 768,
         },
       }),
     }
@@ -87,17 +120,20 @@ Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries"
 
   try {
     const suggestions = JSON.parse(text) as Record<string, unknown>;
+    // Never suggest company changes
     delete suggestions.company;
+    // Strip no-ops
     if (suggestions.title === title) delete suggestions.title;
     if (suggestions.level === level) delete suggestions.level;
     if (suggestions.location === location) delete suggestions.location;
     if (Array.isArray(suggestions.industries)) {
       const sorted = [...(suggestions.industries as string[])].sort().join(",");
-      const currentSorted = [...industries].sort().join(",");
-      if (sorted === currentSorted) delete suggestions.industries;
+      if (sorted === [...industries].sort().join(",")) delete suggestions.industries;
     }
     if (suggestions.target_term === target_term) delete suggestions.target_term;
+    // Only keep jd_summary suggestion if current field is empty
     if (jd_summary) delete suggestions.jd_summary;
+
     return NextResponse.json({ suggestions });
   } catch {
     return NextResponse.json({ error: "Could not parse AI response" }, { status: 500 });
