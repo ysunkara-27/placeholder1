@@ -1282,3 +1282,44 @@ Exact next step:
 1. visually sweep remaining user-facing dashboard subcards that still hardcode gray/indigo utilities
 2. decide whether `/applied` should remain as a standalone archive page or be reduced further now that applied jobs live on the dashboard
 3. fix the existing `/api/admin/jobs/[jobId]` build-time page-data failure so full production builds can pass cleanly again
+
+## Session Log — 2026-04-05
+
+Completed in this session:
+
+- made the taxonomy job resolver record how `industry` was inferred:
+  - known company prior vs deterministic phrase match vs legacy fallback vs branch fallback
+- tightened `taxonomy_needs_review` so unknown companies and broad fallback classifications surface for operator follow-up
+- added operator scripts:
+  - `npm run backfill:taxonomy:jobs`
+  - `npm run backfill:taxonomy:profiles`
+  - `npm run report:taxonomy:review`
+- documented the unknown-`company_slug` add-to-tree algorithm in `docs/job-matching-standardization-plan.md`
+
+Verified:
+
+- `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+- `npm run build`
+
+Could not verify:
+
+- `npm run test:apply-engine`
+  - blocked in this workspace because `./.venv/bin/python` does not exist
+
+Current truth after this session:
+
+- new companies do not require a pre-seeded prior to classify; they classify from deterministic posting evidence and broad branch fallback when needed
+- the resolver now persists enough metadata to distinguish:
+  - company-prior-based classifications
+  - phrase-based classifications
+  - legacy fallback
+  - broad branch fallback
+- there is now an operator path to identify recurring unknown-company slugs that should be promoted into `company_taxonomy_priors`
+
+Exact next step:
+
+1. finish applying the corrected taxonomy seed in Supabase
+2. run `npm run report:taxonomy:review` against the real DB to identify unknown companies and fallback-heavy classifications
+3. run `npm run backfill:taxonomy:jobs -- --dry-run --limit 50`
+4. run `npm run backfill:taxonomy:profiles -- --dry-run --limit 50`
+5. if the samples look correct, run both backfills live and then tighten browse queries to lean more directly on taxonomy node arrays

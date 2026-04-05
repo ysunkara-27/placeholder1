@@ -1314,3 +1314,31 @@ When `twinmegaresearch.md` is populated, the first things to update here should 
   - the new split-screen verification pane currently uses the stored application payload plus readiness summaries, but it does not yet render a richer prompt-by-prompt verification surface
   - matching strictness is still too rigid for location and recruiting window defaults
 - Next recommended step: soften location/target-year matching into preference modes, add `graduation_year_flex`, and then simplify the remaining prospective-list queue semantics so all approval paths stay consistent with the updates-only SMS direction.
+
+### Session Update: 2026-04-05
+
+- Workstream: Deterministic taxonomy normalization
+- Feature batch: unknown-company inference path and operator backfill tooling
+- Status before: taxonomy writes existed in app code, but the operational path for new `company_slug` values and post-migration backfill/review was still implicit.
+- Status after: the job taxonomy resolver now records whether `industry` came from company prior, phrase evidence, legacy fallback, or branch fallback; unknown-company and broad fallback cases are marked for review; and the repo now includes dedicated taxonomy backfill and taxonomy review scripts.
+- Files changed:
+  - `lib/taxonomy/job.ts`
+  - `scripts/backfill-taxonomy.mjs`
+  - `scripts/report-taxonomy-review.mjs`
+  - `package.json`
+  - `docs/job-matching-standardization-plan.md`
+  - `PLANS.md`
+- Tests run:
+  - `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+  - `npm run build`
+- Tests passed:
+  - Python syntax compilation passed
+  - Next production build passed
+- Tests not run:
+  - `npm run test:apply-engine`
+  - reason: `./.venv/bin/python` is missing in this workspace
+- Known gaps:
+  - the corrected taxonomy seed still needs to be fully applied in Supabase before node-ID backfill can run cleanly against the live database
+  - browse and matching still use taxonomy summaries plus legacy fallbacks; node-array-first filtering is not the sole source of truth yet
+  - company priors are still seeded/curated manually rather than learned through an admin UI workflow
+- Next recommended step: complete the corrected seed rollout, run the taxonomy review report to identify unknown or fallback-heavy companies, backfill jobs/profiles, and then shift browse filtering toward the normalized taxonomy UUID arrays.

@@ -13,6 +13,12 @@ export interface JobTaxonomyInput {
   jd_summary?: string | null;
 }
 
+type IndustryResolutionSource =
+  | "company_prior"
+  | "pattern_match"
+  | "legacy_fallback"
+  | "branch_fallback";
+
 const COMPANY_PRIORS: Record<string, { primary: string[]; secondary?: string[] }> = {
   stripe: { primary: ["industry.finance.fintech"], secondary: ["industry.finance.payments", "industry.technology.enterprise_software"] },
   scale_ai: { primary: ["industry.technology.ai_ml"], secondary: ["industry.research.applied_research", "industry.technology.data_infrastructure"] },
@@ -162,36 +168,106 @@ function geoNodeSlugs(location: string): string[] {
     if (text.includes(match)) slugs.push(slug);
   }
   const stateMap: Record<string, string> = {
+    "ct": "geo.usa.northeast.connecticut",
+    "connecticut": "geo.usa.northeast.connecticut",
+    "me": "geo.usa.northeast.maine",
+    "maine": "geo.usa.northeast.maine",
     "ca": "geo.usa.west.california",
     "california": "geo.usa.west.california",
+    "hi": "geo.usa.west.hawaii",
+    "hawaii": "geo.usa.west.hawaii",
+    "id": "geo.usa.west.idaho",
+    "idaho": "geo.usa.west.idaho",
+    "mt": "geo.usa.west.montana",
+    "montana": "geo.usa.west.montana",
+    "nv": "geo.usa.west.nevada",
+    "nevada": "geo.usa.west.nevada",
+    "nm": "geo.usa.west.new_mexico",
+    "new mexico": "geo.usa.west.new_mexico",
+    "or": "geo.usa.west.oregon",
+    "oregon": "geo.usa.west.oregon",
+    "ut": "geo.usa.west.utah",
+    "utah": "geo.usa.west.utah",
     "wa": "geo.usa.west.washington",
     "washington": "geo.usa.west.washington",
     "co": "geo.usa.west.colorado",
     "colorado": "geo.usa.west.colorado",
+    "ak": "geo.usa.west.alaska",
+    "alaska": "geo.usa.west.alaska",
+    "az": "geo.usa.west.arizona",
+    "arizona": "geo.usa.west.arizona",
+    "wy": "geo.usa.west.wyoming",
+    "wyoming": "geo.usa.west.wyoming",
     "ny": "geo.usa.northeast.new_york",
     "new york": "geo.usa.northeast.new_york",
     "ma": "geo.usa.northeast.massachusetts",
     "massachusetts": "geo.usa.northeast.massachusetts",
+    "nh": "geo.usa.northeast.new_hampshire",
+    "new hampshire": "geo.usa.northeast.new_hampshire",
     "pa": "geo.usa.northeast.pennsylvania",
     "pennsylvania": "geo.usa.northeast.pennsylvania",
     "nj": "geo.usa.northeast.new_jersey",
     "new jersey": "geo.usa.northeast.new_jersey",
+    "ri": "geo.usa.northeast.rhode_island",
+    "rhode island": "geo.usa.northeast.rhode_island",
+    "vt": "geo.usa.northeast.vermont",
+    "vermont": "geo.usa.northeast.vermont",
+    "al": "geo.usa.south.alabama",
+    "alabama": "geo.usa.south.alabama",
+    "ar": "geo.usa.south.arkansas",
+    "arkansas": "geo.usa.south.arkansas",
+    "de": "geo.usa.south.delaware",
+    "delaware": "geo.usa.south.delaware",
     "tx": "geo.usa.south.texas",
     "texas": "geo.usa.south.texas",
     "ga": "geo.usa.south.georgia",
     "georgia": "geo.usa.south.georgia",
     "fl": "geo.usa.south.florida",
     "florida": "geo.usa.south.florida",
+    "ky": "geo.usa.south.kentucky",
+    "kentucky": "geo.usa.south.kentucky",
+    "la": "geo.usa.south.louisiana",
+    "louisiana": "geo.usa.south.louisiana",
+    "md": "geo.usa.south.maryland",
+    "maryland": "geo.usa.south.maryland",
+    "ms": "geo.usa.south.mississippi",
+    "mississippi": "geo.usa.south.mississippi",
     "nc": "geo.usa.south.north_carolina",
     "north carolina": "geo.usa.south.north_carolina",
+    "ok": "geo.usa.south.oklahoma",
+    "oklahoma": "geo.usa.south.oklahoma",
+    "sc": "geo.usa.south.south_carolina",
+    "south carolina": "geo.usa.south.south_carolina",
+    "tn": "geo.usa.south.tennessee",
+    "tennessee": "geo.usa.south.tennessee",
     "va": "geo.usa.south.virginia",
     "virginia": "geo.usa.south.virginia",
+    "wv": "geo.usa.south.west_virginia",
+    "west virginia": "geo.usa.south.west_virginia",
     "il": "geo.usa.midwest.illinois",
     "illinois": "geo.usa.midwest.illinois",
+    "in": "geo.usa.midwest.indiana",
+    "indiana": "geo.usa.midwest.indiana",
+    "ia": "geo.usa.midwest.iowa",
+    "iowa": "geo.usa.midwest.iowa",
+    "ks": "geo.usa.midwest.kansas",
+    "kansas": "geo.usa.midwest.kansas",
     "mi": "geo.usa.midwest.michigan",
     "michigan": "geo.usa.midwest.michigan",
+    "mn": "geo.usa.midwest.minnesota",
+    "minnesota": "geo.usa.midwest.minnesota",
+    "mo": "geo.usa.midwest.missouri",
+    "missouri": "geo.usa.midwest.missouri",
+    "ne": "geo.usa.midwest.nebraska",
+    "nebraska": "geo.usa.midwest.nebraska",
+    "nd": "geo.usa.midwest.north_dakota",
+    "north dakota": "geo.usa.midwest.north_dakota",
     "oh": "geo.usa.midwest.ohio",
     "ohio": "geo.usa.midwest.ohio",
+    "sd": "geo.usa.midwest.south_dakota",
+    "south dakota": "geo.usa.midwest.south_dakota",
+    "wi": "geo.usa.midwest.wisconsin",
+    "wisconsin": "geo.usa.midwest.wisconsin",
     "ontario": "geo.canada.ontario",
   };
   for (const [match, slug] of Object.entries(stateMap)) {
@@ -223,24 +299,56 @@ function careerNodeSlugs(input: Pick<JobTaxonomyInput, "title" | "level" | "role
 }
 
 function taxonomyIndustries(input: JobTaxonomyInput): string[] {
+  return resolveIndustryTaxonomy(input).slugs;
+}
+
+function resolveIndustryTaxonomy(input: JobTaxonomyInput): {
+  slugs: string[];
+  company_slug: string;
+  company_prior_known: boolean;
+  sources: IndustryResolutionSource[];
+  matched_pattern_slugs: string[];
+  fallback_branch_slug: string | null;
+} {
   const text = `${input.company} ${input.title} ${input.jd_summary ?? ""}`.toLowerCase();
   const slug = companySlug(input.company);
   const prior = COMPANY_PRIORS[slug];
   const slugs = [...(prior?.primary ?? []), ...(prior?.secondary ?? [])];
+  const sources: IndustryResolutionSource[] = prior ? ["company_prior"] : [];
+  const matchedPatternSlugs: string[] = [];
+  let fallbackBranchSlug: string | null = null;
   for (const entry of INDUSTRY_PATTERNS) {
     if (entry.patterns.some((pattern) => pattern.test(text))) {
       slugs.push(entry.slug);
+      matchedPatternSlugs.push(entry.slug);
     }
+  }
+  if (matchedPatternSlugs.length > 0) {
+    sources.push("pattern_match");
   }
   if (slugs.length === 0) {
     const existing = input.industries.map((industry) => industry.toLowerCase());
-    if (existing.includes("finance")) slugs.push("industry.finance");
-    else if (existing.includes("consulting")) slugs.push("industry.consulting");
-    else if (existing.includes("research")) slugs.push("industry.research");
-    else if (existing.includes("healthcare")) slugs.push("industry.healthcare_biotech");
-    else slugs.push("industry.technology");
+    if (existing.includes("finance")) fallbackBranchSlug = "industry.finance";
+    else if (existing.includes("consulting")) fallbackBranchSlug = "industry.consulting";
+    else if (existing.includes("research")) fallbackBranchSlug = "industry.research";
+    else if (existing.includes("healthcare")) fallbackBranchSlug = "industry.healthcare_biotech";
+    if (fallbackBranchSlug) {
+      slugs.push(fallbackBranchSlug);
+      sources.push("legacy_fallback");
+    } else {
+      fallbackBranchSlug = "industry.technology";
+      slugs.push(fallbackBranchSlug);
+      sources.push("branch_fallback");
+    }
   }
-  return uniq(slugs);
+  return {
+    slugs: uniq(slugs),
+    company_slug: slug,
+    company_prior_known: Boolean(prior),
+    sources: Array.from(new Set(sources)),
+    matched_pattern_slugs: uniq(matchedPatternSlugs),
+    fallback_branch_slug: fallbackBranchSlug,
+  };
 }
 
 function taxonomyJobFunctions(input: JobTaxonomyInput): string[] {
@@ -274,11 +382,15 @@ function legacyIndustriesFromTaxonomy(slugs: string[]): Industry[] {
 
 export function buildJobTaxonomy(input: JobTaxonomyInput) {
   const modality = workModality(input);
-  const industrySlugs = taxonomyIndustries(input);
+  const industryResolution = resolveIndustryTaxonomy(input);
+  const industrySlugs = industryResolution.slugs;
   const jobFunctionSlugs = taxonomyJobFunctions(input);
   const careerSlugs = careerNodeSlugs(input);
   const geoSlugs = geoNodeSlugs(input.location);
-  const needsReview = industrySlugs.some((slug) => slug === "industry.technology" || slug === "industry.other");
+  const needsReview =
+    industrySlugs.some((slug) => slug === "industry.technology" || slug === "industry.other")
+    || !industryResolution.company_prior_known
+    || industryResolution.sources.includes("branch_fallback");
 
   const employmentTypeNodeSlugs = careerSlugs.filter((slug) => slug.startsWith("employment_type."));
   const careerNodeSlugsOnly = careerSlugs.filter((slug) => slug.startsWith("career_role."));
@@ -299,7 +411,11 @@ export function buildJobTaxonomy(input: JobTaxonomyInput) {
     legacy_industries: uniq([...input.industries, ...legacyIndustriesFromTaxonomy(industrySlugs)]) as string[],
     summary: {
       version: "taxonomy-mvp-v1",
-      company_slug: companySlug(input.company),
+      company_slug: industryResolution.company_slug,
+      company_prior_known: industryResolution.company_prior_known,
+      industry_resolution_sources: industryResolution.sources,
+      industry_pattern_matches: industryResolution.matched_pattern_slugs,
+      industry_fallback_branch_slug: industryResolution.fallback_branch_slug,
       industry_node_slugs: industrySlugs,
       job_function_node_slugs: jobFunctionSlugs,
       career_node_slugs: careerNodeSlugsOnly,

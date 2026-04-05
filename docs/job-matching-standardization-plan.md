@@ -2279,6 +2279,36 @@ Needed capabilities:
 - manually override mappings where needed
 - create new aliases or company priors from admin review
 
+### 10.18.1 Unknown company algorithm
+
+New `company_slug` values must not block classification.
+
+Deterministic handling:
+
+1. normalize the company name into a stable `company_slug`
+2. check `company_taxonomy_priors`
+3. if no company prior exists, classify `industry` from deterministic posting evidence:
+   - title
+   - team / department
+   - job description
+   - source metadata
+4. reduce to the strongest valid branch first, then leaf if evidence is sufficient
+5. if leaf confidence is weak, assign the parent branch instead of forcing a wrong leaf
+6. always emit at least one valid node for each required dimension
+7. mark the job for review when:
+   - the company has no known prior
+   - the result only reached a broad fallback branch
+   - the branch mix is unusually broad or contradictory
+8. when a new company recurs and review confirms a stable mapping:
+   - add or update `company_taxonomy_priors`
+   - add aliases if the posting introduced a new deterministic phrase family
+
+This guarantees:
+
+- the first job from a new company still classifies immediately
+- repeated jobs from the same company become more precise over time
+- company priors improve precision, but they are not a gate for ingestion
+
 ### 10.19 Verification plan
 
 Every material code batch should keep the existing repo verification rule:
