@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Link, X } from "lucide-react";
 import {
   APPLY_LAB_BROWSER_JOBS_KEY,
   HIDDEN_BROWSE_JOB_IDS_KEY,
@@ -27,6 +27,10 @@ export default function JobsPage() {
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
   const [showHiddenJobs, setShowHiddenJobs] = useState(false);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customUrl, setCustomUrl] = useState("");
+  const [customCompany, setCustomCompany] = useState("");
+  const [customTitle, setCustomTitle] = useState("");
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const LIMIT = 30;
@@ -243,6 +247,31 @@ export default function JobsPage() {
     });
   }
 
+  function handleAddCustomLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!customUrl.trim() || !customCompany.trim() || !customTitle.trim()) return;
+    const job: ApplyLabBrowserJob = {
+      id: `custom_${Date.now()}`,
+      portal: "other",
+      company: customCompany.trim(),
+      title: customTitle.trim(),
+      location: "",
+      apply_url: customUrl.trim(),
+      notes: "",
+    };
+    try {
+      const existing = JSON.parse(localStorage.getItem(APPLY_LAB_BROWSER_JOBS_KEY) ?? "[]") as ApplyLabBrowserJob[];
+      const merged = new Map(existing.map((j) => [j.apply_url, j]));
+      merged.set(job.apply_url, job);
+      localStorage.setItem(APPLY_LAB_BROWSER_JOBS_KEY, JSON.stringify([...merged.values()]));
+    } catch {
+      localStorage.setItem(APPLY_LAB_BROWSER_JOBS_KEY, JSON.stringify([job]));
+    }
+    setCustomUrl(""); setCustomCompany(""); setCustomTitle("");
+    setShowCustomForm(false);
+    router.push("/apply-lab");
+  }
+
   const hasFilters = selectedIndustries.length > 0 || selectedLevels.length > 0 || remoteOnly || search.length > 0;
   const selectedCount = selectedJobIds.size;
   const hiddenJobs = jobs.filter((job) => hiddenJobIds.has(job.id));
@@ -253,22 +282,89 @@ export default function JobsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-gray-400">
-              Browse jobs
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
-              Job Board
-            </h1>
+        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.24em] text-gray-400">
+                Browse jobs
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
+                Job Board
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search company or title…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors sm:w-64"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCustomForm((v) => !v)}
+                className={`flex items-center gap-1.5 h-10 px-3 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${
+                  showCustomForm
+                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                }`}
+                title="Add your own application link"
+              >
+                <Link className="w-3.5 h-3.5" />
+                Add link
+              </button>
+            </div>
           </div>
-          <input
-            type="text"
-            placeholder="Search company or title…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors sm:w-72"
-          />
+
+          {/* Custom link form */}
+          {showCustomForm && (
+            <form
+              onSubmit={handleAddCustomLink}
+              className="border-t border-gray-100 px-5 py-4 bg-indigo-50/40"
+            >
+              <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-3">Paste your own application link</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  required
+                  placeholder="Application URL"
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  className="h-9 flex-[2] rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Company"
+                  value={customCompany}
+                  onChange={(e) => setCustomCompany(e.target.value)}
+                  className="h-9 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Role title"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="h-9 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="submit"
+                  className="h-9 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                >
+                  Add to Apply Lab
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomForm(false)}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Filter bar */}

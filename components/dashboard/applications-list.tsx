@@ -469,13 +469,12 @@ export function ApplicationsList({ applications }: Props) {
       <div ref={leftPanelRef} className="relative min-w-0">
         {arrowTop !== null && selectedApplication ? (
           <div
-            className="pointer-events-none absolute right-[-1.8rem] z-20 hidden -translate-y-1/2 xl:block"
+            className="pointer-events-none absolute right-0 z-20 hidden -translate-y-1/2 xl:block"
             style={{ top: `${arrowTop}px` }}
             aria-hidden="true"
           >
-            <div className="h-16 w-9 rounded-r-full border border-l-0 border-indigo-200 bg-indigo-50/85 shadow-[10px_0_24px_rgba(79,70,229,0.12)]" />
-            <div className="absolute inset-y-2 left-0 w-px bg-gradient-to-b from-transparent via-indigo-300/80 to-transparent" />
-            <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-indigo-100/90 via-indigo-100/55 to-transparent" />
+            {/* Right-pointing triangle — clean connector between panels */}
+            <div className="border-y-[6px] border-l-[8px] border-y-transparent border-l-indigo-400" />
           </div>
         ) : null}
 
