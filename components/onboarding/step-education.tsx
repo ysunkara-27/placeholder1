@@ -50,10 +50,10 @@ export function StepEducation({
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-4xl leading-none text-ink">
           Education &amp; work authorization
         </h1>
-        <p className="text-gray-500">
+        <p className="text-dim leading-7">
           Portals like Workday pull your school details automatically.
         </p>
       </div>
@@ -79,22 +79,22 @@ export function StepEducation({
         />
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Second major / minor{" "}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-dim font-normal">(optional)</span>
           </label>
           <input
             type="text"
             placeholder="Statistics, Economics, etc."
             value={major2}
             onChange={(e) => onChange({ major2: e.target.value })}
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+            className="h-11 w-full rounded-xl border border-rim bg-white px-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors duration-150 shadow-soft-card"
           />
         </div>
 
         {/* Degree type pill grid */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Degree type</label>
+          <label className="text-sm font-medium text-ink">Degree type</label>
           <div className="flex flex-wrap gap-2">
             {DEGREE_OPTIONS.map((opt) => (
               <button
@@ -104,8 +104,8 @@ export function StepEducation({
                 className={cn(
                   "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-150",
                   degree === opt
-                    ? "border-indigo-600 bg-indigo-600 text-white"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    ? "border-accent bg-accent text-white shadow-warm"
+                    : "border-rim bg-white text-dim hover:border-accent/40 hover:text-ink"
                 )}
               >
                 {opt}
@@ -133,14 +133,14 @@ export function StepEducation({
       </div>
 
       {/* Work authorization section */}
-      <div className="space-y-4 border-t border-gray-100 pt-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <div className="space-y-4 border-t border-rim pt-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-dim">
           Work Authorization
         </p>
 
         {/* Yes / No sponsorship toggle */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Are you authorized to work in the US without sponsorship?
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -150,8 +150,8 @@ export function StepEducation({
               className={cn(
                 "rounded-xl border px-4 py-3 text-sm font-medium text-left transition-colors duration-150",
                 authorized_to_work
-                  ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  ? "border-accent bg-accent-wash text-accent"
+                  : "border-rim text-dim hover:border-accent/30 hover:text-ink"
               )}
             >
               Yes
@@ -162,8 +162,8 @@ export function StepEducation({
               className={cn(
                 "rounded-xl border px-4 py-3 text-sm font-medium text-left transition-colors duration-150",
                 !authorized_to_work
-                  ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  ? "border-accent bg-accent-wash text-accent"
+                  : "border-rim text-dim hover:border-accent/30 hover:text-ink"
               )}
             >
               No — I need sponsorship
@@ -173,7 +173,7 @@ export function StepEducation({
 
         {/* Visa / immigration status chips */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Visa / Immigration status
           </label>
           <div className="flex flex-wrap gap-2">
@@ -185,8 +185,8 @@ export function StepEducation({
                 className={cn(
                   "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-150",
                   visa_type === opt.value
-                    ? "bg-indigo-600 text-white border-indigo-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                    ? "bg-accent text-white border-accent shadow-warm"
+                    : "bg-white text-dim border-rim hover:border-accent/40 hover:text-ink"
                 )}
               >
                 {opt.label}

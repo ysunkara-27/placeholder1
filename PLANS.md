@@ -116,6 +116,30 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (Full UI Consistency Pass)
+
+Finished:
+
+- propagated the warm shared visual system through `/auth`, `/jobs`, `/profile`, and onboarding
+- updated shared controls (`button`, `input`, `textarea`, `badge`, `searchable-select`) so those pages now inherit one consistent interaction style
+- restyled onboarding/profile section shells, progress indicators, and form cards to match the existing site token system instead of the old gray/indigo form language
+- tightened browse jobs spacing and hierarchy so it reads cleaner without changing the feature layout
+
+Still blocked:
+
+- some secondary surfaces outside this pass still use older neutral styling and may benefit from the same cleanup later
+- this was a consistency/polish pass, not a full design-system refactor, so some component-level styling is still duplicated across feature modules
+
+Exact next step:
+
+- do a final polish pass on remaining surfaces like `/resume`, `/applied`, admin tools, and dashboard detail components so the entire product reads as one cohesive UI
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
 ## Current Bottlenecks
 
 The biggest remaining blockers to MVP are:

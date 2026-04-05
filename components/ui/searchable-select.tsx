@@ -76,38 +76,38 @@ export function SearchableSelect({
   return (
     <div className="flex flex-col gap-1.5 w-full" ref={containerRef}>
       {label && (
-        <label className="text-sm font-medium text-gray-700">{label}</label>
+        <label className="text-sm font-medium text-ink">{label}</label>
       )}
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-left flex items-center justify-between transition-colors duration-150",
-            "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent",
-            value ? "text-gray-900" : "text-gray-400"
+            "h-11 w-full rounded-xl border border-rim bg-white px-3 text-sm text-left flex items-center justify-between transition-colors duration-150 shadow-soft-card",
+            "focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40",
+            value ? "text-ink" : "text-dim"
           )}
         >
           <span className="truncate">{value ? displayLabel : placeholder}</span>
-          <ChevronDown className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform duration-150", open && "rotate-180")} />
+          <ChevronDown className={cn("w-4 h-4 text-dim shrink-0 transition-transform duration-150", open && "rotate-180")} />
         </button>
 
         {open && (
-          <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-            <div className="border-b border-gray-100">
+          <div className="absolute z-50 mt-1 w-full rounded-xl border border-rim bg-white shadow-warm overflow-hidden">
+            <div className="border-b border-rim">
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-full px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
+                className="w-full px-3 py-2 text-sm text-ink placeholder:text-dim/60 focus:outline-none bg-white"
               />
             </div>
             <div className="max-h-48 overflow-y-auto">
               {showFreeText && (
                 <div
-                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center justify-between px-3 py-2 text-sm text-ink hover:bg-surface cursor-pointer"
                   onMouseDown={() => select(query.trim())}
                 >
                   <span>Use: <span className="font-medium">{query.trim()}</span></span>
@@ -116,21 +116,21 @@ export function SearchableSelect({
               {filtered.map((opt) => (
                 <div
                   key={opt.value}
-                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center justify-between px-3 py-2 text-sm text-ink hover:bg-surface cursor-pointer"
                   onMouseDown={() => select(opt.value)}
                 >
                   <span>{opt.label}</span>
-                  {value === opt.value && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                  {value === opt.value && <Check className="w-4 h-4 text-accent shrink-0" />}
                 </div>
               ))}
               {!showFreeText && filtered.length === 0 && (
-                <div className="px-3 py-2 text-sm text-gray-400">No results</div>
+                <div className="px-3 py-2 text-sm text-dim">No results</div>
               )}
             </div>
           </div>
         )}
       </div>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="text-xs text-dim">{hint}</p>}
     </div>
   );
 }

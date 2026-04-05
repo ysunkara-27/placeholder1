@@ -44,10 +44,10 @@ export function StepProfile({
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-4xl leading-none text-ink">
           Let&apos;s start with you
         </h1>
-        <p className="text-gray-500">
+        <p className="text-dim leading-7">
           Basic contact info for your applications.
         </p>
       </div>
@@ -65,11 +65,11 @@ export function StepProfile({
 
         {/* Phone with flag+1 prefix */}
         <div className="flex flex-col gap-1.5 w-full">
-          <label className="text-sm font-medium text-gray-700">
-            Phone <span className="text-gray-400 font-normal">(optional)</span>
+          <label className="text-sm font-medium text-ink">
+            Phone <span className="text-dim font-normal">(optional)</span>
           </label>
           <div className="flex items-stretch">
-            <span className="inline-flex items-center rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 px-3 text-sm text-gray-500 select-none">
+            <span className="inline-flex items-center rounded-l-xl border border-r-0 border-rim bg-surface px-3 text-sm text-dim select-none shadow-soft-card">
               🇺🇸 +1
             </span>
             <input
@@ -79,10 +79,10 @@ export function StepProfile({
               value={phone}
               onChange={(e) => handlePhone(e.target.value)}
               autoComplete="tel-national"
-              className="h-10 flex-1 rounded-r-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+              className="h-11 flex-1 rounded-r-xl border border-rim bg-white px-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors duration-150 shadow-soft-card"
             />
           </div>
-          <p className="text-xs text-gray-400">SMS alerts · Reply YES to apply</p>
+          <p className="text-xs text-dim">SMS alerts · Reply YES to apply</p>
         </div>
 
         <SearchableSelect
@@ -125,11 +125,11 @@ export function StepProfile({
 
         {/* Divider */}
         <div className="relative flex items-center pt-2">
-          <div className="flex-grow border-t border-gray-100" />
-          <span className="mx-3 flex-shrink text-xs font-medium uppercase tracking-wider text-gray-400">
+          <div className="flex-grow border-t border-rim" />
+          <span className="mx-3 flex-shrink text-xs font-medium uppercase tracking-wider text-dim">
             Online presence (optional)
           </span>
-          <div className="flex-grow border-t border-gray-100" />
+          <div className="flex-grow border-t border-rim" />
         </div>
 
         <Input

@@ -21,19 +21,19 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ...props
     },
     ref
-  ) => {
+    ) => {
     const base =
-      "inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50 select-none";
+      "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none";
 
     const variants = {
       primary:
-        "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm",
+        "bg-accent text-white hover:bg-accent/90 active:bg-accent/95 shadow-warm",
       secondary:
-        "bg-white text-gray-800 border border-gray-200 hover:bg-gray-50 active:bg-gray-100 shadow-sm",
+        "bg-white text-ink border border-rim hover:bg-surface active:bg-surface shadow-soft-card",
       ghost:
-        "text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200",
+        "text-dim hover:text-ink hover:bg-surface active:bg-surface-strong",
       danger:
-        "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm",
+        "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-soft-card",
     };
 
     const sizes = {

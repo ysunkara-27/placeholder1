@@ -475,17 +475,43 @@ export default function OnboardingPage() {
 
   if (bootstrapping) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="h-8 w-8 rounded-full border-2 border-accent-wash border-t-accent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <main className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
-        <div className="w-full max-w-lg">
-          <div className="mb-8 flex justify-center">
+        <div className="w-full max-w-3xl">
+          <div className="rounded-[28px] border border-rim bg-white px-6 py-7 shadow-soft-card">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-dim">
+                  Build your Twin
+                </p>
+                <h1 className="text-4xl leading-none text-ink">
+                  Set up the profile once.
+                </h1>
+                <p className="max-w-xl text-sm leading-7 text-dim">
+                  Save the details applications keep asking for, keep the flow calm, and finish
+                  with a profile your Twin can actually execute with.
+                </p>
+              </div>
+              <div className="hidden sm:block">
+                <StepCircles
+                  steps={STEPS}
+                  currentIndex={stepIndex}
+                  unlockedStepIds={unlockedStepIds}
+                  onSelectStep={goToStep}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-[28px] border border-rim bg-white p-7 shadow-soft-card">
+          <div className="mb-8 flex justify-center sm:hidden">
             <StepCircles
               steps={STEPS}
               currentIndex={stepIndex}
@@ -574,7 +600,7 @@ export default function OnboardingPage() {
             </motion.div>
           </AnimatePresence>
 
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-rim">
             <Button variant="ghost" onClick={goBack} disabled={stepIndex === 0}>
               <ChevronLeft className="w-4 h-4" />
               Back
@@ -584,6 +610,7 @@ export default function OnboardingPage() {
               {isLast ? (saving ? "Saving..." : "Finish setup") : "Continue"}
               <ChevronRight className="w-4 h-4" />
             </Button>
+          </div>
           </div>
         </div>
       </main>
@@ -605,7 +632,7 @@ function StepCircles({
   onSelectStep: (index: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       {steps.map((step, i) => {
         const done = i < currentIndex;
         const active = i === currentIndex;
@@ -618,10 +645,10 @@ function StepCircles({
               disabled={!unlocked}
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
                 done
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-accent text-white"
                   : active
-                  ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
-                  : "bg-gray-100 text-gray-400"
+                  ? "bg-accent text-white ring-4 ring-accent-wash"
+                  : "bg-surface text-dim"
               } ${unlocked ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
               aria-label={`Step ${i + 1}: ${step.label}`}
             >
@@ -630,7 +657,7 @@ function StepCircles({
             {i < steps.length - 1 && (
               <div
                 className={`h-px w-6 transition-colors duration-300 ${
-                  done ? "bg-indigo-400" : "bg-gray-200"
+                  done ? "bg-accent/50" : "bg-rim"
                 }`}
               />
             )}

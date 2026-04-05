@@ -41,12 +41,12 @@ export function Badge({
           : undefined
       }
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full font-medium border transition-all duration-150",
+        "inline-flex items-center gap-1.5 rounded-full font-medium border transition-all duration-150 shadow-soft-card",
         sizes[size],
         isInteractive && "cursor-pointer select-none",
         selected
-          ? "bg-indigo-600 border-indigo-600 text-white"
-          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50",
+          ? "bg-accent border-accent text-white"
+          : "bg-white border-rim text-dim hover:border-accent/40 hover:bg-accent-wash hover:text-ink",
         className
       )}
     >

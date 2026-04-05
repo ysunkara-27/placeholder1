@@ -150,10 +150,10 @@ export function StepPreferences({
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-4xl leading-none text-ink">
           What are you looking for?
         </h1>
-        <p className="text-gray-500">
+        <p className="text-dim leading-7">
           Your Twin will only apply to jobs that match these filters.
         </p>
       </div>
@@ -185,25 +185,25 @@ export function StepPreferences({
                 onClick={() => toggleLevel(value as JobLevel)}
                 className={cn(
                   "flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-150",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1 shadow-soft-card",
                   isSelected
-                    ? "border-indigo-600 bg-indigo-50"
-                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                    ? "border-accent bg-accent-wash"
+                    : "border-rim bg-white hover:border-accent/30 hover:bg-surface"
                 )}
               >
                 <div
                   className={cn(
                     "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                     isSelected
-                      ? "border-indigo-600 bg-indigo-600 text-white"
-                      : "border-gray-300 bg-white"
+                      ? "border-accent bg-accent text-white"
+                      : "border-rim bg-white text-dim"
                   )}
                 >
                   {isSelected && <CheckCircle2 className="w-3 h-3" />}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900 text-sm">{label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+                  <p className="font-medium text-ink text-sm">{label}</p>
+                  <p className="text-xs text-dim mt-0.5">{description}</p>
                 </div>
               </button>
             );
@@ -215,7 +215,7 @@ export function StepPreferences({
       <SubSection label="Timing">
         <div className="space-y-4">
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-700">
+            <p className="mb-2 text-sm font-medium text-ink">
               Target terms
             </p>
             <div className="flex flex-wrap gap-2">
@@ -233,20 +233,20 @@ export function StepPreferences({
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-700">
+            <p className="mb-2 text-sm font-medium text-ink">
               Target years
             </p>
-            <div className="min-h-[44px] flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2">
+            <div className="min-h-[44px] flex flex-wrap gap-2 rounded-xl border border-rim bg-white p-2 shadow-soft-card">
               {targetYears.map((year) => (
                 <span
                   key={year}
-                  className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-1 text-sm font-medium text-indigo-700"
+                  className="inline-flex items-center gap-1 rounded-md bg-accent-wash border border-accent/20 px-2 py-1 text-sm font-medium text-accent"
                 >
                   {year}
                   <button
                     onClick={() => removeTargetYear(year)}
                     aria-label={`Remove ${year}`}
-                    className="ml-0.5 hover:text-indigo-900 transition-colors"
+                    className="ml-0.5 hover:text-ink transition-colors"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -265,7 +265,7 @@ export function StepPreferences({
                 placeholder={
                   targetYears.length === 0 ? "Add year, e.g. 2027" : ""
                 }
-                className="flex-1 min-w-[140px] bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+                className="flex-1 min-w-[140px] bg-transparent text-sm text-ink placeholder:text-dim/60 outline-none"
               />
             </div>
           </div>
@@ -281,7 +281,7 @@ export function StepPreferences({
               {locations.map((city) => (
                 <span
                   key={city}
-                  className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-sm font-medium text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-sm font-medium text-white shadow-warm"
                 >
                   <MapPin className="w-3 h-3 opacity-70" />
                   {city}
@@ -301,7 +301,7 @@ export function StepPreferences({
           <div className="space-y-3">
             {LOCATION_REGIONS.map((region) => (
               <div key={region.label}>
-                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-dim">
                   {region.label}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -333,7 +333,7 @@ export function StepPreferences({
               }}
               onBlur={() => addCustomLocation(cityInput)}
               placeholder="Add another city..."
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+              className="flex-1 rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors shadow-soft-card"
             />
           </div>
 
@@ -343,30 +343,30 @@ export function StepPreferences({
             className={cn(
               "flex items-center gap-3 rounded-xl border p-3 w-full text-left transition-all duration-150",
               remoteOk
-                ? "border-indigo-600 bg-indigo-50"
-                : "border-gray-200 bg-white hover:border-gray-300"
+                ? "border-accent bg-accent-wash shadow-soft-card"
+                : "border-rim bg-white hover:border-accent/30 shadow-soft-card"
             )}
           >
             <div
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                remoteOk ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-400"
+                remoteOk ? "bg-accent text-white" : "bg-surface text-dim"
               )}
             >
               <Wifi className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-medium text-sm text-gray-900">
+              <p className="font-medium text-sm text-ink">
                 Open to remote
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-dim">
                 Include fully remote positions
               </p>
             </div>
             <div
               className={cn(
                 "ml-auto h-5 w-9 rounded-full transition-colors duration-200 relative shrink-0",
-                remoteOk ? "bg-indigo-600" : "bg-gray-200"
+                remoteOk ? "bg-accent" : "bg-surface-strong"
               )}
             >
               <span
@@ -393,8 +393,8 @@ function SubSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-3 pt-6 border-t border-gray-100 first:border-t-0 first:pt-0">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+    <div className="space-y-3 pt-6 border-t border-rim first:border-t-0 first:pt-0">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-dim">
         {label}
       </h3>
       {children}

@@ -105,8 +105,8 @@ function ChipGroup({
           className={cn(
             "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150",
             selected === opt
-              ? "border-indigo-600 bg-indigo-600 text-white"
-              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+              ? "border-accent bg-accent text-white shadow-warm"
+              : "border-rim bg-white text-dim hover:border-accent/30 hover:bg-surface"
           )}
         >
           {opt}
@@ -131,11 +131,11 @@ function SelectField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label className="text-sm font-medium text-ink">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+        className="w-full rounded-xl border border-rim bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors duration-150 shadow-soft-card"
       >
         <option value="">{placeholder ?? "Select…"}</option>
         {options.map((o) => (
@@ -177,10 +177,10 @@ export function StepAutofill({ eeo, onChange }: Props) {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-4xl leading-none text-ink">
           Application autofill
         </h1>
-        <p className="text-gray-500">
+        <p className="text-dim leading-7">
           Most applications require these fields. Your Twin pre-fills them
           automatically — saving you time on every form.
         </p>
@@ -193,19 +193,19 @@ export function StepAutofill({ eeo, onChange }: Props) {
       <div className="space-y-6">
         {/* Pronouns */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Pronouns</label>
+          <label className="text-sm font-medium text-ink">Pronouns</label>
           <input
             type="text"
             placeholder="e.g. they/them, she/her"
             value={val("pronouns")}
             onChange={(e) => patch("pronouns", e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-150"
+            className="w-full rounded-xl border border-rim bg-white px-4 py-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors duration-150 shadow-soft-card"
           />
         </div>
 
         {/* Gender identity */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Gender identity
           </label>
           <ChipGroup
@@ -217,7 +217,7 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Race / Ethnicity */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Race / Ethnicity
           </label>
           <ChipGroup
@@ -229,7 +229,7 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Veteran status */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Veteran status
           </label>
           <ChipGroup
@@ -241,7 +241,7 @@ export function StepAutofill({ eeo, onChange }: Props) {
 
         {/* Disability status */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Disability status
           </label>
           <ChipGroup
@@ -251,9 +251,9 @@ export function StepAutofill({ eeo, onChange }: Props) {
           />
           {hasDisability && (
             <div className="mt-2 flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-gray-500">
+              <label className="text-xs font-medium text-dim">
                 Condition type{" "}
-                <span className="text-gray-400 font-normal">
+                <span className="text-dim/80 font-normal">
                   (select the most accurate — used when applications show a
                   prepopulated list)
                 </span>
@@ -268,11 +268,11 @@ export function StepAutofill({ eeo, onChange }: Props) {
         </div>
 
         {/* Academic scores */}
-        <div className="space-y-3 border-t border-gray-100 pt-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+        <div className="space-y-3 border-t border-rim pt-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-dim">
             Academic scores
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-dim">
             Some applications ask for ranges rather than exact numbers. Pre-fill
             these so your Twin selects the right bucket automatically.
           </p>

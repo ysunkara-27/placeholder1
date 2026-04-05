@@ -252,29 +252,32 @@ export default function JobsPage() {
 
   return (
     <div className="min-h-screen bg-canvas bg-dot-warm">
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-5">
-        <div className="rounded-2xl border border-rim bg-white shadow-soft-card overflow-hidden">
-          <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+        <div className="rounded-[28px] border border-rim bg-white shadow-soft-card overflow-hidden">
+          <div className="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-dim">
+              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-dim">
                 Browse jobs
               </p>
-              <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 28, "SOFT" 0' }}>
+              <h1 className="mt-2 text-4xl leading-none text-ink">
                 Job Board
               </h1>
+              <p className="mt-2 text-sm text-dim">
+                Scan matched openings, filter quickly, and queue the strongest ones for apply.
+              </p>
             </div>
             <input
               type="text"
               placeholder="Search company or title…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-10 w-full rounded-lg border border-rim bg-white px-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-colors sm:w-64"
+              className="h-11 w-full rounded-xl border border-rim bg-white px-4 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors shadow-soft-card sm:w-72"
             />
           </div>
         </div>
 
         {/* Filter bar */}
-        <div className="space-y-2.5">
+        <div className="rounded-[28px] border border-rim bg-white p-5 shadow-soft-card space-y-4">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-[10px] font-semibold text-dim uppercase tracking-[0.2em] mr-1">Industries</span>
             {INDUSTRY_OPTIONS.map((opt) => (
@@ -384,7 +387,7 @@ export default function JobsPage() {
 
         {/* Empty state */}
         {!loading && visibleJobs.length === 0 && (
-          <div className="rounded-2xl border border-rim bg-white px-6 py-14 text-center space-y-2">
+          <div className="rounded-[28px] border border-rim bg-white px-6 py-14 text-center space-y-2 shadow-soft-card">
             <p className="text-sm font-medium text-ink">No jobs match your filters.</p>
             <p className="text-xs text-dim">Try removing some filters or check back later.</p>
           </div>
@@ -418,7 +421,7 @@ export default function JobsPage() {
                       toggleJobSelection(job.id);
                     }
                   }}
-                  className={`animate-rise ${delayClass} rounded-2xl border px-4 py-3.5 transition-colors shadow-soft-card ${
+                  className={`animate-rise ${delayClass} rounded-[24px] border px-5 py-4 transition-colors shadow-soft-card ${
                     isSelected
                       ? "border-accent/40 bg-accent-wash"
                       : isHidden
@@ -513,7 +516,7 @@ export default function JobsPage() {
             <button
               type="button"
               onClick={handleLoadMore}
-              className="rounded-full border border-rim bg-white px-6 py-2 text-sm text-dim hover:border-accent/30 hover:bg-surface transition-colors"
+              className="rounded-full border border-rim bg-white px-6 py-2.5 text-sm text-dim hover:border-accent/30 hover:bg-surface transition-colors shadow-soft-card"
             >
               Load more
             </button>

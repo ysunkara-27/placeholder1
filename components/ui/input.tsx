@@ -19,14 +19,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-sm font-medium text-gray-700"
+            className="text-sm font-medium text-ink"
           >
             {label}
           </label>
         )}
         <div className="relative">
           {leading && (
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-dim">
               {leading}
             </div>
           )}
@@ -34,11 +34,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              "h-10 w-full rounded-lg border bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400",
+              "h-11 w-full rounded-xl border bg-white px-3 text-sm text-ink placeholder:text-dim/60 shadow-soft-card",
               "transition-colors duration-150",
-              "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent",
+              "focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              error ? "border-red-400 focus:ring-red-400" : "border-gray-200",
+              error ? "border-red-400 focus:ring-red-200" : "border-rim",
               leading && "pl-9",
               className
             )}
@@ -46,7 +46,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           />
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-400">{hint}</p>}
+        {hint && !error && <p className="text-xs text-dim">{hint}</p>}
       </div>
     );
   }

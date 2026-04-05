@@ -298,21 +298,21 @@ export default function ProfilePage() {
 
   if (bootstrapping) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="h-8 w-8 rounded-full border-2 border-accent-wash border-t-accent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <main className="flex-1 flex items-start justify-center px-4 py-12 overflow-y-auto">
         <div className="w-full max-w-5xl flex gap-10">
 
           {/* ── Sticky sidebar ─────────────────────────────────────────── */}
           <aside className="hidden lg:block w-44 shrink-0">
             <div className="sticky top-8">
-              <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-dim">
                 Edit profile
               </p>
               <nav className="space-y-0.5">
@@ -323,16 +323,16 @@ export default function ProfilePage() {
                     className={cn(
                       "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150",
                       activeSection === i
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                        ? "bg-accent-wash text-accent"
+                        : "text-dim hover:bg-surface hover:text-ink"
                     )}
                   >
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
                         activeSection === i
-                          ? "bg-indigo-600 text-white"
-                          : "bg-gray-100 text-gray-400"
+                          ? "bg-accent text-white"
+                          : "bg-surface text-dim"
                       )}
                     >
                       {i + 1}
@@ -355,10 +355,10 @@ export default function ProfilePage() {
             )}
 
             <div className="space-y-1">
-              <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+              <h1 className="text-4xl leading-none text-ink">
                 Edit profile
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-dim">
                 Update anything that changed.
               </p>
             </div>
@@ -514,15 +514,15 @@ function EditSection({
   return (
     <section
       ref={sectionRef}
-      className="scroll-mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+      className="scroll-mt-8 rounded-[28px] border border-rim bg-white p-6 shadow-soft-card"
     >
       <div className="mb-6 flex items-start gap-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
           {stepNumber}
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">{hint}</p>
+          <h2 className="text-2xl leading-none text-ink">{title}</h2>
+          <p className="mt-1 text-sm text-dim">{hint}</p>
         </div>
       </div>
       {children}
@@ -583,8 +583,8 @@ function ProfileResumeSection({
       {/* PDF upload */}
       <div className="space-y-3">
         <div>
-          <p className="text-sm font-medium text-gray-700">Resume (PDF)</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-sm font-medium text-ink">Resume (PDF)</p>
+          <p className="text-xs text-dim mt-0.5">
             One file, used across all applications.
           </p>
         </div>
@@ -619,20 +619,20 @@ function ProfileResumeSection({
             className={cn(
               "flex items-center gap-3 w-full rounded-xl border-2 border-dashed px-4 py-6 text-left transition-colors duration-150",
               uploading
-                ? "border-indigo-200 bg-indigo-50 cursor-wait"
-                : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
+                ? "border-accent/20 bg-accent-wash cursor-wait"
+                : "border-rim bg-white hover:border-accent/30 hover:bg-surface cursor-pointer shadow-soft-card"
             )}
           >
             {uploading ? (
-              <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+              <Loader2 className="w-5 h-5 text-accent animate-spin" />
             ) : (
-              <FileText className="w-5 h-5 text-gray-400" />
+              <FileText className="w-5 h-5 text-accent" />
             )}
             <div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-ink">
                 {uploading ? "Uploading…" : "Click to upload PDF"}
               </p>
-              <p className="text-xs text-gray-400">PDF only</p>
+              <p className="text-xs text-dim">PDF only</p>
             </div>
           </button>
         )}
@@ -655,13 +655,13 @@ function ProfileResumeSection({
       </div>
 
       {/* Cover letter */}
-      <div className="space-y-3 border-t border-gray-100 pt-6">
+      <div className="space-y-3 border-t border-rim pt-6">
         <div>
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Cover letter template{" "}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-dim font-normal">(optional)</span>
           </label>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-dim mt-0.5">
             Your Twin will use this as a base and tailor it for each
             application. Leave blank to skip cover letters. Max{" "}
             {MAX_COVER_LETTER_CHARS.toLocaleString()} characters.
@@ -673,11 +673,11 @@ function ProfileResumeSection({
           placeholder={"Dear Hiring Manager,\n\nI'm excited to apply for..."}
           rows={6}
           maxLength={MAX_COVER_LETTER_CHARS}
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors duration-150"
+          className="w-full rounded-xl border border-rim bg-white px-4 py-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 resize-none transition-colors duration-150 shadow-soft-card"
         />
         <div className="flex justify-end">
           <p
-            className={`text-xs ${nearLimit ? "text-amber-600" : "text-gray-400"}`}
+            className={`text-xs ${nearLimit ? "text-amber-600" : "text-dim"}`}
           >
             {coverLetterLength.toLocaleString()} /{" "}
             {MAX_COVER_LETTER_CHARS.toLocaleString()}
@@ -708,23 +708,23 @@ function ProfileCompleteness({ form, userEmail }: { form: FormState; userEmail: 
   const pct = Math.round((filledCount / fields.length) * 100);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
+    <div className="rounded-[28px] border border-rim bg-white p-5 shadow-soft-card space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-gray-900">Profile completeness</p>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="text-sm font-semibold text-ink">Profile completeness</p>
+          <p className="mt-0.5 text-xs text-dim">
             {filledCount === fields.length
               ? "All fields filled — Twin can handle the full application range."
               : `${filledCount} of ${fields.length} fields filled. Missing fields cause blocked applications.`}
           </p>
         </div>
-        <span className={`text-sm font-bold tabular-nums ${pct === 100 ? "text-green-600" : pct >= 70 ? "text-indigo-600" : "text-red-500"}`}>
+        <span className={`text-sm font-bold tabular-nums ${pct === 100 ? "text-green-600" : pct >= 70 ? "text-accent" : "text-red-500"}`}>
           {pct}%
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 w-full rounded-full bg-surface overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : pct >= 70 ? "bg-indigo-500" : "bg-red-400"}`}
+          className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : pct >= 70 ? "bg-accent" : "bg-red-400"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -732,13 +732,13 @@ function ProfileCompleteness({ form, userEmail }: { form: FormState; userEmail: 
         {fields.map((field) => (
           <div
             key={field.label}
-            className={`flex items-start gap-1.5 rounded-lg px-2.5 py-2 ${field.filled ? "bg-gray-50" : "bg-red-50 border border-red-100"}`}
+            className={`flex items-start gap-1.5 rounded-lg px-2.5 py-2 ${field.filled ? "bg-surface" : "bg-red-50 border border-red-100"}`}
           >
             <span className={`mt-0.5 text-xs shrink-0 ${field.filled ? "text-green-500" : "text-red-400"}`}>
               {field.filled ? "✓" : "✗"}
             </span>
             <div className="min-w-0">
-              <p className={`text-xs font-medium truncate ${field.filled ? "text-gray-700" : "text-red-700"}`}>
+              <p className={`text-xs font-medium truncate ${field.filled ? "text-ink" : "text-red-700"}`}>
                 {field.label}
               </p>
               {!field.filled && (

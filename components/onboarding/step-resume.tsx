@@ -99,10 +99,10 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
     return (
       <div className="space-y-8">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+          <h1 className="text-4xl leading-none text-ink">
             Upload your resume
           </h1>
-          <p className="text-gray-500">
+          <p className="text-dim leading-7">
             We&apos;ll parse every bullet so you can choose what stays locked and
             what your Twin can tailor per job.
           </p>
@@ -110,16 +110,16 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
 
         <PdfUploader onParsed={(text, file) => handlePdfParsed(text, file)} />
 
-        <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-1.5">
-          <p className="text-sm font-medium text-gray-700">What happens next:</p>
+        <div className="rounded-xl border border-rim bg-surface p-4 space-y-1.5 shadow-soft-card">
+          <p className="text-sm font-medium text-ink">What happens next:</p>
           <ul className="space-y-1">
             {[
               "Claude parses your resume into structured sections",
               "You mark each bullet as Locked (verbatim) or Flexible (optimize per job)",
               "Your Twin uses this to tailor every application automatically",
             ].map((step, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-500">
-                <span className="text-indigo-400 shrink-0 mt-0.5">{i + 1}.</span>
+              <li key={i} className="flex items-start gap-2 text-sm text-dim">
+                <span className="text-accent shrink-0 mt-0.5">{i + 1}.</span>
                 {step}
               </li>
             ))}
@@ -133,20 +133,20 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
     return (
       <div className="space-y-8">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+          <h1 className="text-4xl leading-none text-ink">
             Reading your resume...
           </h1>
-          <p className="text-gray-500">This takes a few seconds.</p>
+          <p className="text-dim">This takes a few seconds.</p>
         </div>
 
         <div className="flex flex-col items-center justify-center py-16 gap-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+            <div className="w-16 h-16 rounded-full border-4 border-accent-wash border-t-accent animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-indigo-300 animate-spin" style={{ animationDirection: "reverse" }} />
+              <Loader2 className="w-6 h-6 text-accent/40 animate-spin" style={{ animationDirection: "reverse" }} />
             </div>
           </div>
-          <p className="text-sm text-gray-500 animate-fade-in text-center">
+          <p className="text-sm text-dim animate-fade-in text-center">
             {structuringMsg}
           </p>
         </div>
@@ -158,10 +158,10 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
     return (
       <div className="space-y-8">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+          <h1 className="text-4xl leading-none text-ink">
             Couldn&apos;t parse your resume
           </h1>
-          <p className="text-gray-500">
+          <p className="text-dim leading-7">
             {error ?? "Something went wrong. Try again or use the chat builder."}
           </p>
         </div>
@@ -169,14 +169,14 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
         <div className="flex flex-col gap-3">
           <button
             onClick={() => { setPhase("upload"); setError(null); }}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors"
+            className="rounded-xl border border-rim bg-white px-4 py-3 text-sm font-medium text-ink hover:border-accent/30 transition-colors shadow-soft-card"
           >
             Try a different PDF
           </button>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-dim">
             If your PDF is image-based, try converting it to text first using{" "}
-            <span className="font-medium text-gray-700">Adobe Acrobat</span> or{" "}
-            <span className="font-medium text-gray-700">Smallpdf</span>, then re-upload.
+            <span className="font-medium text-ink">Adobe Acrobat</span> or{" "}
+            <span className="font-medium text-ink">Smallpdf</span>, then re-upload.
           </p>
         </div>
       </div>
@@ -187,10 +187,10 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-4xl leading-none text-ink">
           Lock what matters, flex the rest
         </h1>
-        <p className="text-gray-500">
+        <p className="text-dim leading-7">
           Your Twin can optimize flexible bullets for each job&apos;s keywords.
           Lock anything that must stay exactly as-is.
         </p>
@@ -201,13 +201,13 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
         onChange={onChange}
       />
 
-      <div className="space-y-3 border-t border-gray-100 pt-6">
+      <div className="space-y-3 border-t border-rim pt-6">
         <div>
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             Cover letter template{" "}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-dim font-normal">(optional)</span>
           </label>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-dim mt-0.5">
             Your Twin will use this as a base and tailor it for each application.
             Leave blank to skip cover letters. Max {MAX_COVER_LETTER_CHARS.toLocaleString()} characters.
           </p>
@@ -218,10 +218,10 @@ export function StepResume({ value, onChange, onResumeUrl, userId, coverLetter, 
           placeholder={"Dear Hiring Manager,\n\nI'm excited to apply for..."}
           rows={6}
           maxLength={MAX_COVER_LETTER_CHARS}
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-colors duration-150"
+          className="w-full rounded-xl border border-rim bg-white px-4 py-3 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 resize-none transition-colors duration-150 shadow-soft-card"
         />
         <div className="flex justify-end">
-          <p className={`text-xs ${nearCoverLetterLimit ? "text-amber-600" : "text-gray-400"}`}>
+          <p className={`text-xs ${nearCoverLetterLimit ? "text-amber-600" : "text-dim"}`}>
             {coverLetterLength.toLocaleString()} / {MAX_COVER_LETTER_CHARS.toLocaleString()}
           </p>
         </div>
