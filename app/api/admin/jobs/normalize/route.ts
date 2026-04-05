@@ -5,8 +5,8 @@ export const runtime = "nodejs";
 
 const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 
-// Groq free tier — fast, generous limits, no cost
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// gemini-2.0-flash-lite: cheapest Gemini model, ~$0.02/1M tokens
+const GEMINI_MODEL = "gemini-2.0-flash-lite";
 
 async function assertAdmin(): Promise<NextResponse | null> {
   const supabase = await getSupabaseServerClient();
@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
   const denied = await assertAdmin();
   if (denied) return denied;
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "GROQ_API_KEY not configured" }, { status: 500 });
+    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
   }
 
   const { company, title, level, location } = await request.json() as {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     location: string;
   };
 
-  const prompt = `Normalize this job posting data scraped from the web. Return ONLY valid JSON, no markdown, no explanation.
+  const prompt = `Normalize this job posting data scraped from the web. Return ONLY valid JSON, no markdown.
 
 Input:
 company: "${company}"
@@ -50,30 +50,31 @@ Rules:
 Return a JSON object containing ONLY the fields that actually need changing. If a field looks fine already, omit it entirely.
 Example: {"company": "Stripe", "title": "Software Engineer Intern"}`;
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0,
-      max_tokens: 256,
-      response_format: { type: "json_object" },
-    }),
-  });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0,
+          maxOutputTokens: 256,
+        },
+      }),
+    }
+  );
 
   if (!res.ok) {
     const err = await res.text();
-    return NextResponse.json({ error: `Groq error: ${err}` }, { status: 502 });
+    return NextResponse.json({ error: `Gemini error: ${err}` }, { status: 502 });
   }
 
   const data = await res.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
-  const text = data.choices?.[0]?.message?.content ?? "{}";
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
   try {
     const suggestions = JSON.parse(text) as Record<string, string>;
