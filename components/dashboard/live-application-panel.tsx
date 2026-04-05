@@ -24,8 +24,8 @@ const LEVEL_STYLES: Record<string, string> = {
   error: "text-red-600",
   warn: "text-amber-600",
   success: "text-green-700 font-semibold",
-  confirmation: "text-indigo-700 font-semibold",
-  info: "text-gray-600",
+  confirmation: "text-accent font-semibold",
+  info: "text-dim",
 };
 
 function LogLine({ event }: { event: LogEvent }) {
@@ -37,7 +37,7 @@ function LogLine({ event }: { event: LogEvent }) {
   });
   return (
     <div className="flex items-start gap-2 py-0.5">
-      <span className="shrink-0 text-[10px] text-gray-300 font-mono mt-0.5 w-16">{time}</span>
+      <span className="mt-0.5 w-16 shrink-0 font-mono text-[10px] text-dim/60">{time}</span>
       <span className={`text-xs ${colorClass}`}>{event.msg}</span>
     </div>
   );
@@ -88,7 +88,7 @@ export function LiveApplicationPanel({
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+      <div className="rounded-2xl border border-rim bg-white p-5 text-sm text-dim shadow-soft-card">
         Response sent — your Twin will act on it momentarily.
       </div>
     );
@@ -96,16 +96,16 @@ export function LiveApplicationPanel({
 
   return (
     <div
-      className={`rounded-2xl border bg-white overflow-hidden ${
+      className={`overflow-hidden rounded-2xl border bg-white shadow-soft-card ${
         isAwaiting
-          ? "border-indigo-300 shadow-lg shadow-indigo-50"
-          : "border-gray-200"
+          ? "border-accent/30 shadow-warm"
+          : "border-rim"
       }`}
     >
       {/* Header */}
       <div
         className={`px-5 py-3 flex items-center justify-between ${
-          isAwaiting ? "bg-indigo-600" : "bg-gray-800"
+          isAwaiting ? "bg-accent" : "bg-ink"
         }`}
       >
         <div className="flex items-center gap-2">
@@ -128,23 +128,23 @@ export function LiveApplicationPanel({
         </span>
       </div>
 
-      <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+      <div className="grid divide-y divide-rim sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {/* Live log feed */}
-        <div className="p-4 bg-gray-950">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">
+        <div className="bg-ink p-4">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-dim/80">
             Live log
           </p>
           <div className="space-y-0.5 max-h-56 overflow-y-auto">
             {logs.length === 0 ? (
-              <p className="text-xs text-gray-600 italic">Starting up…</p>
+              <p className="text-xs italic text-dim/80">Starting up…</p>
             ) : (
               logs.map((e, i) => <LogLine key={i} event={e} />)
             )}
             {isRunning && (
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="h-1 w-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-1 w-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-1 w-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "0ms" }} />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "150ms" }} />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "300ms" }} />
               </div>
             )}
           </div>
@@ -155,7 +155,7 @@ export function LiveApplicationPanel({
           {isAwaiting ? (
             <>
               {application.preview_screenshot ? (
-                <div className="rounded-xl overflow-hidden border border-gray-200 flex-1">
+                <div className="flex-1 overflow-hidden rounded-xl border border-rim">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`data:image/png;base64,${application.preview_screenshot}`}
@@ -164,16 +164,16 @@ export function LiveApplicationPanel({
                   />
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 flex-1 flex items-center justify-center text-xs text-gray-400 min-h-[80px]">
+                <div className="flex min-h-[80px] flex-1 items-center justify-center rounded-xl border border-dashed border-rim text-xs text-dim">
                   No preview available
                 </div>
               )}
 
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-ink">
                   Ready to submit — confirm or cancel
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-dim">
                   Your Twin filled every required field. Review the screenshot
                   above, then approve or abort.
                 </p>
@@ -181,30 +181,30 @@ export function LiveApplicationPanel({
                   <button
                     onClick={handleConfirm}
                     disabled={confirming || cancelling}
-                    className="flex-1 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
                   >
                     {confirming ? "Confirming…" : "Confirm & Submit"}
                   </button>
                   <button
                     onClick={handleCancel}
                     disabled={confirming || cancelling}
-                    className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    className="rounded-full border border-rim px-4 py-2 text-sm font-medium text-dim transition-colors hover:bg-surface disabled:opacity-50"
                   >
                     {cancelling ? "Cancelling…" : "Cancel"}
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-[10px] text-dim">
                   Auto-cancels in 5 minutes if no response.
                 </p>
               </div>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-4 text-center">
-              <div className="h-10 w-10 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-              <p className="text-sm text-gray-600">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent-wash border-t-accent" />
+              <p className="text-sm text-dim">
                 Filling the application form…
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-dim">
                 A confirmation prompt will appear here before anything is submitted.
               </p>
             </div>

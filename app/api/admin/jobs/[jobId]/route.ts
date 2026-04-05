@@ -5,6 +5,7 @@ import { getSupabaseEnv } from "@/lib/env";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 

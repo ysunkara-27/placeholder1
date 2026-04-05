@@ -63,18 +63,18 @@ function AppliedPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-dim transition-colors hover:text-ink">
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </Link>
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Applied jobs</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Applied jobs</h1>
+          <p className="mt-1 text-sm text-dim">
             {total > 0 ? `${total} application${total !== 1 ? "s" : ""} submitted` : "No applications yet"}
           </p>
         </div>
@@ -82,36 +82,36 @@ function AppliedPageContent() {
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-gray-200 bg-white px-5 py-4 animate-pulse">
-                <div className="h-4 w-48 rounded bg-gray-200" />
-                <div className="mt-2 h-3 w-32 rounded bg-gray-100" />
-                <div className="mt-2 h-3 w-24 rounded bg-gray-100" />
+              <div key={i} className="animate-pulse rounded-xl border border-rim bg-white px-5 py-4 shadow-soft-card">
+                <div className="h-4 w-48 rounded bg-surface-strong" />
+                <div className="mt-2 h-3 w-32 rounded bg-surface" />
+                <div className="mt-2 h-3 w-24 rounded bg-surface" />
               </div>
             ))}
           </div>
         ) : applications.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center space-y-2">
-            <p className="text-sm font-medium text-gray-700">No applied jobs yet</p>
-            <p className="text-xs text-gray-400">Applications you submit will appear here.</p>
-            <Link href="/jobs" className="mt-3 inline-flex text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+          <div className="space-y-2 rounded-xl border border-dashed border-rim bg-white px-6 py-12 text-center shadow-soft-card">
+            <p className="text-sm font-medium text-ink">No applied jobs yet</p>
+            <p className="text-xs text-dim">Applications you submit will appear here.</p>
+            <Link href="/jobs" className="mt-3 inline-flex text-xs font-medium text-accent hover:text-accent/80">
               Browse jobs →
             </Link>
           </div>
         ) : (
           <div className="space-y-2">
             {applications.map((app) => (
-              <div key={app.id} className="rounded-xl border border-gray-200 bg-white px-5 py-4 flex items-start justify-between gap-4">
+              <div key={app.id} className="flex items-start justify-between gap-4 rounded-xl border border-rim bg-white px-5 py-4 shadow-soft-card">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="truncate text-sm font-semibold text-ink">
                     {app.job?.title ?? "—"}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{app.job?.company ?? "—"}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                  <p className="mt-0.5 text-xs text-dim">{app.job?.company ?? "—"}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-dim">
                     {app.job?.location && <span>{app.job.location}</span>}
                     {app.job?.remote && <span>Remote</span>}
                     {app.job?.level && <span className="capitalize">{app.job.level}</span>}
                     {app.job?.portal && (
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500 uppercase tracking-wide font-medium">
+                      <span className="rounded bg-surface px-1.5 py-0.5 font-medium uppercase tracking-wide text-dim">
                         {app.job.portal}
                       </span>
                     )}
@@ -123,7 +123,7 @@ function AppliedPageContent() {
                     href={app.job.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs text-accent transition-colors hover:text-accent/80"
                   >
                     View
                     <ExternalLink className="h-3 w-3" />
@@ -137,14 +137,14 @@ function AppliedPageContent() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-2">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-dim">
               Page {page} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Previous
@@ -152,7 +152,7 @@ function AppliedPageContent() {
               <button
                 onClick={() => goToPage(page + 1)}
                 disabled={page >= totalPages}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -168,8 +168,8 @@ function AppliedPageContent() {
 export default function AppliedPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-wash border-t-accent" />
       </div>
     }>
       <AppliedPageContent />

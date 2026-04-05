@@ -56,11 +56,11 @@ type DraftState = {
 
 const STATUS_STYLES: Record<string, { dot: string; label: string; text: string; surface: string }> = {
   applied: { dot: "bg-green-500", label: "Applied", text: "text-green-700", surface: "bg-green-50" },
-  queued: { dot: "bg-amber-400", label: "Queued", text: "text-amber-700", surface: "bg-amber-50" },
-  running: { dot: "bg-blue-500", label: "Running", text: "text-blue-700", surface: "bg-blue-50" },
-  requires_auth: { dot: "bg-indigo-500", label: "Auth needed", text: "text-indigo-700", surface: "bg-indigo-50" },
-  skipped: { dot: "bg-gray-300", label: "Skipped", text: "text-gray-500", surface: "bg-gray-100" },
-  expired: { dot: "bg-gray-200", label: "Expired", text: "text-gray-400", surface: "bg-gray-100" },
+  queued: { dot: "bg-accent", label: "Queued", text: "text-accent", surface: "bg-accent-wash" },
+  running: { dot: "bg-accent", label: "Running", text: "text-accent", surface: "bg-accent-wash" },
+  requires_auth: { dot: "bg-accent", label: "Auth needed", text: "text-accent", surface: "bg-accent-wash" },
+  skipped: { dot: "bg-rim", label: "Skipped", text: "text-dim", surface: "bg-surface" },
+  expired: { dot: "bg-rim", label: "Expired", text: "text-dim", surface: "bg-surface" },
   failed: { dot: "bg-red-400", label: "Failed", text: "text-red-600", surface: "bg-red-50" },
 } as const;
 
@@ -232,28 +232,28 @@ function orderProfileKeys(keys: string[]) {
 
 function EmptyState() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-6 py-14 flex flex-col items-center gap-5 text-center">
+    <div className="flex flex-col items-center gap-5 rounded-xl border border-rim bg-white px-6 py-14 text-center shadow-soft-card">
       <div className="relative flex items-center justify-center">
-        <span className="absolute h-16 w-16 rounded-full border-2 border-indigo-200 animate-ping opacity-40" />
+        <span className="absolute h-16 w-16 animate-ping rounded-full border-2 border-accent/20 opacity-40" />
         <span
-          className="absolute h-12 w-12 rounded-full border-2 border-indigo-300 animate-ping opacity-30"
+          className="absolute h-12 w-12 animate-ping rounded-full border-2 border-accent/30 opacity-30"
           style={{ animationDelay: "0.3s" }}
         />
-        <div className="relative h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
           AA
         </div>
       </div>
 
       <div className="space-y-1">
-        <p className="text-sm font-semibold text-gray-900">No applications yet</p>
-        <p className="text-sm text-gray-400 max-w-xs">
+        <p className="text-sm font-semibold text-ink">No applications yet</p>
+        <p className="max-w-xs text-sm text-dim">
           Queue a job from Browse Jobs first, then come back here to verify and edit the exact application payload.
         </p>
       </div>
 
       <Link
         href="/jobs"
-        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium underline underline-offset-2 transition-colors"
+        className="text-sm font-medium text-accent underline underline-offset-2 transition-colors hover:text-accent/80"
       >
         Open browse jobs →
       </Link>
@@ -473,33 +473,32 @@ export function ApplicationsList({ applications }: Props) {
             style={{ top: `${arrowTop}px` }}
             aria-hidden="true"
           >
-            {/* Right-pointing triangle — clean connector between panels */}
-            <div className="border-y-[6px] border-l-[8px] border-y-transparent border-l-indigo-400" />
+            <div className="border-y-[6px] border-l-[8px] border-y-transparent border-l-accent/70" />
           </div>
         ) : null}
 
-        <div className="min-w-0 overflow-hidden rounded-l-xl rounded-r-none border border-r-0 border-gray-200 bg-white xl:max-h-[calc(100vh-12rem)] xl:min-h-[calc(100vh-12rem)]">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-indigo-500">
+        <div className="min-w-0 overflow-hidden rounded-l-xl rounded-r-none border border-r-0 border-rim bg-white shadow-soft-card xl:max-h-[calc(100vh-12rem)] xl:min-h-[calc(100vh-12rem)]">
+          <div className="border-b border-rim px-5 py-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
               Verification Editor
             </p>
-            <h3 className="mt-1 text-lg font-semibold text-gray-900">
+            <h3 className="mt-1 text-lg font-semibold text-ink">
               Queued Jobs
             </h3>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-dim">
               Select an application to edit its exact submission payload.
             </p>
           </div>
           <div
             ref={queueViewportRef}
-            className="divide-y divide-gray-100 overflow-y-auto xl:max-h-[calc(100vh-16.5rem)]"
+            className="divide-y divide-rim overflow-y-auto xl:max-h-[calc(100vh-16.5rem)]"
           >
             {localApplications.map((application) => {
               const style = STATUS_STYLES[application.status] ?? {
-                dot: "bg-gray-300",
+                dot: "bg-rim",
                 label: application.status.replaceAll("_", " "),
-                text: "text-gray-600",
-                surface: "bg-gray-100",
+                text: "text-dim",
+                surface: "bg-surface",
               };
               const isSelected = selectedApplication?.id === application.id;
               return (
@@ -511,32 +510,32 @@ export function ApplicationsList({ applications }: Props) {
                   type="button"
                   onClick={() => setSelectedId(application.id)}
                   className={cn(
-                    "w-full text-left px-5 py-4 hover:bg-gray-50 transition-colors",
-                    isSelected && "bg-indigo-50/60"
+                    "w-full px-5 py-4 text-left transition-colors hover:bg-surface/45",
+                    isSelected && "bg-accent-wash/70"
                   )}
                 >
                   <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-xs font-bold text-dim">
                       {application.job.company.slice(0, 2).toUpperCase()}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">
+                      <p className="truncate text-sm font-medium text-ink">
                         {application.job.title}
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
+                      <p className="mt-0.5 text-xs text-dim">
                         {application.job.company}
                         {application.job.location && ` · ${application.job.location}`}
                       </p>
                       {(application.confirmation_text || application.last_error) && (
-                        <p className="mt-1 truncate text-xs text-gray-400">
+                        <p className="mt-1 truncate text-xs text-dim">
                           {application.confirmation_text ?? application.last_error}
                         </p>
                       )}
                     </div>
 
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:shrink-0 sm:justify-end">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-dim">
                         {formatPostedAt(application.updated_at)}
                       </span>
                       <span
@@ -559,17 +558,17 @@ export function ApplicationsList({ applications }: Props) {
       </div>
 
       {selectedApplication && draft ? (
-        <div className="min-w-0 overflow-hidden rounded-r-xl rounded-l-none border border-gray-200 bg-white xl:max-h-[calc(100vh-12rem)] xl:min-h-[calc(100vh-12rem)]">
+        <div className="min-w-0 overflow-hidden rounded-r-xl rounded-l-none border border-rim bg-white shadow-soft-card xl:max-h-[calc(100vh-12rem)] xl:min-h-[calc(100vh-12rem)]">
           <div className="flex flex-col gap-5 overflow-y-auto p-5 xl:max-h-[calc(100vh-12rem)]">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-indigo-500">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
                   Verification Editor
                 </p>
-                <h3 className="mt-1 text-lg font-semibold text-gray-900">
+                <h3 className="mt-1 text-lg font-semibold text-ink">
                   {selectedApplication.job.title}
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-dim">
                   {selectedApplication.job.company}
                   {selectedApplication.job.location ? ` · ${selectedApplication.job.location}` : ""}
                   {selectedApplication.job.remote ? " · Remote" : ""}
@@ -579,7 +578,7 @@ export function ApplicationsList({ applications }: Props) {
                 href={selectedApplication.job.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-2 text-xs font-medium text-dim transition-colors hover:bg-surface"
               >
                 Open posting
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -662,7 +661,7 @@ export function ApplicationsList({ applications }: Props) {
                     />
                   ))
                 ) : (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-dim">
                     No custom application questions were stored for this payload.
                   </p>
                 )}
@@ -700,10 +699,10 @@ export function ApplicationsList({ applications }: Props) {
               </EditorSection>
             )}
 
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="rounded-xl border border-rim bg-surface/35 p-4">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-indigo-500" />
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-gray-400">
+                <ShieldCheck className="h-4 w-4 text-accent" />
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-dim">
                   Verification
                 </p>
               </div>
@@ -715,7 +714,7 @@ export function ApplicationsList({ applications }: Props) {
                       readiness.risk_level === "blocked"
                         ? "bg-red-50 text-red-700"
                         : readiness.risk_level === "risky"
-                        ? "bg-amber-50 text-amber-700"
+                        ? "bg-accent-wash text-accent"
                         : "bg-green-50 text-green-700"
                     )}
                   >
@@ -725,7 +724,7 @@ export function ApplicationsList({ applications }: Props) {
                       ? "Review recommended"
                       : "Ready to submit"}
                   </p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-dim">
                     {readiness.issue_count} total issues · {readiness.critical_issue_count} critical ·{" "}
                     {readiness.likely_issue_count} likely blockers
                   </p>
@@ -734,7 +733,7 @@ export function ApplicationsList({ applications }: Props) {
                       {readiness.critical_issues.slice(0, 4).map((issue) => issue.label).join(", ")}
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-dim">
                       No critical blockers detected from the current editable payload.
                     </p>
                   )}
@@ -746,7 +745,7 @@ export function ApplicationsList({ applications }: Props) {
               )}
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3 border-t border-rim pt-4 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => void handleSave()}
@@ -754,8 +753,8 @@ export function ApplicationsList({ applications }: Props) {
                 className={cn(
                   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
                   savingId === selectedApplication.id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-gray-900 text-white hover:bg-gray-800"
+                    ? "cursor-not-allowed bg-surface text-dim"
+                    : "bg-ink text-white hover:bg-ink/90"
                 )}
               >
                 <Save className="h-4 w-4" />
@@ -768,8 +767,8 @@ export function ApplicationsList({ applications }: Props) {
                 className={cn(
                   "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
                   selectedApplication.status !== "queued" || trustingId === selectedApplication.id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700"
+                    ? "cursor-not-allowed bg-surface text-dim"
+                    : "bg-accent text-white hover:bg-accent/90"
                 )}
               >
                 {trustingId === selectedApplication.id
@@ -791,9 +790,9 @@ export function ApplicationsList({ applications }: Props) {
           </div>
         </div>
       ) : (
-        <div className="min-w-0 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
-          <p className="text-sm font-medium text-gray-700">No reviewable applications selected.</p>
-          <p className="mt-1 text-xs text-gray-400">
+        <div className="min-w-0 rounded-xl border border-dashed border-rim bg-white px-6 py-12 text-center shadow-soft-card">
+          <p className="text-sm font-medium text-ink">No reviewable applications selected.</p>
+          <p className="mt-1 text-xs text-dim">
             Queue a job first, then select it here to review and edit the payload.
           </p>
         </div>
@@ -825,11 +824,11 @@ function EditorSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border border-gray-100 bg-gray-50 p-4 first:rounded-t-lg last:rounded-b-lg">
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-gray-400">
+    <div className="border border-rim bg-surface/35 p-4 first:rounded-t-lg last:rounded-b-lg">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-dim">
         {title}
       </p>
-      <p className="mt-1 text-xs text-gray-500">{hint}</p>
+      <p className="mt-1 text-xs text-dim">{hint}</p>
       <div className="mt-4">{children}</div>
     </div>
   );
@@ -837,11 +836,11 @@ function EditorSection({
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
+    <div className="border border-rim bg-surface/35 px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-dim">
         {label}
       </p>
-      <p className="mt-1 text-sm text-gray-700 break-words">{value}</p>
+      <p className="mt-1 break-words text-sm text-ink">{value}</p>
     </div>
   );
 }
@@ -859,7 +858,7 @@ function EditableField({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-400">
+      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-dim">
         {label}
       </span>
       {kind === "multiline" || kind === "json" ? (
@@ -867,13 +866,13 @@ function EditableField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           rows={kind === "json" ? 5 : 3}
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
         />
       ) : kind === "boolean" ? (
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
         >
           <option value="true">true</option>
           <option value="false">false</option>
@@ -883,7 +882,7 @@ function EditableField({
           type={kind === "number" ? "number" : "text"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
         />
       )}
     </label>

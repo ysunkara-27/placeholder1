@@ -109,53 +109,53 @@ export function ApplyLab() {
       <div className="space-y-8">
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">
+            <h2 className="text-sm font-semibold text-ink">
               Application Review
             </h2>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-dim">
               Loading queued applications and verification data.
             </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-xl border border-rim bg-white p-6 shadow-soft-card">
             <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-              <div className="overflow-hidden rounded-l-xl rounded-r-none border border-r-0 border-gray-200 bg-white xl:h-[calc(100vh-12rem)]">
-                <div className="border-b border-gray-100 px-5 py-4">
-                  <div className="h-3 w-28 rounded bg-gray-200" />
-                  <div className="mt-3 h-6 w-40 rounded bg-gray-200" />
-                  <div className="mt-2 h-3 w-56 rounded bg-gray-100" />
+              <div className="overflow-hidden rounded-l-xl rounded-r-none border border-r-0 border-rim bg-white xl:h-[calc(100vh-12rem)]">
+                <div className="border-b border-rim px-5 py-4">
+                  <div className="h-3 w-28 rounded bg-surface-strong" />
+                  <div className="mt-3 h-6 w-40 rounded bg-surface-strong" />
+                  <div className="mt-2 h-3 w-56 rounded bg-surface" />
                 </div>
                 <div className="space-y-3 p-5">
                   {Array.from({ length: 4 }).map((_, index) => (
                     <div
                       key={index}
-                      className="rounded-lg border border-gray-100 px-4 py-4"
+                      className="rounded-lg border border-rim bg-surface/35 px-4 py-4"
                     >
-                      <div className="h-4 w-48 rounded bg-gray-200" />
-                      <div className="mt-2 h-3 w-32 rounded bg-gray-100" />
-                      <div className="mt-3 h-3 w-24 rounded bg-gray-100" />
+                      <div className="h-4 w-48 rounded bg-surface-strong" />
+                      <div className="mt-2 h-3 w-32 rounded bg-surface" />
+                      <div className="mt-3 h-3 w-24 rounded bg-surface" />
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-r-xl rounded-l-none border border-gray-200 bg-white xl:h-[calc(100vh-12rem)]">
+              <div className="overflow-hidden rounded-r-xl rounded-l-none border border-rim bg-white xl:h-[calc(100vh-12rem)]">
                 <div className="space-y-4 p-5">
-                  <div className="h-3 w-32 rounded bg-gray-200" />
-                  <div className="h-7 w-56 rounded bg-gray-200" />
-                  <div className="h-4 w-48 rounded bg-gray-100" />
+                  <div className="h-3 w-32 rounded bg-surface-strong" />
+                  <div className="h-7 w-56 rounded bg-surface-strong" />
+                  <div className="h-4 w-48 rounded bg-surface" />
                   <div className="grid gap-3 sm:grid-cols-2">
                     {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="border border-gray-100 bg-gray-50 px-4 py-3">
-                        <div className="h-3 w-20 rounded bg-gray-200" />
-                        <div className="mt-2 h-4 w-28 rounded bg-gray-100" />
+                      <div key={index} className="border border-rim bg-surface/35 px-4 py-3">
+                        <div className="h-3 w-20 rounded bg-surface-strong" />
+                        <div className="mt-2 h-4 w-28 rounded bg-surface" />
                       </div>
                     ))}
                   </div>
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="border border-gray-100 bg-gray-50 p-4">
-                      <div className="h-3 w-28 rounded bg-gray-200" />
-                      <div className="mt-2 h-3 w-48 rounded bg-gray-100" />
-                      <div className="mt-4 h-24 rounded bg-white border border-gray-100" />
+                    <div key={index} className="border border-rim bg-surface/35 p-4">
+                      <div className="h-3 w-28 rounded bg-surface-strong" />
+                      <div className="mt-2 h-3 w-48 rounded bg-surface" />
+                      <div className="mt-4 h-24 rounded border border-rim bg-white" />
                     </div>
                   ))}
                 </div>
@@ -164,14 +164,14 @@ export function ApplyLab() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-gray-900">Recent Runs</h2>
+        <section className="rounded-2xl border border-rim bg-white p-5 shadow-soft-card">
+          <h2 className="text-sm font-semibold text-ink">Recent Runs</h2>
           <div className="mt-4 space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="rounded-xl border border-gray-200 px-4 py-4">
-                <div className="h-4 w-28 rounded bg-gray-200" />
-                <div className="mt-3 h-4 w-44 rounded bg-gray-100" />
-                <div className="mt-2 h-3 w-56 rounded bg-gray-100" />
+              <div key={index} className="rounded-xl border border-rim bg-surface/30 px-4 py-4">
+                <div className="h-4 w-28 rounded bg-surface-strong" />
+                <div className="mt-3 h-4 w-44 rounded bg-surface" />
+                <div className="mt-2 h-3 w-56 rounded bg-surface" />
               </div>
             ))}
           </div>
@@ -184,10 +184,10 @@ export function ApplyLab() {
     <div className="space-y-8">
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">
+          <h2 className="text-sm font-semibold text-ink">
             Application Review
           </h2>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-dim">
             Select a queued or recent application on the left, then edit the
             exact payload field-by-field before you trust apply it.
           </p>
@@ -195,33 +195,33 @@ export function ApplyLab() {
         <ApplicationsList applications={recentApplications} />
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-gray-900">Recent Runs</h2>
+      <section className="rounded-2xl border border-rim bg-white p-5 shadow-soft-card">
+        <h2 className="text-sm font-semibold text-ink">Recent Runs</h2>
         <div className="mt-4 space-y-3">
           {recentRuns.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-400">
+            <div className="rounded-xl border border-dashed border-rim bg-surface/40 px-4 py-6 text-sm text-dim">
               No saved runs yet.
             </div>
           )}
           {recentRuns.map((run) => (
             <div
               key={run.id}
-              className="rounded-xl border border-gray-200 px-4 py-3"
+              className="rounded-xl border border-rim bg-surface/20 px-4 py-3"
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-dim">
                   {run.mode}
                 </span>
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-dim">
                   {new Date(run.created_at).toLocaleString()}
                 </span>
               </div>
-              <p className="mt-2 text-sm font-medium text-gray-900">
+              <p className="mt-2 text-sm font-medium text-ink">
                 {run.portal ?? "unknown"} · {run.status}
               </p>
-              <p className="mt-1 break-all text-xs text-gray-500">{run.url}</p>
+              <p className="mt-1 break-all text-xs text-dim">{run.url}</p>
               {run.summary && (
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-dim">
                   {run.summary.stage.replaceAll("_", " ")} · {run.summary.actions.total} actions
                   {" · "}
                   {run.summary.actions.required} required
@@ -234,12 +234,12 @@ export function ApplyLab() {
                 </p>
               )}
               {run.summary?.latest_screenshot_label && (
-                <p className="mt-1 text-[11px] text-gray-400">
+                <p className="mt-1 text-[11px] text-dim">
                   last frame: {run.summary.latest_screenshot_label.replaceAll("_", " ")}
                 </p>
               )}
               {(run.summary?.blocked_step || run.summary?.blocked_field_family) && (
-                <p className="mt-1 text-[11px] text-gray-400">
+                <p className="mt-1 text-[11px] text-dim">
                   {run.summary.blocked_step
                     ? `blocked step: ${run.summary.blocked_step.replaceAll("_", " ")}`
                     : "blocked step: unknown"}
@@ -249,7 +249,7 @@ export function ApplyLab() {
                 </p>
               )}
               {(run.summary?.failure_source || run.summary?.missing_profile_fields.length) && (
-                <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                <p className="mt-1 text-[11px] text-dim line-clamp-2">
                   {run.summary.failure_source
                     ? `source: ${run.summary.failure_source.replaceAll("_", " ")}`
                     : "source: unknown"}
@@ -259,12 +259,12 @@ export function ApplyLab() {
                 </p>
               )}
               {run.summary?.inferred_answers.length ? (
-                <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                <p className="mt-1 text-[11px] text-dim line-clamp-2">
                   inferred: {run.summary.inferred_answers.join(", ")}
                 </p>
               ) : null}
               {run.summary?.recovery_attempted ? (
-                <p className="mt-1 text-[11px] text-gray-400">
+                <p className="mt-1 text-[11px] text-dim">
                   recovery: {run.summary.recovery_family?.replaceAll("_", " ") ?? "attempted"}
                 </p>
               ) : null}

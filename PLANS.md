@@ -1039,3 +1039,36 @@ Exact next step:
 2. add `strict / prefer / ignore` preference controls plus `graduation_year_flex`
 3. make the jobs board explain soft mismatches vs hard blockers
 4. simplify or retire the remaining prospective-list auto-queue semantics so all queue approval paths stay product-consistent
+
+## Session Log — 2026-04-05
+
+Completed in this session:
+
+- standardized the user-facing operator palette across dashboard, apply lab, applied-jobs, queue popup, and live application review surfaces
+- exposed `surface.strong` in Tailwind so skeleton/loading states can use the same warm token set instead of fallback grays
+- aligned the verification editor, queued-jobs list, recent activity, and applied-jobs sections to the shared `canvas / surface / rim / ink / dim / accent` color system
+
+Verified:
+
+- `npm run build`
+  - compile + typecheck passed
+  - final page-data collection still fails on an existing admin route issue: `/api/admin/jobs/[jobId]`
+
+Could not verify:
+
+- `npm run test:apply-engine`
+  - blocked in this workspace because `./.venv/bin/python` does not exist
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+  - not rerun in this frontend-only color pass
+
+Current truth after this session:
+
+- the main user-facing app no longer mixes the old gray/indigo operator palette with the newer warm product palette on the primary dashboard/apply-lab flows
+- semantic success/error states still keep their own colors, but neutral surfaces and primary actions now share one token-driven theme
+- production build verification is currently limited by an unrelated admin page-data collection failure, not by the color-token changes themselves
+
+Exact next step:
+
+1. visually sweep remaining user-facing dashboard subcards that still hardcode gray/indigo utilities
+2. decide whether `/applied` should remain as a standalone archive page or be reduced further now that applied jobs live on the dashboard
+3. fix the existing `/api/admin/jobs/[jobId]` build-time page-data failure so full production builds can pass cleanly again

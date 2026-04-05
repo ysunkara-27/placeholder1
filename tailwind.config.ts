@@ -14,15 +14,18 @@ const config: Config = {
       },
       colors: {
         // Wired directly to CSS vars — update vars in globals.css to retheme globally
-        canvas:  "rgb(var(--bg) / <alpha-value>)",
-        surface: "rgb(var(--surface) / <alpha-value>)",
-        ink:     "rgb(var(--text) / <alpha-value>)",
-        dim:     "rgb(var(--muted) / <alpha-value>)",
-        rim:     "rgb(var(--border) / <alpha-value>)",
+        canvas: "rgb(var(--bg) / <alpha-value>)",
+        surface: {
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          strong: "rgb(var(--surface-strong) / <alpha-value>)",
+        },
+        ink: "rgb(var(--text) / <alpha-value>)",
+        dim: "rgb(var(--muted) / <alpha-value>)",
+        rim: "rgb(var(--border) / <alpha-value>)",
         accent: {
           DEFAULT: "rgb(var(--accent) / <alpha-value>)",
-          soft:    "rgb(var(--accent-soft) / <alpha-value>)",
-          wash:    "rgb(var(--accent-wash) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft) / <alpha-value>)",
+          wash: "rgb(var(--accent-wash) / <alpha-value>)",
         },
       },
       animation: {

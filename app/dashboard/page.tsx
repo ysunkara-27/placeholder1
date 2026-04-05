@@ -233,8 +233,8 @@ export default function DashboardPage() {
 
   if (!ready || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="h-8 w-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-wash border-t-accent" />
       </div>
     );
   }
@@ -320,19 +320,19 @@ export default function DashboardPage() {
     .slice(0, 8);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
         {isAnonymous && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-accent/20 bg-accent-wash px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-amber-950">Your session is temporary</p>
-              <p className="mt-1 text-sm text-amber-800">
+              <p className="text-sm font-semibold text-ink">Your session is temporary</p>
+              <p className="mt-1 text-sm text-dim">
                 Save this Twin with Google or email before you switch devices.
               </p>
             </div>
             <Link
               href="/auth"
-              className="inline-flex items-center justify-center rounded-full bg-amber-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-900"
+              className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
             >
               Save account
             </Link>
@@ -343,13 +343,13 @@ export default function DashboardPage() {
         {liveApplication && <LiveApplicationPanel application={liveApplication} />}
 
         {/* Pipeline hero */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 space-y-5">
+        <div className="space-y-5 rounded-2xl border border-rim bg-white p-6 shadow-soft-card">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-2xl font-bold tracking-tight text-ink">
                 {profile.name ? `Hey ${profile.name.split(" ")[0]}.` : "Your Twin is live."}
               </h1>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-dim">
                 Watching job boards{" "}
                 {profile.industries.length > 0
                   ? `for ${profile.industries.slice(0, 2).join(", ")}${profile.industries.length > 2 ? ` +${profile.industries.length - 2}` : ""}`
@@ -358,12 +358,12 @@ export default function DashboardPage() {
             </div>
             <div
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                queuedApplications.length > 0 ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"
+                queuedApplications.length > 0 ? "bg-accent-wash text-accent" : "bg-surface text-ink"
               }`}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  queuedApplications.length > 0 ? "bg-blue-500 animate-pulse" : "bg-green-500"
+                  queuedApplications.length > 0 ? "bg-accent animate-pulse" : "bg-accent/60"
                 }`}
               />
               {queuedApplications.length > 0
@@ -373,77 +373,77 @@ export default function DashboardPage() {
           </div>
 
           {/* 4-stage pipeline */}
-          <div className="grid grid-cols-4 gap-px bg-gray-100 rounded-xl overflow-hidden">
+          <div className="grid grid-cols-4 gap-px overflow-hidden rounded-xl bg-rim">
             {/* Needs attention */}
             <Link
               href="/apply-lab"
-              className={`bg-white px-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer ${needsAttentionCount > 0 ? "group" : ""}`}
+              className={`cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50 ${needsAttentionCount > 0 ? "group" : ""}`}
             >
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-medium uppercase tracking-wider text-dim">
                 Needs attention
               </p>
               <p
                 className={`mt-1 text-2xl font-bold tabular-nums ${
-                  needsAttentionCount > 0 ? "text-red-600" : "text-gray-400"
+                  needsAttentionCount > 0 ? "text-red-600" : "text-dim"
                 }`}
               >
                 {needsAttentionCount}
               </p>
-              <p className="mt-0.5 text-[11px] text-gray-400">issues to fix</p>
+              <p className="mt-0.5 text-[11px] text-dim">issues to fix</p>
             </Link>
 
             {/* New listings */}
             <Link
               href="/jobs"
-              className="bg-white px-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              className="cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50"
             >
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-medium uppercase tracking-wider text-dim">
                 New listings
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-indigo-700">
+              <p className="mt-1 text-2xl font-bold tabular-nums text-accent">
                 {newListingsCount === null ? "—" : newListingsCount}
               </p>
-              <p className="mt-0.5 text-[11px] text-gray-400">added this week</p>
+              <p className="mt-0.5 text-[11px] text-dim">added this week</p>
             </Link>
 
             {/* Matched jobs */}
             <div className="bg-white px-4 py-4">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-medium uppercase tracking-wider text-dim">
                 Matched jobs
               </p>
               <p
                 className={`mt-1 text-2xl font-bold tabular-nums ${
-                  matchedJobs > 0 ? "text-indigo-700" : "text-gray-400"
+                  matchedJobs > 0 ? "text-accent" : "text-dim"
                 }`}
               >
                 {matchedJobs}
               </p>
-              <p className="mt-0.5 text-[11px] text-gray-400">alerts created</p>
+              <p className="mt-0.5 text-[11px] text-dim">alerts created</p>
             </div>
 
             {/* Applied */}
             <Link
               href="#applied-jobs"
-              className="bg-white px-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              className="cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50"
             >
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-medium uppercase tracking-wider text-dim">
                 Applied
               </p>
               <p
                 className={`mt-1 text-2xl font-bold tabular-nums ${
-                  appliedCount > 0 ? "text-green-700" : "text-gray-400"
+                  appliedCount > 0 ? "text-green-700" : "text-dim"
                 }`}
               >
                 {appliedCount}
               </p>
-              <p className="mt-0.5 text-[11px] text-gray-400">submitted</p>
+              <p className="mt-0.5 text-[11px] text-dim">submitted</p>
             </Link>
           </div>
 
           {/* Shimmer bar */}
-          <div className="h-0.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-accent-wash">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-indigo-600 to-indigo-400"
+              className="h-full rounded-full bg-gradient-to-r from-accent/60 via-accent to-accent/60"
               style={{ backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite" }}
             />
           </div>
@@ -452,24 +452,24 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         {activityFeed.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-1">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent activity</h2>
+          <div className="space-y-1 rounded-2xl border border-rim bg-white p-6 shadow-soft-card">
+            <h2 className="mb-3 text-sm font-semibold text-ink">Recent activity</h2>
             {activityFeed.map((item) => (
-              <div key={item.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-                <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
+              <div key={item.id} className="flex items-start gap-3 border-b border-rim/40 py-2 last:border-0">
+                <span className="mt-0.5 shrink-0 text-base">{item.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800">{item.label}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">{item.sub}</p>
+                  <p className="text-sm text-ink">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-dim">{item.sub}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {item.eta && (
-                      <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                      <span className="inline-flex rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-dim">
                         {item.eta}
                       </span>
                     )}
                     {item.reviewHref && item.reviewLabel && (
                       <a
                         href={item.reviewHref}
-                        className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                        className="inline-flex items-center rounded-full border border-accent/20 bg-accent-wash px-2.5 py-1 text-[11px] font-medium text-accent transition-colors hover:bg-accent-wash/70"
                       >
                         {item.reviewLabel}
                       </a>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                         href={item.postingUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                        className="inline-flex items-center gap-1 rounded-full border border-rim bg-white px-2.5 py-1 text-[11px] font-medium text-dim transition-colors hover:bg-surface"
                       >
                         Open posting
                         <ExternalLink className="h-3 w-3" />
@@ -487,7 +487,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
+                <span className="shrink-0 whitespace-nowrap text-[11px] text-dim">
                   {formatShortDateTime(item.ts)}
                 </span>
               </div>
@@ -495,18 +495,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div id="applied-jobs" className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+        <div id="applied-jobs" className="space-y-4 rounded-2xl border border-rim bg-white p-6 shadow-soft-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Applied jobs</h2>
-              <p className="mt-1 text-xs text-gray-400">
+              <h2 className="text-sm font-semibold text-ink">Applied jobs</h2>
+              <p className="mt-1 text-xs text-dim">
                 Submitted applications now live directly on the dashboard.
               </p>
             </div>
             {appliedCount > appliedApplications.length ? (
               <Link
                 href="/applied"
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                className="text-xs font-medium text-accent transition-colors hover:text-accent/80"
               >
                 View all →
               </Link>
@@ -514,9 +514,9 @@ export default function DashboardPage() {
           </div>
 
           {appliedApplications.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
-              <p className="text-sm font-medium text-gray-700">No applied jobs yet</p>
-              <p className="mt-1 text-xs text-gray-400">
+            <div className="rounded-xl border border-dashed border-rim bg-surface/35 px-6 py-10 text-center">
+              <p className="text-sm font-medium text-ink">No applied jobs yet</p>
+              <p className="mt-1 text-xs text-dim">
                 Submitted applications will appear here automatically.
               </p>
             </div>
@@ -525,21 +525,21 @@ export default function DashboardPage() {
               {appliedApplications.map((application) => (
                 <div
                   key={application.id}
-                  className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4"
+                  className="flex items-start justify-between gap-4 rounded-xl border border-rim bg-surface/10 px-5 py-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900">
+                    <p className="truncate text-sm font-semibold text-ink">
                       {application.job?.title ?? "—"}
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <p className="mt-0.5 text-xs text-dim">
                       {application.job?.company ?? "—"}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-dim">
                       {application.job?.location && <span>{application.job.location}</span>}
                       {application.job?.remote && <span>Remote</span>}
                       {application.job?.level && <span className="capitalize">{application.job.level}</span>}
                       {application.job?.portal && (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium uppercase tracking-wide text-gray-500">
+                        <span className="rounded bg-surface px-1.5 py-0.5 font-medium uppercase tracking-wide text-dim">
                           {application.job.portal}
                         </span>
                       )}
@@ -551,7 +551,7 @@ export default function DashboardPage() {
                       href={application.job.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 transition-colors"
+                      className="shrink-0 inline-flex items-center gap-1 text-xs text-accent transition-colors hover:text-accent/80"
                     >
                       View
                       <ExternalLink className="h-3 w-3" />

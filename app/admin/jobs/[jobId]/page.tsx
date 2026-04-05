@@ -8,6 +8,8 @@ import {
   Check, Loader2, Wrench, Copy,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Job {

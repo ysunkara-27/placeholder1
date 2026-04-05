@@ -10,6 +10,8 @@ import {
   Inbox, List, Sparkles, ArrowRight, Loader2,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Job {
