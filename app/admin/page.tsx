@@ -499,7 +499,24 @@ function ReviewQueue({
                     value={current.target_term ?? ""}
                     onChange={(e) => patch("target_term", e.target.value || null)}
                     placeholder="e.g. 2026 Summer"
+                    list="term-suggestions"
                   />
+                  <datalist id="term-suggestions">
+                    <option value="2026 Summer" />
+                    <option value="2026 Fall" />
+                    <option value="2026 Winter" />
+                    <option value="2026 Spring" />
+                    <option value="2027 Summer" />
+                    <option value="2027 Fall" />
+                    <option value="2027 Winter" />
+                    <option value="2027 Spring" />
+                    <option value="New Grad 2026" />
+                    <option value="New Grad 2027" />
+                    <option value="Full Time" />
+                    <option value="Co-op Fall 2026" />
+                    <option value="Co-op Spring 2026" />
+                    <option value="Co-op Summer 2026" />
+                  </datalist>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Remote</label>
