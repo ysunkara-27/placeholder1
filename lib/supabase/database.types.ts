@@ -160,6 +160,7 @@ export interface Database {
           canonical_url: string | null;
           company: string;
           created_at: string;
+          degree_req: string | null;
           experience_band: string | null;
           external_job_key: string | null;
           id: string;
@@ -187,6 +188,7 @@ export interface Database {
           canonical_url?: string | null;
           company: string;
           created_at?: string;
+          degree_req?: string | null;
           experience_band?: string | null;
           external_job_key?: string | null;
           id?: string;
@@ -214,6 +216,7 @@ export interface Database {
           canonical_url?: string | null;
           company?: string;
           created_at?: string;
+          degree_req?: string | null;
           experience_band?: string | null;
           external_job_key?: string | null;
           id?: string;

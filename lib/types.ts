@@ -47,6 +47,8 @@ export type TargetTerm = "spring" | "summer" | "fall" | "winter" | "any";
 
 export type ExperienceBand = "student" | "new_grad" | "early_career";
 
+export type DegreeReq = "undergrad" | "masters" | "phd" | "any";
+
 export type NotificationPref = "sms" | "email";
 
 export interface UserPreferences {

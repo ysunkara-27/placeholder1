@@ -26,6 +26,8 @@ interface Job {
   application_url: string | null;
   jd_summary: string | null;
   industries: string[];
+  target_term: string | null;
+  degree_req: string | null;
   posted_at: string;
   first_seen_at: string | null;
   last_seen_at: string | null;
@@ -71,7 +73,7 @@ const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time"];
 const inp =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors";
 
-type Suggestions = Partial<Pick<Job, "company" | "title" | "level" | "location" | "industries">>;
+type Suggestions = Partial<Pick<Job, "company" | "title" | "level" | "location" | "industries" | "target_term" | "degree_req">>;
 
 function ReviewQueue({
   showToast,
@@ -197,6 +199,8 @@ function ReviewQueue({
         level: job.level,
         location: job.location,
         industries: job.industries ?? [],
+        target_term: job.target_term ?? null,
+        degree_req: job.degree_req ?? null,
       }),
     })
       .then((res) => res.json() as Promise<{ suggestions?: Suggestions; error?: string }>)
@@ -479,15 +483,36 @@ function ReviewQueue({
                   <input className={inp} value={current.location} onChange={(e) => patch("location", e.target.value)} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Industries</label>
+                <input
+                  className={inp}
+                  value={current.industries?.join(", ") ?? ""}
+                  onChange={(e) => patch("industries", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+                  placeholder="e.g. SWE, Finance"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Industries</label>
-                  <input
-                    className={inp}
-                    value={current.industries?.join(", ") ?? ""}
-                    onChange={(e) => patch("industries", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-                    placeholder="comma-separated"
-                  />
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Term</label>
+                  <select className={inp} value={current.target_term ?? ""} onChange={(e) => patch("target_term", e.target.value || null)}>
+                    <option value="">Unknown</option>
+                    <option value="summer">Summer</option>
+                    <option value="fall">Fall</option>
+                    <option value="spring">Spring</option>
+                    <option value="winter">Winter</option>
+                    <option value="any">Any term</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Degree Req</label>
+                  <select className={inp} value={current.degree_req ?? ""} onChange={(e) => patch("degree_req", e.target.value || null)}>
+                    <option value="">Unknown</option>
+                    <option value="undergrad">Undergrad</option>
+                    <option value="masters">Masters</option>
+                    <option value="phd">PhD</option>
+                    <option value="any">Any degree</option>
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Remote</label>

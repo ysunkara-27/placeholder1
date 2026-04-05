@@ -1,4 +1,5 @@
 import type {
+  DegreeReq,
   ExperienceBand,
   JobLevel,
   JobRoleFamily,
@@ -10,6 +11,7 @@ export interface NormalizedQualificationTags {
   target_term: TargetTerm | null;
   target_year: number | null;
   experience_band: ExperienceBand;
+  degree_req: DegreeReq;
   is_early_career: boolean;
 }
 
@@ -50,6 +52,13 @@ function inferRoleFamily(text: string, fallbackLevel?: string): JobRoleFamily {
   if (fallbackLevel === "new_grad") return "new_grad";
   if (fallbackLevel === "part_time") return "part_time";
   return "internship";
+}
+
+function inferDegreeReq(text: string): DegreeReq {
+  if (/\bph\.?d\b|\bdoctor(al|ate)\b/i.test(text)) return "phd";
+  if (/\bmba\b|\bmaster'?s?\b|\bm\.?s\.?\b|\bm\.?eng\b|\bgraduate student\b/i.test(text)) return "masters";
+  if (/\bnew[\s-]?grad\b|\brecent graduate\b|\bbs\/ms\b/i.test(text)) return "any";
+  return "undergrad";
 }
 
 function inferExperienceBand(roleFamily: JobRoleFamily): ExperienceBand {
@@ -107,6 +116,7 @@ export function inferQualificationTags(input: {
     target_term: targetTerm,
     target_year: targetYear,
     experience_band: inferExperienceBand(roleFamily),
+    degree_req: inferDegreeReq(normalized),
     is_early_career: true,
   };
 }
