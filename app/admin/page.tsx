@@ -589,7 +589,7 @@ function AllJobsTable({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, statusFilter, portalFilter, missingFilter]);
 
-  useEffect(() => { void fetchJobs(page); }, [page]);
+  useEffect(() => { void fetchJobs(page); }, [page, fetchJobs]);
 
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -598,7 +598,8 @@ function AllJobsTable({
       void fetchJobs(1);
     }, 350);
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
-  }, [search, statusFilter, portalFilter, missingFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter, portalFilter, missingFilter, fetchJobs]);
 
   async function bulkAction(action: "fix_canonical" | "set_status" | "delete") {
     const jobIds = action === "fix_canonical" ? undefined : [...selected];
@@ -901,7 +902,7 @@ export default function AdminPage() {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                 <p className="text-sm text-amber-800">
-                  <span className="font-semibold">{stats.active.toLocaleString()} active jobs</span> are visible to users but haven't been reviewed yet. Move them all to the review queue first.
+                  <span className="font-semibold">{stats.active.toLocaleString()} active jobs</span> are visible to users but have not been reviewed yet. Move them all to the review queue first.
                 </p>
               </div>
               <button
