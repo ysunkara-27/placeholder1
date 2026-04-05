@@ -92,6 +92,30 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (UI Rollback And Landing Cleanup)
+
+Finished:
+
+- rolled back the mismatched shared UI styling introduced by the previous visual redesign batch
+- restored the site-wide baseline for dashboard/shared controls so the app is no longer split across two different visual systems
+- rebuilt the landing page with a simpler hierarchy and cleaner card layout using the same token set already used elsewhere in the site
+- simplified the navbar so it reads as part of the existing product instead of a separate design treatment
+
+Still blocked:
+
+- other app surfaces still need a deliberate design pass if the goal is a stronger unified brand system across the entire product
+- the current token system is coherent again, but it is still conservative rather than fully polished
+
+Exact next step:
+
+- do a measured pass across `/jobs`, `/auth`, `/profile`, and onboarding to unify spacing, typography scale, and control styling without introducing a second visual language
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
 ## Current Bottlenecks
 
 The biggest remaining blockers to MVP are:

@@ -38,13 +38,13 @@ export function SignOutButton() {
       <Button
         variant="ghost"
         size="sm"
-        className="text-[rgb(125,99,82)] hover:text-[rgb(41,28,22)]"
+        className="text-gray-400 hover:text-gray-600"
         onClick={() => void handleSignOut()}
         loading={loading}
       >
         Sign out
       </Button>
-      {error && <p className="text-[11px] text-[rgb(144,48,28)]">{error}</p>}
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
     </div>
   );
 }

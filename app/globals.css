@@ -4,17 +4,15 @@
 
 @layer base {
   :root {
-    --bg:             248 242 236;
-    --surface:        255 250 245;
-    --surface-strong: 244 232 221;
-    --border:         227 205 188;
-    --text:           41 28 22;
-    --muted:          125 99 82;
-    --accent:         187 74 43;
-    --accent-deep:    144 48 28;
-    --accent-soft:    232 126 92;
-    --accent-wash:    250 233 221;
-    --shadow-warm:    93 43 28;
+    --bg:             250 248 245;
+    --surface:        245 240 232;
+    --surface-strong: 237 229 218;
+    --border:         224 213 198;
+    --text:           28 20 16;
+    --muted:          122 110 100;
+    --accent:         194 83 49;
+    --accent-soft:    232 132 95;
+    --accent-wash:    252 241 234;
   }
 
   * {
@@ -28,12 +26,9 @@
   }
 
   body {
-    background:
-      radial-gradient(circle at top left, rgba(232,126,92,0.08), transparent 28%),
-      radial-gradient(circle at top right, rgba(187,74,43,0.06), transparent 24%),
-      linear-gradient(180deg, rgba(255,252,249,0.92), rgba(248,242,236,1));
+    background: rgb(var(--bg));
     color: rgb(var(--text));
-    font-family: var(--font-fraunces), ui-serif, Georgia, serif;
+    font-family: var(--font-fraunces), Georgia, ui-serif, serif;
   }
 
   h1, h2, h3, .font-brand {
@@ -70,37 +65,15 @@
   }
 
   .shadow-warm {
-    box-shadow: 0 10px 28px rgba(var(--shadow-warm), 0.10), 0 2px 6px rgba(var(--shadow-warm), 0.06);
+    box-shadow: 0 2px 12px rgba(130,64,41,0.08), 0 1px 3px rgba(130,64,41,0.05);
   }
 
   .shadow-warm-xl {
-    box-shadow: 0 22px 64px rgba(var(--shadow-warm), 0.14), 0 8px 20px rgba(var(--shadow-warm), 0.08);
+    box-shadow: 0 20px 60px rgba(130,64,41,0.12), 0 8px 24px rgba(130,64,41,0.07);
   }
 
   .shadow-soft-card {
-    box-shadow: 0 6px 18px rgba(41,28,22,0.06), 0 1px 3px rgba(41,28,22,0.04);
-  }
-
-  .surface-card {
-    background: rgba(255, 250, 245, 0.88);
-    border: 1px solid rgba(227, 205, 188, 0.9);
-    box-shadow: 0 10px 30px rgba(var(--shadow-warm), 0.08);
-    backdrop-filter: blur(12px);
-  }
-
-  .surface-panel {
-    background: linear-gradient(180deg, rgba(255,251,247,0.96), rgba(249,240,232,0.94));
-    border: 1px solid rgba(227, 205, 188, 0.95);
-  }
-
-  .accent-ring {
-    box-shadow: 0 0 0 1px rgba(187,74,43,0.16), 0 18px 40px rgba(var(--shadow-warm), 0.10);
-  }
-
-  .warm-pill {
-    background: rgba(250, 233, 221, 0.95);
-    color: rgb(var(--accent-deep));
-    border: 1px solid rgba(227, 205, 188, 0.95);
+    box-shadow: 0 1px 4px rgba(28,20,16,0.06), 0 4px 18px rgba(28,20,16,0.04);
   }
 
   /* Stagger helpers — pair with animate-rise */
