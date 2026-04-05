@@ -96,14 +96,14 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
   const visibleAnswers = answers.filter((a) => !a.deleted);
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6">
+    <section className="rounded-[28px] border border-rim bg-white p-6 shadow-soft-card">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <p className="text-xs font-medium uppercase tracking-wider text-dim">
             Gray area answers
           </p>
-          <h3 className="mt-1 text-sm font-semibold text-gray-900">Saved answers</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="mt-1 text-sm font-semibold text-ink">Saved answers</h3>
+          <p className="mt-1 text-xs text-dim">
             Twin reuses these for future applications.
           </p>
         </div>
@@ -111,7 +111,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
 
       <div className="mt-4 space-y-3">
         {visibleAnswers.length === 0 && (
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-dim">
             No saved answers yet. As Twin runs into questions it can&apos;t safely answer,
             you&apos;ll be able to store your preferences here.
           </p>
@@ -120,34 +120,34 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
         {visibleAnswers.map((entry, index) => (
           <div
             key={`${entry.key}-${index}`}
-            className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex flex-col gap-2"
+            className="flex flex-col gap-2 rounded-[24px] border border-rim bg-surface px-4 py-3"
           >
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-700">
+              <label className="text-xs font-medium text-ink">
                 Question
               </label>
               <input
                 type="text"
                 value={entry.key}
                 onChange={(e) => upsertAnswer(index, { key: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-2xl border border-rim bg-white px-3 py-2 text-sm text-ink placeholder:text-dim focus:outline-none focus:ring-2 focus:ring-accent/25"
                 placeholder="e.g. What salary range are you targeting?"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-700">
+              <label className="text-xs font-medium text-ink">
                 Your saved answer
               </label>
               <textarea
                 value={entry.value}
                 onChange={(e) => upsertAnswer(index, { value: e.target.value })}
                 rows={2}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                className="w-full resize-none rounded-2xl border border-rim bg-white px-3 py-2 text-sm text-ink placeholder:text-dim focus:outline-none focus:ring-2 focus:ring-accent/25"
                 placeholder="e.g. $90–110k base in SF Bay Area; open to lower for early-stage with strong equity."
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-dim">
                 {entry.dirty ? "Edited, not yet saved" : "In use for future runs"}
               </span>
               <button
@@ -164,7 +164,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
         <button
           type="button"
           onClick={addNew}
-          className="mt-2 inline-flex items-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          className="mt-2 inline-flex items-center rounded-full border border-rim px-3 py-1.5 text-xs font-medium text-dim hover:bg-surface"
         >
           + Add another answer
         </button>
@@ -175,7 +175,7 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+          className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-92 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save answers"}
         </button>
@@ -185,4 +185,3 @@ export function FollowupAnswersEditor({ initialAnswers }: Props) {
     </section>
   );
 }
-

@@ -66,15 +66,15 @@ function AppliedPageContent() {
     <div className="min-h-screen bg-canvas">
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-dim transition-colors hover:text-ink">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-dim hover:text-ink transition-colors">
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </Link>
         </div>
 
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">Applied jobs</h1>
-          <p className="mt-1 text-sm text-dim">
+        <div className="rounded-[28px] border border-rim bg-white px-6 py-7 shadow-soft-card">
+          <h1 className="text-4xl leading-none text-ink">Applied jobs</h1>
+          <p className="mt-2 text-sm text-dim">
             {total > 0 ? `${total} application${total !== 1 ? "s" : ""} submitted` : "No applications yet"}
           </p>
         </div>
@@ -82,7 +82,7 @@ function AppliedPageContent() {
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-xl border border-rim bg-white px-5 py-4 shadow-soft-card">
+              <div key={i} className="rounded-xl border border-rim bg-white px-5 py-4 animate-pulse shadow-soft-card">
                 <div className="h-4 w-48 rounded bg-surface-strong" />
                 <div className="mt-2 h-3 w-32 rounded bg-surface" />
                 <div className="mt-2 h-3 w-24 rounded bg-surface" />
@@ -90,28 +90,28 @@ function AppliedPageContent() {
             ))}
           </div>
         ) : applications.length === 0 ? (
-          <div className="space-y-2 rounded-xl border border-dashed border-rim bg-white px-6 py-12 text-center shadow-soft-card">
+          <div className="rounded-[28px] border border-dashed border-rim bg-white px-6 py-12 text-center space-y-2 shadow-soft-card">
             <p className="text-sm font-medium text-ink">No applied jobs yet</p>
             <p className="text-xs text-dim">Applications you submit will appear here.</p>
-            <Link href="/jobs" className="mt-3 inline-flex text-xs font-medium text-accent hover:text-accent/80">
+            <Link href="/jobs" className="mt-3 inline-flex text-xs text-accent hover:text-accent/80 font-medium">
               Browse jobs →
             </Link>
           </div>
         ) : (
           <div className="space-y-2">
             {applications.map((app) => (
-              <div key={app.id} className="flex items-start justify-between gap-4 rounded-xl border border-rim bg-white px-5 py-4 shadow-soft-card">
+              <div key={app.id} className="rounded-xl border border-rim bg-white px-5 py-4 flex items-start justify-between gap-4 shadow-soft-card">
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">
+                  <p className="text-sm font-semibold text-ink truncate">
                     {app.job?.title ?? "—"}
                   </p>
-                  <p className="mt-0.5 text-xs text-dim">{app.job?.company ?? "—"}</p>
+                  <p className="text-xs text-dim mt-0.5">{app.job?.company ?? "—"}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-dim">
                     {app.job?.location && <span>{app.job.location}</span>}
                     {app.job?.remote && <span>Remote</span>}
                     {app.job?.level && <span className="capitalize">{app.job.level}</span>}
                     {app.job?.portal && (
-                      <span className="rounded bg-surface px-1.5 py-0.5 font-medium uppercase tracking-wide text-dim">
+                      <span className="rounded bg-surface px-1.5 py-0.5 text-dim uppercase tracking-wide font-medium">
                         {app.job.portal}
                       </span>
                     )}
@@ -123,7 +123,7 @@ function AppliedPageContent() {
                     href={app.job.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1 text-xs text-accent transition-colors hover:text-accent/80"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors"
                   >
                     View
                     <ExternalLink className="h-3 w-3" />
@@ -144,7 +144,7 @@ function AppliedPageContent() {
               <button
                 onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
-                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-soft-card"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Previous
@@ -152,7 +152,7 @@ function AppliedPageContent() {
               <button
                 onClick={() => goToPage(page + 1)}
                 disabled={page >= totalPages}
-                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-1.5 text-xs font-medium text-dim hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-soft-card"
               >
                 Next
                 <ChevronRight className="h-3.5 w-3.5" />

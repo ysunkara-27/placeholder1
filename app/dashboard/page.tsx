@@ -323,7 +323,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-canvas">
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
         {isAnonymous && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-accent/20 bg-accent-wash px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-[28px] border border-accent/20 bg-accent-wash px-5 py-4 shadow-soft-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-ink">Your session is temporary</p>
               <p className="mt-1 text-sm text-dim">
@@ -343,10 +343,10 @@ export default function DashboardPage() {
         {liveApplication && <LiveApplicationPanel application={liveApplication} />}
 
         {/* Pipeline hero */}
-        <div className="space-y-5 rounded-2xl border border-rim bg-white p-6 shadow-soft-card">
+        <div className="rounded-[32px] border border-rim bg-white p-6 space-y-5 shadow-soft-card">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-ink">
+              <h1 className="text-2xl font-semibold tracking-tight text-ink">
                 {profile.name ? `Hey ${profile.name.split(" ")[0]}.` : "Your Twin is live."}
               </h1>
               <p className="mt-1 text-sm text-dim">
@@ -358,12 +358,16 @@ export default function DashboardPage() {
             </div>
             <div
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                queuedApplications.length > 0 ? "bg-accent-wash text-accent" : "bg-surface text-ink"
+                queuedApplications.length > 0
+                  ? "bg-accent-wash text-accent"
+                  : "bg-[rgba(219,234,212,0.85)] text-[color:rgba(61,99,53,0.92)]"
               }`}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  queuedApplications.length > 0 ? "bg-accent animate-pulse" : "bg-accent/60"
+                  queuedApplications.length > 0
+                    ? "bg-accent animate-pulse"
+                    : "bg-[color:rgba(61,99,53,0.92)]"
                 }`}
               />
               {queuedApplications.length > 0
@@ -373,13 +377,13 @@ export default function DashboardPage() {
           </div>
 
           {/* 4-stage pipeline */}
-          <div className="grid grid-cols-4 gap-px overflow-hidden rounded-xl bg-rim">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {/* Needs attention */}
             <Link
               href="/apply-lab"
-              className={`cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50 ${needsAttentionCount > 0 ? "group" : ""}`}
+              className={`rounded-[24px] border border-rim bg-surface px-4 py-4 transition-colors hover:bg-white ${needsAttentionCount > 0 ? "group" : ""}`}
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-dim">
+              <p className="text-xs font-medium text-dim uppercase tracking-wider">
                 Needs attention
               </p>
               <p
@@ -395,9 +399,9 @@ export default function DashboardPage() {
             {/* New listings */}
             <Link
               href="/jobs"
-              className="cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50"
+              className="rounded-[24px] border border-rim bg-surface px-4 py-4 transition-colors hover:bg-white"
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-dim">
+              <p className="text-xs font-medium text-dim uppercase tracking-wider">
                 New listings
               </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-accent">
@@ -407,8 +411,8 @@ export default function DashboardPage() {
             </Link>
 
             {/* Matched jobs */}
-            <div className="bg-white px-4 py-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-dim">
+            <div className="rounded-[24px] border border-rim bg-surface px-4 py-4">
+              <p className="text-xs font-medium text-dim uppercase tracking-wider">
                 Matched jobs
               </p>
               <p
@@ -423,15 +427,15 @@ export default function DashboardPage() {
 
             {/* Applied */}
             <Link
-              href="#applied-jobs"
-              className="cursor-pointer bg-white px-4 py-4 transition-colors hover:bg-surface/50"
+              href="/applied"
+              className="rounded-[24px] border border-rim bg-surface px-4 py-4 transition-colors hover:bg-white"
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-dim">
+              <p className="text-xs font-medium text-dim uppercase tracking-wider">
                 Applied
               </p>
               <p
                 className={`mt-1 text-2xl font-bold tabular-nums ${
-                  appliedCount > 0 ? "text-green-700" : "text-dim"
+                  appliedCount > 0 ? "text-[color:rgba(61,99,53,0.92)]" : "text-dim"
                 }`}
               >
                 {appliedCount}
@@ -441,9 +445,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Shimmer bar */}
-          <div className="h-0.5 w-full overflow-hidden rounded-full bg-accent-wash">
+          <div className="h-0.5 w-full rounded-full bg-accent/10 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-accent/60 via-accent to-accent/60"
+              className="h-full rounded-full bg-gradient-to-r from-accent/40 via-accent to-accent/40"
               style={{ backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite" }}
             />
           </div>
@@ -452,11 +456,11 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         {activityFeed.length > 0 && (
-          <div className="space-y-1 rounded-2xl border border-rim bg-white p-6 shadow-soft-card">
+          <div className="rounded-[32px] border border-rim bg-white p-6 space-y-1 shadow-soft-card">
             <h2 className="mb-3 text-sm font-semibold text-ink">Recent activity</h2>
             {activityFeed.map((item) => (
-              <div key={item.id} className="flex items-start gap-3 border-b border-rim/40 py-2 last:border-0">
-                <span className="mt-0.5 shrink-0 text-base">{item.icon}</span>
+              <div key={item.id} className="flex items-start gap-3 border-b border-rim/50 py-3 last:border-0">
+                <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-ink">{item.label}</p>
                   <p className="mt-0.5 text-xs text-dim">{item.sub}</p>
@@ -469,7 +473,7 @@ export default function DashboardPage() {
                     {item.reviewHref && item.reviewLabel && (
                       <a
                         href={item.reviewHref}
-                        className="inline-flex items-center rounded-full border border-accent/20 bg-accent-wash px-2.5 py-1 text-[11px] font-medium text-accent transition-colors hover:bg-accent-wash/70"
+                        className="inline-flex items-center rounded-full border border-accent/20 bg-accent-wash px-2.5 py-1 text-[11px] font-medium text-accent transition-colors hover:bg-accent-wash/80"
                       >
                         {item.reviewLabel}
                       </a>
@@ -487,7 +491,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </div>
-                <span className="shrink-0 whitespace-nowrap text-[11px] text-dim">
+                <span className="text-[11px] text-dim shrink-0 whitespace-nowrap">
                   {formatShortDateTime(item.ts)}
                 </span>
               </div>

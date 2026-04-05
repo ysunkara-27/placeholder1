@@ -45,16 +45,22 @@ export default function ResumePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white overflow-hidden">
-      <header className="flex justify-end px-5 py-4 border-b border-gray-100 shrink-0">
-        <div className="flex md:hidden gap-1 p-0.5 bg-gray-100 rounded-lg">
+    <div className="flex flex-col h-screen bg-canvas overflow-hidden">
+      <header className="flex justify-between items-center px-5 py-4 border-b border-rim bg-white shrink-0">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-dim">
+            Resume Studio
+          </p>
+          <h1 className="mt-1 text-2xl leading-none text-ink">Build your resume with Twin</h1>
+        </div>
+        <div className="flex md:hidden gap-1 p-0.5 bg-surface rounded-lg">
           <button
             onClick={() => setMobileView("chat")}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
               mobileView === "chat"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500"
+                ? "bg-white text-ink shadow-soft-card"
+                : "text-dim"
             )}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -65,8 +71,8 @@ export default function ResumePage() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
               mobileView === "preview"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500"
+                ? "bg-white text-ink shadow-soft-card"
+                : "text-dim"
             )}
           >
             <Eye className="w-3.5 h-3.5" />
@@ -80,16 +86,17 @@ export default function ResumePage() {
         {/* Left — Chat */}
         <div
           className={cn(
-            "flex flex-col border-r border-gray-100",
+            "flex flex-col border-r border-rim",
+            "bg-white",
             "w-full md:w-1/2",
             mobileView !== "chat" && "hidden md:flex"
           )}
         >
-          <div className="px-5 py-4 border-b border-gray-50 shrink-0">
-            <h2 className="text-sm font-semibold text-gray-900">
+          <div className="px-5 py-4 border-b border-rim shrink-0">
+            <h2 className="text-sm font-semibold text-ink">
               Chat with Claude
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-dim mt-0.5">
               Dump your experience — I&apos;ll structure it into STAR bullets
             </p>
           </div>
@@ -101,16 +108,16 @@ export default function ResumePage() {
         {/* Right — Preview */}
         <div
           className={cn(
-            "flex flex-col bg-gray-50",
+            "flex flex-col bg-surface",
             "w-full md:w-1/2",
             mobileView !== "preview" && "hidden md:flex"
           )}
         >
-          <div className="px-5 py-4 border-b border-gray-100 bg-white shrink-0">
-            <h2 className="text-sm font-semibold text-gray-900">
+          <div className="px-5 py-4 border-b border-rim bg-white shrink-0">
+            <h2 className="text-sm font-semibold text-ink">
               Resume Preview
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-dim mt-0.5">
               Updates as you chat
             </p>
           </div>

@@ -140,6 +140,30 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (Dashboard And Operator UI Unification)
+
+Finished:
+
+- carried the warm shared visual system through `/dashboard`, `/apply-lab`, `/applied`, and `/resume`
+- rebuilt the dashboard hero, stats, recent activity feed, live application panel, and queue popup so they now read as the same product as landing/auth/jobs instead of an older gray/indigo admin surface
+- restyled apply-lab review shells, applied-job history, portal account storage, saved follow-up answers, notification schedule, blocker/recovery summaries, and related operator cards to use one consistent token set
+- cleaned remaining skeleton/loading states and split-pane chrome so the signed-in workflow no longer flips between multiple UI languages page-to-page
+
+Still blocked:
+
+- admin surfaces still need a dedicated pass if they are expected to match the polished product UI instead of remaining mostly operator-first
+- some component styling is still feature-local rather than fully abstracted into reusable primitives, so future design tweaks will still touch multiple files
+
+Exact next step:
+
+- do the same controlled consistency pass on admin job review screens and any remaining run-detail/operator surfaces, then decide whether to consolidate repeated card/input patterns into shared UI wrappers
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
 ## Current Bottlenecks
 
 The biggest remaining blockers to MVP are:

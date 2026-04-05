@@ -56,15 +56,15 @@ const STATUS_STYLES: Record<string, { dot: string; label: string; text: string; 
   applied: { dot: "bg-green-500", label: "Applied", text: "text-green-700", bg: "bg-green-50" },
   failed: { dot: "bg-red-500", label: "Failed", text: "text-red-700", bg: "bg-red-50" },
   unsupported: { dot: "bg-amber-400", label: "Planned", text: "text-amber-700", bg: "bg-amber-50" },
-  requires_auth: { dot: "bg-indigo-500", label: "Auth needed", text: "text-indigo-700", bg: "bg-indigo-50" },
+  requires_auth: { dot: "bg-accent", label: "Auth needed", text: "text-accent", bg: "bg-accent-wash" },
 };
 
 export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
   if (runs.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white px-6 py-12 text-center">
-        <p className="text-sm font-medium text-gray-900">No apply runs yet</p>
-        <p className="mt-2 text-sm text-gray-400">
+      <div className="rounded-[28px] border border-rim bg-white px-6 py-12 text-center shadow-soft-card">
+        <p className="text-sm font-medium text-ink">No apply runs yet</p>
+        <p className="mt-2 text-sm text-dim">
           Use the internal apply lab to generate a portal plan or test submission.
         </p>
       </div>
@@ -72,28 +72,28 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <div className="divide-y divide-gray-100">
+    <div className="rounded-[28px] border border-rim bg-white overflow-hidden shadow-soft-card">
+      <div className="divide-y divide-rim/60">
         {runs.map((run) => {
           const style = STATUS_STYLES[run.status] ?? {
-            dot: "bg-gray-400",
+            dot: "bg-rim-dark",
             label: run.status,
-            text: "text-gray-700",
-            bg: "bg-gray-100",
+            text: "text-ink",
+            bg: "bg-surface",
           };
 
           return (
             <div
               key={run.id}
-              className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
+              className="flex items-start gap-4 px-5 py-4 hover:bg-surface transition-colors"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[11px] font-bold uppercase text-gray-500">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-[11px] font-bold uppercase text-dim">
                 {(run.portal ?? run.mode).slice(0, 2)}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-ink">
                     {run.portal ?? "Unknown portal"} · {run.mode}
                   </p>
                   <span
@@ -107,9 +107,9 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                     {style.label}
                   </span>
                 </div>
-                <p className="mt-1 truncate text-xs text-gray-500">{run.url}</p>
+                <p className="mt-1 truncate text-xs text-dim">{run.url}</p>
                 {run.summary && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-dim">
                     {run.summary.stage.replaceAll("_", " ")} · {run.summary.actions.total} actions
                     {" · "}
                     {run.summary.actions.required} required
@@ -122,12 +122,12 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                   </p>
                 )}
                 {run.summary?.latest_screenshot_label && (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-[11px] text-dim">
                     last frame: {run.summary.latest_screenshot_label.replaceAll("_", " ")}
                   </p>
                 )}
                 {(run.summary?.blocked_step || run.summary?.blocked_field_family) && (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-[11px] text-dim">
                     {run.summary.blocked_step
                       ? `blocked step: ${run.summary.blocked_step.replaceAll("_", " ")}`
                       : "blocked step: unknown"}
@@ -137,7 +137,7 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                   </p>
                 )}
                 {(run.summary?.failure_source || run.summary?.missing_profile_fields.length) && (
-                  <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                  <p className="mt-1 text-[11px] text-dim line-clamp-2">
                     {run.summary.failure_source
                       ? `source: ${run.summary.failure_source.replaceAll("_", " ")}`
                       : "source: unknown"}
@@ -147,7 +147,7 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                   </p>
                 )}
                 {run.summary?.inferred_answers.length ? (
-                  <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">
+                  <p className="mt-1 text-[11px] text-dim line-clamp-2">
                     inferred: {run.summary.inferred_answers.join(", ")}
                   </p>
                 ) : null}
@@ -157,7 +157,7 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                   </p>
                 ) : null}
                 {run.summary?.recovery_attempted ? (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-[11px] text-dim">
                     recovery: {run.summary.recovery_family?.replaceAll("_", " ") ?? "attempted"}
                   </p>
                 ) : null}
@@ -166,7 +166,7 @@ export function ApplyRunsList({ runs }: { runs: ApplyRunRecord[] }) {
                 )}
               </div>
 
-              <div className="shrink-0 text-xs text-gray-400">
+              <div className="shrink-0 text-xs text-dim">
                 {formatPostedAt(run.created_at)}
               </div>
             </div>

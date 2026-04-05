@@ -56,8 +56,8 @@ type DraftState = {
 
 const STATUS_STYLES: Record<string, { dot: string; label: string; text: string; surface: string }> = {
   applied: { dot: "bg-green-500", label: "Applied", text: "text-green-700", surface: "bg-green-50" },
-  queued: { dot: "bg-accent", label: "Queued", text: "text-accent", surface: "bg-accent-wash" },
-  running: { dot: "bg-accent", label: "Running", text: "text-accent", surface: "bg-accent-wash" },
+  queued: { dot: "bg-amber-400", label: "Queued", text: "text-amber-700", surface: "bg-amber-50" },
+  running: { dot: "bg-blue-500", label: "Running", text: "text-blue-700", surface: "bg-blue-50" },
   requires_auth: { dot: "bg-accent", label: "Auth needed", text: "text-accent", surface: "bg-accent-wash" },
   skipped: { dot: "bg-rim", label: "Skipped", text: "text-dim", surface: "bg-surface" },
   expired: { dot: "bg-rim", label: "Expired", text: "text-dim", surface: "bg-surface" },
@@ -232,28 +232,28 @@ function orderProfileKeys(keys: string[]) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-5 rounded-xl border border-rim bg-white px-6 py-14 text-center shadow-soft-card">
+    <div className="rounded-[28px] border border-rim bg-white px-6 py-14 flex flex-col items-center gap-5 text-center shadow-soft-card">
       <div className="relative flex items-center justify-center">
-        <span className="absolute h-16 w-16 animate-ping rounded-full border-2 border-accent/20 opacity-40" />
+        <span className="absolute h-16 w-16 rounded-full border-2 border-accent/20 animate-ping opacity-40" />
         <span
-          className="absolute h-12 w-12 animate-ping rounded-full border-2 border-accent/30 opacity-30"
+          className="absolute h-12 w-12 rounded-full border-2 border-accent/30 animate-ping opacity-30"
           style={{ animationDelay: "0.3s" }}
         />
-        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
+        <div className="relative h-10 w-10 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
           AA
         </div>
       </div>
 
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">No applications yet</p>
-        <p className="max-w-xs text-sm text-dim">
+        <p className="text-sm text-dim max-w-xs">
           Queue a job from Browse Jobs first, then come back here to verify and edit the exact application payload.
         </p>
       </div>
 
       <Link
         href="/jobs"
-        className="text-sm font-medium text-accent underline underline-offset-2 transition-colors hover:text-accent/80"
+        className="text-sm text-accent hover:text-accent/80 font-medium underline underline-offset-2 transition-colors"
       >
         Open browse jobs →
       </Link>
@@ -473,16 +473,17 @@ export function ApplicationsList({ applications }: Props) {
             style={{ top: `${arrowTop}px` }}
             aria-hidden="true"
           >
+            {/* Right-pointing triangle — clean connector between panels */}
             <div className="border-y-[6px] border-l-[8px] border-y-transparent border-l-accent/70" />
           </div>
         ) : null}
 
         <div className="min-w-0 overflow-hidden rounded-l-xl rounded-r-none border border-r-0 border-rim bg-white shadow-soft-card xl:max-h-[calc(100vh-12rem)] xl:min-h-[calc(100vh-12rem)]">
           <div className="border-b border-rim px-5 py-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-dim">
               Verification Editor
             </p>
-            <h3 className="mt-1 text-lg font-semibold text-ink">
+            <h3 className="mt-1 text-2xl leading-none text-ink">
               Queued Jobs
             </h3>
             <p className="mt-1 text-xs text-dim">
@@ -491,7 +492,7 @@ export function ApplicationsList({ applications }: Props) {
           </div>
           <div
             ref={queueViewportRef}
-            className="divide-y divide-rim overflow-y-auto xl:max-h-[calc(100vh-16.5rem)]"
+            className="divide-y divide-rim/60 overflow-y-auto xl:max-h-[calc(100vh-16.5rem)]"
           >
             {localApplications.map((application) => {
               const style = STATUS_STYLES[application.status] ?? {
@@ -510,7 +511,7 @@ export function ApplicationsList({ applications }: Props) {
                   type="button"
                   onClick={() => setSelectedId(application.id)}
                   className={cn(
-                    "w-full px-5 py-4 text-left transition-colors hover:bg-surface/45",
+                    "w-full text-left px-5 py-4 hover:bg-surface transition-colors",
                     isSelected && "bg-accent-wash/70"
                   )}
                 >
@@ -562,10 +563,10 @@ export function ApplicationsList({ applications }: Props) {
           <div className="flex flex-col gap-5 overflow-y-auto p-5 xl:max-h-[calc(100vh-12rem)]">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-dim">
                   Verification Editor
                 </p>
-                <h3 className="mt-1 text-lg font-semibold text-ink">
+                <h3 className="mt-1 text-2xl leading-none text-ink">
                   {selectedApplication.job.title}
                 </h3>
                 <p className="mt-1 text-sm text-dim">
@@ -578,7 +579,7 @@ export function ApplicationsList({ applications }: Props) {
                 href={selectedApplication.job.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-2 text-xs font-medium text-dim transition-colors hover:bg-surface"
+                className="inline-flex items-center gap-1 rounded-lg border border-rim bg-white px-3 py-2 text-xs font-medium text-dim hover:border-accent/30 hover:bg-surface transition-colors shadow-soft-card"
               >
                 Open posting
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -699,7 +700,7 @@ export function ApplicationsList({ applications }: Props) {
               </EditorSection>
             )}
 
-            <div className="rounded-xl border border-rim bg-surface/35 p-4">
+            <div className="rounded-xl border border-rim bg-surface p-4">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-accent" />
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-dim">
@@ -714,7 +715,7 @@ export function ApplicationsList({ applications }: Props) {
                       readiness.risk_level === "blocked"
                         ? "bg-red-50 text-red-700"
                         : readiness.risk_level === "risky"
-                        ? "bg-accent-wash text-accent"
+                        ? "bg-amber-50 text-amber-700"
                         : "bg-green-50 text-green-700"
                     )}
                   >
@@ -753,7 +754,7 @@ export function ApplicationsList({ applications }: Props) {
                 className={cn(
                   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
                   savingId === selectedApplication.id
-                    ? "cursor-not-allowed bg-surface text-dim"
+                    ? "bg-surface text-dim cursor-not-allowed"
                     : "bg-ink text-white hover:bg-ink/90"
                 )}
               >
@@ -767,7 +768,7 @@ export function ApplicationsList({ applications }: Props) {
                 className={cn(
                   "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
                   selectedApplication.status !== "queued" || trustingId === selectedApplication.id
-                    ? "cursor-not-allowed bg-surface text-dim"
+                    ? "bg-surface text-dim cursor-not-allowed"
                     : "bg-accent text-white hover:bg-accent/90"
                 )}
               >
@@ -824,7 +825,7 @@ function EditorSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border border-rim bg-surface/35 p-4 first:rounded-t-lg last:rounded-b-lg">
+    <div className="border border-rim bg-surface p-4 first:rounded-t-lg last:rounded-b-lg">
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-dim">
         {title}
       </p>
@@ -836,11 +837,11 @@ function EditorSection({
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-rim bg-surface/35 px-4 py-3">
+    <div className="border border-rim bg-surface px-4 py-3">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-dim">
         {label}
       </p>
-      <p className="mt-1 break-words text-sm text-ink">{value}</p>
+      <p className="mt-1 text-sm text-ink break-words">{value}</p>
     </div>
   );
 }
@@ -866,13 +867,13 @@ function EditableField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           rows={kind === "json" ? 5 : 3}
-          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20 shadow-soft-card"
         />
       ) : kind === "boolean" ? (
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20 shadow-soft-card"
         >
           <option value="true">true</option>
           <option value="false">false</option>
@@ -882,7 +883,7 @@ function EditableField({
           type={kind === "number" ? "number" : "text"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent/40 focus:ring-2 focus:ring-accent/20 shadow-soft-card"
         />
       )}
     </label>

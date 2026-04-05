@@ -46,12 +46,12 @@ export function FollowupsSummary({ runs }: { runs: ApplyRunRecord[] }) {
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-orange-600">
             Pending Follow-ups
           </p>
-          <h3 className="mt-2 text-xl font-semibold text-gray-900">
+          <h3 className="mt-2 text-xl font-semibold text-ink">
             {totalRuns > 0
               ? `${totalRuns} run${totalRuns === 1 ? "" : "s"} need user input`
               : "No unresolved user questions right now"}
           </h3>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+          <p className="mt-2 max-w-2xl text-sm text-dim">
             Twin pauses before submit when a required prompt cannot be answered safely. These are the top unresolved prompts still waiting on a user answer.
           </p>
         </div>
@@ -64,8 +64,8 @@ export function FollowupsSummary({ runs }: { runs: ApplyRunRecord[] }) {
               key={item.prompt}
               className="rounded-2xl border border-orange-100 bg-white px-4 py-3"
             >
-              <p className="text-sm font-medium text-gray-900">{item.prompt}</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="text-sm font-medium text-ink">{item.prompt}</p>
+              <p className="mt-1 text-xs text-dim">
                 {item.count} blocked run{item.count === 1 ? "" : "s"} · {[
                   ...item.portals,
                 ]
@@ -76,7 +76,7 @@ export function FollowupsSummary({ runs }: { runs: ApplyRunRecord[] }) {
           ))}
         </div>
       ) : (
-        <div className="mt-5 rounded-2xl border border-orange-100 bg-white px-4 py-4 text-sm text-gray-600">
+        <div className="mt-5 rounded-2xl border border-orange-100 bg-white px-4 py-4 text-sm text-dim">
           Daily follow-up reports and SMS batches are clear. New unresolved prompts will appear here automatically after blocked runs.
         </div>
       )}

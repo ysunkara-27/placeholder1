@@ -88,7 +88,7 @@ export function LiveApplicationPanel({
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-rim bg-white p-5 text-sm text-dim shadow-soft-card">
+      <div className="rounded-[28px] border border-rim bg-white p-5 text-sm text-dim shadow-soft-card">
         Response sent — your Twin will act on it momentarily.
       </div>
     );
@@ -96,9 +96,9 @@ export function LiveApplicationPanel({
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-white shadow-soft-card ${
+      className={`overflow-hidden rounded-[28px] border bg-white shadow-soft-card ${
         isAwaiting
-          ? "border-accent/30 shadow-warm"
+          ? "border-accent/30"
           : "border-rim"
       }`}
     >
@@ -128,23 +128,23 @@ export function LiveApplicationPanel({
         </span>
       </div>
 
-      <div className="grid divide-y divide-rim sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <div className="grid divide-y divide-rim/60 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {/* Live log feed */}
-        <div className="bg-ink p-4">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-dim/80">
+        <div className="bg-[color:rgba(35,26,21,0.98)] p-4">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/45">
             Live log
           </p>
           <div className="space-y-0.5 max-h-56 overflow-y-auto">
             {logs.length === 0 ? (
-              <p className="text-xs italic text-dim/80">Starting up…</p>
+              <p className="text-xs italic text-white/50">Starting up…</p>
             ) : (
               logs.map((e, i) => <LogLine key={i} event={e} />)
             )}
             {isRunning && (
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "0ms" }} />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "150ms" }} />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-accent/80" style={{ animationDelay: "300ms" }} />
+                <span className="h-1 w-1 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-1 w-1 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-1 w-1 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             )}
           </div>
@@ -181,7 +181,7 @@ export function LiveApplicationPanel({
                   <button
                     onClick={handleConfirm}
                     disabled={confirming || cancelling}
-                    className="flex-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+                    className="flex-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-92 disabled:opacity-50"
                   >
                     {confirming ? "Confirming…" : "Confirm & Submit"}
                   </button>
@@ -200,7 +200,7 @@ export function LiveApplicationPanel({
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-4 text-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent-wash border-t-accent" />
+              <div className="h-10 w-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
               <p className="text-sm text-dim">
                 Filling the application form…
               </p>

@@ -38,23 +38,23 @@ export function TwinStats({ applied, pending, matched }: Props) {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-xl border border-gray-200 bg-white p-5 space-y-3"
+          className="space-y-3 rounded-[24px] border border-rim bg-white p-5 shadow-soft-card"
         >
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-dim">
               {stat.label}
             </span>
             {stat.active && (
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/50 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
               </span>
             )}
           </div>
-          <p className="text-3xl font-bold text-gray-900 tabular-nums">
+          <p className="text-3xl font-bold text-ink tabular-nums">
             {stat.value}
           </p>
-          <p className="text-xs text-gray-400">{stat.description}</p>
+          <p className="text-xs text-dim">{stat.description}</p>
         </div>
       ))}
     </div>
