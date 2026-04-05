@@ -31,13 +31,10 @@ function sanitizeJdSummary(raw: string | null | undefined): string | null {
   return s;
 }
 
-const jobLevelSchema = z.enum([
-  "internship",
-  "new_grad",
-  "co_op",
-  "part_time",
-  "associate",
-]);
+const jobLevelSchema = z
+  .string()
+  .transform((s) => s.toLowerCase().replace(/[\s-]+/g, "_"))
+  .pipe(z.enum(["internship", "new_grad", "co_op", "part_time", "associate"]));
 
 const jobPortalSchema = z.enum([
   "greenhouse",
