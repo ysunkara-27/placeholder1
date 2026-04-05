@@ -39,6 +39,8 @@ class ApplicantProfile:
     work_authorization: str = ""
     start_date: str = ""
     location_preference: str = ""
+    location_preferences: list[str] = field(default_factory=list)
+    job_location_options: list[str] = field(default_factory=list)
     salary_expectation: str = ""
     onsite_preference: str = ""
     weekly_availability_hours: str = ""

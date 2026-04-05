@@ -14,6 +14,13 @@ from apply_engine.models import ApplicantProfile, BlockedFieldFamily, PlannedAct
 
 
 CUSTOM_ANSWER_KEY_ALIASES = {
+    "location": "location_preference",
+    "preferred_location": "location_preference",
+    "office_location": "location_preference",
+    "work_location": "location_preference",
+    "first_preferred_location": "location_preference_rank_1",
+    "second_preferred_location": "location_preference_rank_2",
+    "third_preferred_location": "location_preference_rank_3",
     "university": "school",
     "college": "school",
     "school_name": "school",
@@ -55,6 +62,32 @@ CUSTOM_ANSWER_KEY_ALIASES = {
 
 
 STANDARD_HINT_ALIASES: dict[str, list[str]] = {
+    "location_preference": [
+        "preferred location",
+        "preferred office",
+        "office location",
+        "work location",
+        "location preference",
+        "office preference",
+    ],
+    "location_preference_rank_1": [
+        "first preferred location",
+        "primary location preference",
+        "location preference 1",
+        "ranked location 1",
+    ],
+    "location_preference_rank_2": [
+        "second preferred location",
+        "secondary location preference",
+        "location preference 2",
+        "ranked location 2",
+    ],
+    "location_preference_rank_3": [
+        "third preferred location",
+        "tertiary location preference",
+        "location preference 3",
+        "ranked location 3",
+    ],
     "school": [
         "current school",
         "name of school",
@@ -282,6 +315,28 @@ def infer_answer_for_field_key(profile: ApplicantProfile, field_key: str) -> str
 
     if normalized_key == "school":
         return first_non_empty(profile.school, match_custom_answer("school"))
+    if normalized_key in {"location_preference", "preferred_location", "office_location", "work_location"}:
+        return first_non_empty(
+            profile.location_preference,
+            match_custom_answer("location_preference"),
+            (profile.location_preferences[0] if profile.location_preferences else ""),
+            (profile.job_location_options[0] if profile.job_location_options else ""),
+        )
+    if normalized_key in {"location_preference_rank_1", "preferred_location_1"}:
+        return first_non_empty(
+            match_custom_answer("location_preference_rank_1", "preferred_location_1"),
+            (profile.location_preferences[0] if profile.location_preferences else ""),
+        )
+    if normalized_key in {"location_preference_rank_2", "preferred_location_2"}:
+        return first_non_empty(
+            match_custom_answer("location_preference_rank_2", "preferred_location_2"),
+            (profile.location_preferences[1] if len(profile.location_preferences) > 1 else ""),
+        )
+    if normalized_key in {"location_preference_rank_3", "preferred_location_3"}:
+        return first_non_empty(
+            match_custom_answer("location_preference_rank_3", "preferred_location_3"),
+            (profile.location_preferences[2] if len(profile.location_preferences) > 2 else ""),
+        )
     if normalized_key == "degree":
         return first_non_empty(infer_degree_level(), match_custom_answer("degree"))
     if normalized_key in {"major", "discipline"}:

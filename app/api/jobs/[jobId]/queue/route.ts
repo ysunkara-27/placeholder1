@@ -82,7 +82,7 @@ export async function POST(
       : null;
 
     const applicantDraft = persistedProfile
-      ? mapPersistedProfileToApplicantDraft(persistedProfile, user.email ?? "")
+      ? mapPersistedProfileToApplicantDraft(persistedProfile, user.email ?? "", job)
       : null;
 
     if (!applicantDraft) {

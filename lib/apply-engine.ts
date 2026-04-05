@@ -14,6 +14,8 @@ const applicantProfileSchema = z.object({
   work_authorization: z.string().default(""),
   start_date: z.string().default(""),
   location_preference: z.string().default(""),
+  location_preferences: z.array(z.string()).default([]),
+  job_location_options: z.array(z.string()).default([]),
   salary_expectation: z.string().default(""),
   onsite_preference: z.string().default(""),
   weekly_availability_hours: z.string().default(""),

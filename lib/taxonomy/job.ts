@@ -116,6 +116,16 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function splitLocationOptions(raw: string): string[] {
+  return uniq(
+    raw
+      .split(/\s*(?:\||;|\n|\/)\s*/g)
+      .flatMap((part) => part.split(/\s+\bor\b\s+/i))
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+}
+
 function normalizeSlug(raw: string) {
   return raw
     .toLowerCase()
@@ -140,7 +150,6 @@ function workModality(input: Pick<JobTaxonomyInput, "location" | "remote" | "jd_
 }
 
 function geoNodeSlugs(location: string): string[] {
-  const text = location.toLowerCase();
   const slugs: string[] = [];
   const cityMap: Record<string, string> = {
     "san francisco": "geo.usa.west.california.san_francisco_bay_area",
@@ -164,9 +173,6 @@ function geoNodeSlugs(location: string): string[] {
     columbus: "geo.usa.midwest.ohio.columbus",
     toronto: "geo.canada.ontario.toronto",
   };
-  for (const [match, slug] of Object.entries(cityMap)) {
-    if (text.includes(match)) slugs.push(slug);
-  }
   const stateMap: Record<string, string> = {
     "ct": "geo.usa.northeast.connecticut",
     "connecticut": "geo.usa.northeast.connecticut",
@@ -268,12 +274,45 @@ function geoNodeSlugs(location: string): string[] {
     "south dakota": "geo.usa.midwest.south_dakota",
     "wi": "geo.usa.midwest.wisconsin",
     "wisconsin": "geo.usa.midwest.wisconsin",
+    "ab": "geo.canada.alberta",
+    "alberta": "geo.canada.alberta",
+    "bc": "geo.canada.british_columbia",
+    "british columbia": "geo.canada.british_columbia",
+    "mb": "geo.canada.manitoba",
+    "manitoba": "geo.canada.manitoba",
+    "nb": "geo.canada.new_brunswick",
+    "new brunswick": "geo.canada.new_brunswick",
+    "nl": "geo.canada.newfoundland_and_labrador",
+    "newfoundland and labrador": "geo.canada.newfoundland_and_labrador",
+    "nt": "geo.canada.northwest_territories",
+    "northwest territories": "geo.canada.northwest_territories",
+    "ns": "geo.canada.nova_scotia",
+    "nova scotia": "geo.canada.nova_scotia",
+    "nu": "geo.canada.nunavut",
+    "nunavut": "geo.canada.nunavut",
+    "on": "geo.canada.ontario",
     "ontario": "geo.canada.ontario",
+    "pe": "geo.canada.prince_edward_island",
+    "pei": "geo.canada.prince_edward_island",
+    "prince edward island": "geo.canada.prince_edward_island",
+    "qc": "geo.canada.quebec",
+    "quebec": "geo.canada.quebec",
+    "sk": "geo.canada.saskatchewan",
+    "saskatchewan": "geo.canada.saskatchewan",
+    "yk": "geo.canada.yukon",
+    "yukon": "geo.canada.yukon",
   };
-  for (const [match, slug] of Object.entries(stateMap)) {
-    if (new RegExp(`(^|[\\s,\\-])${match}($|[\\s,])`, "i").test(text)) slugs.push(slug);
+  const options = splitLocationOptions(location);
+  for (const option of options.length > 0 ? options : [location]) {
+    const text = option.toLowerCase();
+    for (const [match, slug] of Object.entries(cityMap)) {
+      if (text.includes(match)) slugs.push(slug);
+    }
+    for (const [match, slug] of Object.entries(stateMap)) {
+      if (new RegExp(`(^|[\\s,\\-])${match}($|[\\s,])`, "i").test(text)) slugs.push(slug);
+    }
+    slugs.push(text.includes("canada") ? "geo.canada" : "geo.usa");
   }
-  slugs.push(text.includes("canada") ? "geo.canada" : "geo.usa");
   return uniq(slugs);
 }
 
@@ -397,7 +436,7 @@ export function buildJobTaxonomy(input: JobTaxonomyInput) {
   return {
     work_modality: modality.value,
     work_modality_confidence: modality.confidence,
-    locations_text: uniq(input.location.split(/[;/|]/g).map((part) => part.trim()).filter(Boolean)),
+    locations_text: splitLocationOptions(input.location),
     industry_node_slugs: industrySlugs,
     job_function_node_slugs: jobFunctionSlugs,
     career_node_slugs: careerNodeSlugsOnly,
@@ -420,6 +459,7 @@ export function buildJobTaxonomy(input: JobTaxonomyInput) {
       job_function_node_slugs: jobFunctionSlugs,
       career_node_slugs: careerNodeSlugsOnly,
       geo_node_slugs: geoSlugs,
+      location_options_text: splitLocationOptions(input.location),
       employment_type_node_slugs: employmentTypeNodeSlugs,
       work_modality: modality.value,
       work_modality_confidence: modality.confidence,

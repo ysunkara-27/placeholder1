@@ -1323,3 +1323,48 @@ Exact next step:
 3. run `npm run backfill:taxonomy:jobs -- --dry-run --limit 50`
 4. run `npm run backfill:taxonomy:profiles -- --dry-run --limit 50`
 5. if the samples look correct, run both backfills live and then tighten browse queries to lean more directly on taxonomy node arrays
+
+## Session Log — 2026-04-05
+
+Completed in this session:
+
+- expanded the geo taxonomy baseline to full US state coverage and added Canadian province/territory coverage in the taxonomy seed set
+- cleaned city display labels to `City, ST/Province`
+- added corrective geo migrations:
+  - `20260405170000_taxonomy_geo_label_cleanup.sql`
+  - `20260405171000_taxonomy_geo_all_states.sql`
+  - `20260405172000_taxonomy_geo_canada_provinces.sql`
+- upgraded job ingest and scraper taxonomy parsing to treat multi-location postings as explicit location option sets instead of one flat location string
+- upgraded apply payload generation so queued applications can carry:
+  - best-fit `location_preference`
+  - ranked `location_preferences`
+  - available `job_location_options`
+- taught the Python apply engine schema and hint inference layer to use ranked/preferred location answers for office-choice prompts
+
+Verified:
+
+- `node --check scripts/backfill-taxonomy.mjs`
+- `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+- `npm run build`
+
+Could not verify:
+
+- `npm run test:apply-engine`
+  - blocked in this workspace because `./.venv/bin/python` does not exist
+
+Current truth after this session:
+
+- a job can now preserve multiple available application locations through taxonomy summary and `locations_text`
+- apply requests generated from queued jobs now choose location answers relative to the specific job, not just the user profile’s first saved city
+- Canada now has province-level geo nodes, and the US has full state-level coverage under the existing regions
+
+Exact next step:
+
+1. run the new geo corrective SQL in Supabase:
+   - `20260405170000_taxonomy_geo_label_cleanup.sql`
+   - `20260405171000_taxonomy_geo_all_states.sql`
+   - `20260405172000_taxonomy_geo_canada_provinces.sql`
+2. verify geo counts and spot-check state/province labels
+3. run `npm run backfill:taxonomy:jobs -- --dry-run --limit 50`
+4. confirm multi-location rows now show expanded `locations_text` and `job_taxonomy_summary.location_options_text`
+5. then run the job/profile backfills live

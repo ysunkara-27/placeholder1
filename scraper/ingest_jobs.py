@@ -12,6 +12,7 @@ Env vars required:
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 from scraper.sources.common import canonicalize_url, infer_level
@@ -39,8 +40,19 @@ def _infer_work_modality(location: str, remote: bool, summary: str) -> tuple[str
     return "unknown", "low"
 
 
+def _split_location_options(location: str) -> list[str]:
+    if not location:
+        return []
+    out: list[str] = []
+    for part in re.split(r"\s*(?:\||;|\n|/)\s*", location):
+        for inner in re.split(r"\s+\bor\b\s+", part, flags=re.IGNORECASE):
+            candidate = inner.strip()
+            if candidate and candidate not in out:
+                out.append(candidate)
+    return out
+
+
 def _geo_node_slugs(location: str) -> list[str]:
-    text = location.lower()
     slugs: list[str] = []
     city_map = {
         "san francisco": "geo.usa.west.california.san_francisco_bay_area",
@@ -64,10 +76,44 @@ def _geo_node_slugs(location: str) -> list[str]:
         "columbus": "geo.usa.midwest.ohio.columbus",
         "toronto": "geo.canada.ontario.toronto",
     }
-    for match, slug in city_map.items():
-        if match in text:
-            slugs.append(slug)
-    slugs.append("geo.canada" if "canada" in text or "ontario" in text else "geo.usa")
+    state_map = {
+        "ab": "geo.canada.alberta",
+        "alberta": "geo.canada.alberta",
+        "bc": "geo.canada.british_columbia",
+        "british columbia": "geo.canada.british_columbia",
+        "mb": "geo.canada.manitoba",
+        "manitoba": "geo.canada.manitoba",
+        "nb": "geo.canada.new_brunswick",
+        "new brunswick": "geo.canada.new_brunswick",
+        "nl": "geo.canada.newfoundland_and_labrador",
+        "newfoundland and labrador": "geo.canada.newfoundland_and_labrador",
+        "ns": "geo.canada.nova_scotia",
+        "nova scotia": "geo.canada.nova_scotia",
+        "nt": "geo.canada.northwest_territories",
+        "northwest territories": "geo.canada.northwest_territories",
+        "nu": "geo.canada.nunavut",
+        "nunavut": "geo.canada.nunavut",
+        "on": "geo.canada.ontario",
+        "ontario": "geo.canada.ontario",
+        "pe": "geo.canada.prince_edward_island",
+        "pei": "geo.canada.prince_edward_island",
+        "prince edward island": "geo.canada.prince_edward_island",
+        "qc": "geo.canada.quebec",
+        "quebec": "geo.canada.quebec",
+        "sk": "geo.canada.saskatchewan",
+        "saskatchewan": "geo.canada.saskatchewan",
+        "yk": "geo.canada.yukon",
+        "yukon": "geo.canada.yukon",
+    }
+    for option in (_split_location_options(location) or [location]):
+        text = option.lower()
+        for match, slug in city_map.items():
+            if match in text:
+                slugs.append(slug)
+        for match, slug in state_map.items():
+            if re.search(rf"(^|[\s,\-]){re.escape(match)}($|[\s,])", text, re.IGNORECASE):
+                slugs.append(slug)
+        slugs.append("geo.canada" if "canada" in text else "geo.usa")
     return list(dict.fromkeys(slugs))
 
 
@@ -94,6 +140,7 @@ def _build_taxonomy_summary(company: str, title: str, location: str, summary: st
         "job_function_node_slugs": [],
         "career_node_slugs": [value for value in career if value.startswith("career_role.")],
         "geo_node_slugs": _geo_node_slugs(location),
+        "location_options_text": _split_location_options(location),
         "employment_type_node_slugs": [value for value in career if value.startswith("employment_type.")],
         "work_modality": work_modality,
         "work_modality_confidence": modality_confidence,
@@ -165,7 +212,7 @@ def _make_row(job: dict) -> dict:
         "experience_band": "early_career" if role_family == "associate" else ("new_grad" if role_family == "new_grad" else "student"),
         "is_early_career": True,
         "location": job["location"],
-        "locations_text": [part.strip() for part in job["location"].split("/") if part.strip()],
+        "locations_text": _split_location_options(job["location"]),
         "url": url,
         "application_url": application_url,
         "canonical_url": url,

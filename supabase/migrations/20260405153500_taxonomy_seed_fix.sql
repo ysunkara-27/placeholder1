@@ -247,6 +247,19 @@ with nodes(dimension, slug, label, parent_slug, depth, is_leaf) as (
     ('geo', 'utah', 'Utah', 'west', 3, false),
     ('geo', 'washington', 'Washington', 'west', 3, false),
     ('geo', 'wyoming', 'Wyoming', 'west', 3, false),
+    ('geo', 'alberta', 'Alberta', 'canada', 2, false),
+    ('geo', 'british_columbia', 'British Columbia', 'canada', 2, false),
+    ('geo', 'manitoba', 'Manitoba', 'canada', 2, false),
+    ('geo', 'new_brunswick', 'New Brunswick', 'canada', 2, false),
+    ('geo', 'newfoundland_and_labrador', 'Newfoundland and Labrador', 'canada', 2, false),
+    ('geo', 'northwest_territories', 'Northwest Territories', 'canada', 2, false),
+    ('geo', 'nova_scotia', 'Nova Scotia', 'canada', 2, false),
+    ('geo', 'nunavut', 'Nunavut', 'canada', 2, false),
+    ('geo', 'ontario', 'Ontario', 'canada', 2, false),
+    ('geo', 'prince_edward_island', 'Prince Edward Island', 'canada', 2, false),
+    ('geo', 'quebec', 'Quebec', 'canada', 2, false),
+    ('geo', 'saskatchewan', 'Saskatchewan', 'canada', 2, false),
+    ('geo', 'yukon', 'Yukon', 'canada', 2, false),
     ('geo', 'toronto', 'Toronto, ON', 'ontario', 3, true)
 )
 insert into public.taxonomy_nodes (dimension, slug, label, parent_node_id, depth, is_leaf)

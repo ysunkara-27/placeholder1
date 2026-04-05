@@ -1342,3 +1342,44 @@ When `twinmegaresearch.md` is populated, the first things to update here should 
   - browse and matching still use taxonomy summaries plus legacy fallbacks; node-array-first filtering is not the sole source of truth yet
   - company priors are still seeded/curated manually rather than learned through an admin UI workflow
 - Next recommended step: complete the corrected seed rollout, run the taxonomy review report to identify unknown or fallback-heavy companies, backfill jobs/profiles, and then shift browse filtering toward the normalized taxonomy UUID arrays.
+
+### Session Update: 2026-04-05
+
+- Workstream: Geo taxonomy completion and multi-location apply support
+- Feature batch: full US-state baseline, Canadian provinces, and job-specific location choice payloads
+- Status before: geo taxonomy only had partial state coverage, Canada effectively only had Ontario, and queued apply requests only carried a single profile-level `location_preference`.
+- Status after: the taxonomy seed set now covers all US states plus Canadian provinces/territories, city labels are normalized for display, multi-location job strings are parsed into explicit option sets during ingest, and queued apply requests now carry ranked job-specific location choices into the Python engine.
+- Files changed:
+  - `lib/platform/applicant.ts`
+  - `app/api/jobs/[jobId]/queue/route.ts`
+  - `app/api/internal/cron/finalize-prospective-lists/route.ts`
+  - `lib/apply-engine.ts`
+  - `apply_engine/models.py`
+  - `apply_engine/schemas.py`
+  - `apply_engine/agents/common.py`
+  - `lib/taxonomy/job.ts`
+  - `lib/taxonomy/profile.ts`
+  - `scraper/ingest_jobs.py`
+  - `scripts/backfill-taxonomy.mjs`
+  - `supabase/migrations/20260405153000_taxonomy_seed_mvp.sql`
+  - `supabase/migrations/20260405153500_taxonomy_seed_fix.sql`
+  - `supabase/migrations/20260405170000_taxonomy_geo_label_cleanup.sql`
+  - `supabase/migrations/20260405171000_taxonomy_geo_all_states.sql`
+  - `supabase/migrations/20260405172000_taxonomy_geo_canada_provinces.sql`
+  - `PLANS.md`
+- Tests run:
+  - `node --check scripts/backfill-taxonomy.mjs`
+  - `python3 -m py_compile $(find apply_engine -name '*.py') $(find scraper -name '*.py')`
+  - `npm run build`
+- Tests passed:
+  - Node syntax check passed
+  - Python syntax compilation passed
+  - Next production build passed
+- Tests not run:
+  - `npm run test:apply-engine`
+  - reason: `./.venv/bin/python` is missing in this workspace
+- Known gaps:
+  - the new corrective geo migrations still need to be run in Supabase for the live DB to match repo truth
+  - the apply engine now has ranked location data available, but there is not yet an admin/operator surface for reviewing the chosen location against a specific application question
+  - browse filtering still needs a follow-up pass to expose parent/child geo filters more directly
+- Next recommended step: apply the new geo migrations, verify counts/labels in Supabase, run taxonomy backfill dry-runs, then backfill live rows so multi-location jobs and full state/province nodes are present in production data.

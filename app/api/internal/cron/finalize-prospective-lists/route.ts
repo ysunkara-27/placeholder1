@@ -131,11 +131,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const jobMap = new Map((jobs ?? []).map((j) => [j.id, j]));
 
     const persistedProfile = mapProfileRowToPersistedProfile(profile);
-    const applicantDraft = mapPersistedProfileToApplicantDraft(
-      persistedProfile,
-      (profile as any).email ?? ""
-    );
-
     const confirmedItems = itemRows.filter((it) => it.user_decision === "confirmed");
     const skippedItems = itemRows.filter((it) => it.user_decision === "skip");
 
@@ -145,6 +140,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     for (const it of confirmedItems) {
       const job = jobMap.get(it.job_id);
       if (!job) continue;
+      const applicantDraft = mapPersistedProfileToApplicantDraft(
+        persistedProfile,
+        (profile as any).email ?? "",
+        job
+      );
 
       const queueResult = await queueApplication(typedSupabase, {
         userId,

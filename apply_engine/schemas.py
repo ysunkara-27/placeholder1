@@ -32,6 +32,21 @@ def _expect_bool(value: Any, field_name: str, *, default: bool | None = None) ->
     return value
 
 
+def _expect_str_list(value: Any, field_name: str, *, default: list[str] | None = None) -> list[str]:
+    if value is None and default is not None:
+        return default
+    if not isinstance(value, list):
+        raise SchemaValidationError(f"{field_name} must be an array")
+    parsed: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise SchemaValidationError(f"{field_name} must only contain strings")
+        normalized = item.strip()
+        if normalized:
+            parsed.append(normalized)
+    return parsed
+
+
 def _expect_portal_accounts(
     value: Any,
     field_name: str,
@@ -97,6 +112,8 @@ class ApplicantProfilePayload:
     work_authorization: str = ""
     start_date: str = ""
     location_preference: str = ""
+    location_preferences: list[str] | None = None
+    job_location_options: list[str] | None = None
     salary_expectation: str = ""
     onsite_preference: str = ""
     weekly_availability_hours: str = ""
@@ -134,6 +151,8 @@ class ApplicantProfilePayload:
           "work_authorization",
           "start_date",
           "location_preference",
+          "location_preferences",
+          "job_location_options",
           "salary_expectation",
           "onsite_preference",
           "weekly_availability_hours",
@@ -200,6 +219,16 @@ class ApplicantProfilePayload:
               payload.get("location_preference"),
               "profile.location_preference",
               default="",
+          ),
+          location_preferences=_expect_str_list(
+              payload.get("location_preferences"),
+              "profile.location_preferences",
+              default=[],
+          ),
+          job_location_options=_expect_str_list(
+              payload.get("job_location_options"),
+              "profile.job_location_options",
+              default=[],
           ),
           salary_expectation=_expect_str(
               payload.get("salary_expectation"),
@@ -273,6 +302,8 @@ class ApplicantProfilePayload:
             "work_authorization": self.work_authorization,
             "start_date": self.start_date,
             "location_preference": self.location_preference,
+            "location_preferences": self.location_preferences or [],
+            "job_location_options": self.job_location_options or [],
             "salary_expectation": self.salary_expectation,
             "onsite_preference": self.onsite_preference,
             "weekly_availability_hours": self.weekly_availability_hours,
