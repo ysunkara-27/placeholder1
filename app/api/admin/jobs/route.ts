@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
   if (action === "approve") {
     const { data, error } = await db
       .from("jobs")
-      .update({ status: "active" })
+      .update({ status: "active", posted_at: new Date().toISOString() })
       .in("id", jobIds!)
       .select("id");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
