@@ -6,8 +6,7 @@ export const runtime = "nodejs";
 const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 
 // Groq free tier — fast, generous limits, no cost
-// Swap model to "llama-3.3-70b-versatile" for higher quality if needed
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 async function assertAdmin(): Promise<NextResponse | null> {
   const supabase = await getSupabaseServerClient();
