@@ -5,8 +5,7 @@ export const runtime = "nodejs";
 
 const ADMIN_EMAILS = ["sunkarayashaswi@gmail.com", "surajnvaddi@gmail.com", "sunkara.yashaswi@gmail.com"];
 
-// gemini-2.0-flash: fast, cheap, widely available
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 
 async function assertAdmin(): Promise<NextResponse | null> {
   const supabase = await getSupabaseServerClient();
