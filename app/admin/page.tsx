@@ -92,7 +92,6 @@ function ReviewQueue({
   // Jobs currently being normalized in the background
   const [normalizing, setNormalizing] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
-  const [jdExpanded, setJdExpanded] = useState(false);
 
   const draft = selected ? (drafts[selected.id] ?? {}) : {};
   const current = selected ? { ...selected, ...draft } : null;
@@ -246,7 +245,7 @@ function ReviewQueue({
 
   function navigate(dir: -1 | 1) {
     const next = jobs[currentIdx + dir];
-    if (next) { setSelected(next); setJdExpanded(false); }
+    if (next) { setSelected(next); }
   }
 
   // Keyboard shortcuts (only when not focused on an input)
@@ -296,7 +295,7 @@ function ReviewQueue({
             return (
               <button
                 key={job.id}
-                onClick={() => { setSelected(job); setJdExpanded(false); }}
+                onClick={() => { setSelected(job); }}
                 className={cn(
                   "w-full text-left px-4 py-3 transition-colors",
                   selected?.id === job.id
@@ -549,21 +548,19 @@ function ReviewQueue({
               ))}
             </div>
 
-            {/* JD summary */}
-            {current.jd_summary && (
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <button onClick={() => setJdExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <span className="text-xs font-semibold text-gray-600">Job Description Summary</span>
-                  {jdExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                </button>
-                {jdExpanded && (
-                  <div className="px-4 py-4 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                    {current.jd_summary}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* JD summary — always editable, AI fills when empty */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Job Description Summary
+                {!current.jd_summary && <span className="ml-2 normal-case text-violet-400 font-normal">(run Clean with AI to auto-fill)</span>}
+              </label>
+              <textarea
+                className={`${inp} resize-y min-h-[90px]`}
+                value={current.jd_summary ?? ""}
+                onChange={(e) => patch("jd_summary", e.target.value || null)}
+                placeholder="Paste or let AI generate a description…"
+              />
+            </div>
           </div>
         </div>
       ) : (

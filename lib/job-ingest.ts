@@ -196,6 +196,11 @@ export async function upsertJobFromIngestPayload(
   }
 
   if (existing) {
+    // Rejected jobs stay closed — skip all re-processing so they never surface for review again.
+    if (existing.status === "closed") {
+      return existing;
+    }
+
     const mergedMetadata = {
       ...jsonObject(existing.metadata),
       ...jsonObject(insert.metadata),
