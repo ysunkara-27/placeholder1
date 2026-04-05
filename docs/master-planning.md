@@ -66,6 +66,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Job ingestion, dedupe, and website hydration are not yet unified behind one canonical job-normalization contract
 - Browse filtering now normalizes/falls back job industries at read time, but the live jobs table still needs a one-time repair for previously overwritten or mis-tagged rows
 - Profile targeting is still too coarse to express `Spring 2027 Internship` vs `Summer 2027 Internship` vs `New Grad 2027` vs `Associate`
+- A concrete taxonomy-based normalization spec now exists in `docs/job-matching-standardization-plan.md`, but the schema, resolvers, and profile/job persistence model are not implemented yet
 
 ### Immediate Production Priorities
 
@@ -214,6 +215,33 @@ Twin should normalize both jobs and user intent into:
   - `student`
   - `new_grad`
   - `early_career`
+
+### Taxonomy direction
+
+The current flat targeting fields are now superseded directionally by a generic taxonomy system with shared node infrastructure and dimension-specific trees.
+
+The implementation target is:
+
+- one generic `taxonomy_nodes` system with alias matching and ancestry-aware traversal
+- separate dimensions for:
+  - `geo`
+  - `work_modality`
+  - `industry`
+  - `job_function`
+  - `career_role`
+  - `education_degree`
+  - `education_field`
+  - `work_authorization`
+  - `employment_type`
+- multi-node job mappings per dimension where postings are genuinely broad or ambiguous
+- two internal profile layers:
+  - `profile_match_preferences`
+  - `profile_application_facts`
+- one seamless user-facing profile flow that populates both layers without exposing the distinction
+- a first-class `possible_match` state for branch-only or lower-confidence overlap
+- a full implementation plan covering schema, resolvers, company priors, browse migration, and apply-facts migration now lives in `docs/job-matching-standardization-plan.md`
+
+See `docs/job-matching-standardization-plan.md` for the implementation-ready attribute spec, user-facing terms, and internal variable names.
 
 ### Profile truth to capture
 

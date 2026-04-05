@@ -79,6 +79,31 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (Job Matching Taxonomy Spec)
+
+Finished:
+
+- added an implementation-ready taxonomy attribute spec to `docs/job-matching-standardization-plan.md`
+- locked the normalization model around one generic `taxonomy_nodes` system with dimension trees, alias matching, multi-node mappings, and confidence-aware parent fallback
+- defined canonical dimensions for geo, work modality, industry, job function, career role, education degree, education field, work authorization, and employment type
+- documented two internal profile layers (`match_preferences` and `application_facts`) with one seamless user-facing profile flow
+- specified `possible_match` as a first-class match state and documented disclosure-policy handling for optional application data like GPA and demographic fields
+- added the full implementation plan for taxonomy schema, company priors, deterministic resolvers, browse cutover, apply-completion cutover, migration order, and verification expectations
+
+Still blocked:
+
+- no schema, migrations, or resolver implementation exists yet for the taxonomy model
+- browse filtering, onboarding persistence, RPC routing, and apply-engine profile export still use older flat fields and string matching
+- seeded taxonomy coverage and alias dictionaries have not yet been created for industry-heavy role breadth
+
+Exact next step:
+
+- design the initial Supabase schema and migrations for `taxonomy_nodes`, aliases, path expansion support, and profile/job mapping tables or arrays, then implement Phase 0 vocabulary cleanup and the first resolver pass for geo + industry + career-role normalization
+
+Exact verification run:
+
+- docs-only in this session; no code verification run executed
+
 ## Session Handoff — 2026-04-05 (Visual System Pass)
 
 Finished:
