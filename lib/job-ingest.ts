@@ -12,6 +12,25 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
+// Known junk patterns that scrapers write when they can't extract a real description
+const JD_JUNK_PATTERNS = [
+  /extracted via generic html rules/i,
+  /no description available/i,
+  /description not found/i,
+  /see (job )?posting/i,
+  /^n\/a$/i,
+  /^null$/i,
+  /^none$/i,
+  /^-$/,
+];
+
+function sanitizeJdSummary(raw: string | null | undefined): string | null {
+  const s = raw?.trim();
+  if (!s || s.length < 20) return null;
+  if (JD_JUNK_PATTERNS.some((p) => p.test(s))) return null;
+  return s;
+}
+
 const jobLevelSchema = z.enum([
   "internship",
   "new_grad",
@@ -146,7 +165,7 @@ export function mapJobIngestPayloadToInsert(
     target_year: qualification.target_year,
     experience_band: qualification.experience_band,
     is_early_career: qualification.is_early_career,
-    jd_summary: payload.jd_summary?.trim() ?? null,
+    jd_summary: sanitizeJdSummary(payload.jd_summary),
     posted_at: normalizeTimestamp(payload.posted_at) ?? new Date().toISOString(),
     status: "pending",
     metadata: {
@@ -199,7 +218,7 @@ export async function upsertJobFromIngestPayload(
       target_year: existing.target_year || insert.target_year,
       experience_band: existing.experience_band || insert.experience_band,
       is_early_career: existing.is_early_career ?? insert.is_early_career,
-      jd_summary: existing.jd_summary || insert.jd_summary,
+      jd_summary: sanitizeJdSummary(existing.jd_summary) ?? sanitizeJdSummary(insert.jd_summary) ?? null,
       posted_at:
         new Date(insert.posted_at!).getTime() > new Date(existing.posted_at).getTime()
           ? insert.posted_at

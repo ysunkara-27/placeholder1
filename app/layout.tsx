@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Fraunces } from "next/font/google";
 import "./globals.css";
 import { SiteNavbar } from "@/components/navigation/site-navbar";
 
@@ -7,6 +8,13 @@ const ramboia = localFont({
   src: "../RamboiaTest-Regular.otf",
   variable: "--font-ramboia",
   display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
 export const metadata: Metadata = {
@@ -22,7 +30,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${ramboia.variable} min-h-screen`}>
+      <body className={`${ramboia.variable} ${fraunces.variable} min-h-screen`}>
         <SiteNavbar />
         {children}
       </body>

@@ -4,18 +4,20 @@
 
 @layer base {
   :root {
-    --bg: 255 255 255;
-    --surface: 249 250 251;
-    --surface-strong: 255 247 237;
-    --border: 229 231 235;
-    --text: 17 24 39;
-    --muted: 107 114 128;
-    --accent: 188 84 49;
-    --accent-soft: 244 167 114;
+    /* Warm editorial palette — terra cotta on cream */
+    --bg:             250 248 245;   /* warm near-white  */
+    --surface:        245 240 232;   /* linen             */
+    --surface-strong: 237 229 218;   /* warm linen        */
+    --border:         224 213 198;   /* warm tan          */
+    --text:           28 20 16;      /* warm near-black   */
+    --muted:          122 110 100;   /* warm gray         */
+    --accent:         194 83 49;     /* terracotta        */
+    --accent-soft:    232 132 95;    /* light terracotta  */
+    --accent-wash:    252 241 234;   /* pale wash         */
   }
 
   * {
-    @apply border-gray-200;
+    @apply border-rim;
   }
 
   html {
@@ -27,99 +29,73 @@
   body {
     background: rgb(var(--bg));
     color: rgb(var(--text));
-    font-family: var(--font-ramboia), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-ramboia), ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
 
   ::selection {
-    background: rgba(244, 167, 114, 0.35);
+    background: rgba(194, 83, 49, 0.18);
     color: rgb(var(--text));
   }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-300;
-  }
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--muted) / 0.45); }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-balance { text-wrap: balance; }
+
+  /* Subtle warm dot grid — page backgrounds */
+  .bg-dot-warm {
+    background-image: radial-gradient(circle, rgba(194,83,49,0.09) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
 
   .bg-warm-grid {
     background-image:
-      linear-gradient(rgba(188, 84, 49, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(188, 84, 49, 0.08) 1px, transparent 1px);
-    background-size: 24px 24px;
+      linear-gradient(rgba(194, 83, 49, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(194, 83, 49, 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
     background-position: center;
   }
 
+  .shadow-warm {
+    box-shadow: 0 2px 12px rgba(130,64,41,0.08), 0 1px 3px rgba(130,64,41,0.05);
+  }
+
   .shadow-warm-xl {
-    box-shadow:
-      0 20px 60px rgba(130, 64, 41, 0.12),
-      0 8px 24px rgba(130, 64, 41, 0.08);
+    box-shadow: 0 20px 60px rgba(130,64,41,0.12), 0 8px 24px rgba(130,64,41,0.07);
   }
 
   .shadow-soft-card {
-    box-shadow:
-      0 18px 40px rgba(15, 23, 42, 0.06),
-      0 6px 18px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 4px rgba(28,20,16,0.06), 0 4px 18px rgba(28,20,16,0.04);
   }
 
-  .landing-float {
-    animation: landing-float 7s ease-in-out infinite;
-  }
+  /* Stagger helpers — pair with animate-rise */
+  .delay-0   { animation-delay:   0ms; }
+  .delay-50  { animation-delay:  50ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-250 { animation-delay: 250ms; }
+  .delay-300 { animation-delay: 300ms; }
 
-  .landing-float-delayed {
-    animation: landing-float 7s ease-in-out infinite;
-    animation-delay: 1.8s;
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  .landing-rise {
-    animation: landing-rise 0.8s ease-out both;
-  }
-
-  .landing-rise-delayed {
-    animation: landing-rise 0.8s ease-out both;
-    animation-delay: 0.25s;
-  }
-
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .landing-float         { animation: landing-float 7s ease-in-out infinite; }
+  .landing-float-delayed { animation: landing-float 7s ease-in-out infinite; animation-delay: 1.8s; }
+  .landing-rise          { animation: landing-rise 0.8s ease-out both; }
+  .landing-rise-delayed  { animation: landing-rise 0.8s ease-out both; animation-delay: 0.25s; }
 }
 
 @keyframes landing-float {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
 }
 
 @keyframes landing-rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

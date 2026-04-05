@@ -22,16 +22,30 @@ export function formatPostedAt(isoString: string): string {
 }
 
 export const INDUSTRY_OPTIONS = [
-  { value: "SWE", label: "Software Engineering" },
-  { value: "Finance", label: "Finance" },
-  { value: "Consulting", label: "Consulting" },
-  { value: "PM", label: "Product Management" },
-  { value: "Research", label: "Research" },
-  { value: "Data", label: "Data Science" },
-  { value: "Design", label: "Design" },
-  { value: "Marketing", label: "Marketing" },
-  { value: "Operations", label: "Operations" },
-  { value: "Sales", label: "Sales" },
+  // Tech & Digital
+  { value: "SWE",         label: "Software Eng" },
+  { value: "Data",        label: "Data & ML" },
+  { value: "PM",          label: "Product" },
+  { value: "Design",      label: "Design & UX" },
+  { value: "Hardware",    label: "Hardware & Electrical" },
+  // Engineering disciplines
+  { value: "MechEng",     label: "Mechanical Eng" },
+  { value: "CivilEng",    label: "Civil & Structural" },
+  { value: "ChemEng",     label: "Chemical Eng" },
+  { value: "AeroEng",     label: "Aerospace & Defense" },
+  // Science & Health
+  { value: "LifeSci",     label: "Life Sciences & Bio" },
+  { value: "Research",    label: "Research & Science" },
+  { value: "Healthcare",  label: "Healthcare & Clinical" },
+  // Business
+  { value: "Finance",     label: "Finance & Accounting" },
+  { value: "Consulting",  label: "Consulting & Strategy" },
+  { value: "Marketing",   label: "Marketing & Growth" },
+  { value: "Operations",  label: "Operations & Supply Chain" },
+  { value: "Sales",       label: "Sales & Biz Dev" },
+  // Other
+  { value: "Policy",      label: "Legal, Policy & Gov" },
+  { value: "Education",   label: "Education & Nonprofit" },
 ] as const;
 
 export const LEVEL_OPTIONS = [

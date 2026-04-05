@@ -13,9 +13,9 @@ type NavLink = {
 
 const AUTHED_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/jobs", label: "Browse jobs" },
-  { href: "/apply-lab", label: "Apply lab" },
-  { href: "/profile", label: "Edit profile" },
+  { href: "/jobs",      label: "Browse" },
+  { href: "/apply-lab", label: "Apply Lab" },
+  { href: "/profile",   label: "Profile" },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -32,10 +32,7 @@ export function SiteNavbar() {
     let active = true;
 
     async function loadSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+      const { data: { session } } = await supabase.auth.getSession();
       if (!active) return;
       setIsSignedIn(Boolean(session?.user?.id));
       setReady(true);
@@ -43,46 +40,44 @@ export function SiteNavbar() {
 
     void loadSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       setIsSignedIn(Boolean(session?.user?.id));
       setReady(true);
     });
 
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+    return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
   const visibleLinks = isSignedIn ? AUTHED_LINKS : [];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4">
+    <header className="sticky top-0 z-40 border-b border-rim bg-canvas/95 backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-3.5">
+
+        {/* Wordmark */}
         <Link
           href={isSignedIn ? "/dashboard" : "/"}
-          className="text-lg font-semibold tracking-tight text-gray-900"
+          className="font-display text-xl font-semibold tracking-tight text-ink"
+          style={{ fontVariationSettings: '"opsz" 36, "SOFT" 0, "WONK" 0' }}
         >
           Twin
         </Link>
 
-        <div className="flex items-center gap-3">
+        {/* Nav links */}
+        <nav className="flex items-center gap-0.5">
           {visibleLinks.map((link) => {
             const active = isActivePath(pathname, link.href);
-
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={[
-                  "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
                   active
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                    ? "bg-accent text-white"
+                    : "text-dim hover:bg-surface hover:text-ink",
                 ].join(" ")}
               >
                 {link.label}
@@ -91,22 +86,24 @@ export function SiteNavbar() {
           })}
 
           {ready && isSignedIn ? (
-            <SignOutButton />
+            <div className="ml-1">
+              <SignOutButton />
+            </div>
           ) : (
             <Link
               href="/auth"
               aria-current={pathname === "/auth" ? "page" : undefined}
               className={[
-                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                "ml-1 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
                 pathname === "/auth"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                  ? "bg-accent text-white"
+                  : "text-dim hover:bg-surface hover:text-ink",
               ].join(" ")}
             >
               Sign in
             </Link>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );

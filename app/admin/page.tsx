@@ -71,7 +71,7 @@ const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time"];
 const inp =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors";
 
-type Suggestions = Partial<Pick<Job, "company" | "title" | "level" | "location">>;
+type Suggestions = Partial<Pick<Job, "company" | "title" | "level" | "location" | "industries">>;
 
 function ReviewQueue({
   showToast,
@@ -196,6 +196,7 @@ function ReviewQueue({
         title: job.title,
         level: job.level,
         location: job.location,
+        industries: job.industries ?? [],
       }),
     })
       .then((res) => res.json() as Promise<{ suggestions?: Suggestions; error?: string }>)
@@ -411,12 +412,16 @@ function ReviewQueue({
                   </div>
                 </div>
                 <div className="divide-y divide-violet-100">
-                  {(Object.entries(suggestions) as [keyof Suggestions, string][]).map(([key, val]) => (
+                  {(Object.entries(suggestions) as [keyof Suggestions, string | string[]][]).map(([key, val]) => (
                     <div key={key} className="flex items-center gap-3 px-4 py-2.5">
                       <span className="text-[10px] font-semibold text-violet-500 uppercase tracking-wider w-16 flex-shrink-0">{key}</span>
-                      <span className="text-xs text-gray-400 line-through truncate flex-1">{current[key] as string}</span>
+                      <span className="text-xs text-gray-400 line-through truncate flex-1">
+                        {Array.isArray(current[key]) ? (current[key] as string[]).join(", ") || "—" : current[key] as string}
+                      </span>
                       <ArrowRight className="w-3 h-3 text-violet-400 flex-shrink-0" />
-                      <span className="text-xs font-medium text-gray-800 truncate flex-1">{val}</span>
+                      <span className="text-xs font-medium text-gray-800 truncate flex-1">
+                        {Array.isArray(val) ? val.join(", ") : val}
+                      </span>
                       <div className="flex gap-1 flex-shrink-0">
                         <button onClick={() => acceptSuggestion(key)}
                           className="p-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 transition-colors" title="Accept">
