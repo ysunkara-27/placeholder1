@@ -86,15 +86,17 @@ function ReviewQueue({
 
   // Per-job draft edits — persist across navigation within session
   const [drafts, setDrafts] = useState<Record<string, Partial<Job>>>({});
-  // AI suggestions for selected job
-  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
-  const [normalizing, setNormalizing] = useState(false);
+  // Per-job AI suggestions — keyed by job ID, survive navigation
+  const [allSuggestions, setAllSuggestions] = useState<Record<string, Suggestions>>({});
+  // Jobs currently being normalized in the background
+  const [normalizing, setNormalizing] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
   const [jdExpanded, setJdExpanded] = useState(false);
 
   const draft = selected ? (drafts[selected.id] ?? {}) : {};
   const current = selected ? { ...selected, ...draft } : null;
   const isDirty = Object.keys(draft).length > 0;
+  const suggestions = selected ? (allSuggestions[selected.id] ?? null) : null;
 
   function patch<K extends keyof Job>(key: K, val: Job[K]) {
     if (!selected) return;
@@ -120,11 +122,6 @@ function ReviewQueue({
   }, []);
 
   useEffect(() => { void fetchPending(); }, [fetchPending]);
-
-  // Reset suggestions when selection changes
-  useEffect(() => {
-    setSuggestions(null);
-  }, [selected?.id]);
 
   async function approve(jobId: string) {
     setProcessing(jobId);
@@ -186,50 +183,59 @@ function ReviewQueue({
     setTotal((t) => t - 1);
   }
 
-  async function cleanWithAI() {
-    if (!current) return;
-    setNormalizing(true);
-    setSuggestions(null);
-    try {
-      const res = await fetch("/api/admin/jobs/normalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company: current.company,
-          title: current.title,
-          level: current.level,
-          location: current.location,
-        }),
+  function cleanWithAI(jobId: string, job: typeof current) {
+    if (!job || normalizing.has(jobId)) return;
+    // Clear any old suggestions and mark as in-flight — then fire and forget
+    setAllSuggestions((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
+    setNormalizing((prev) => new Set([...prev, jobId]));
+    fetch("/api/admin/jobs/normalize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        company: job.company,
+        title: job.title,
+        level: job.level,
+        location: job.location,
+      }),
+    })
+      .then((res) => res.json() as Promise<{ suggestions?: Suggestions; error?: string }>)
+      .then((data) => {
+        if (data.error) { showToast(data.error, false); return; }
+        if (!data.suggestions || Object.keys(data.suggestions).length === 0) {
+          showToast("Looks good — no changes suggested");
+        } else {
+          setAllSuggestions((prev) => ({ ...prev, [jobId]: data.suggestions! }));
+          showToast("AI suggestions ready");
+        }
+      })
+      .catch(() => showToast("AI failed", false))
+      .finally(() => {
+        setNormalizing((prev) => {
+          const n = new Set(prev);
+          n.delete(jobId);
+          return n;
+        });
       });
-      const data = await res.json() as { suggestions?: Suggestions; error?: string };
-      if (!res.ok) { showToast(data.error ?? "AI failed", false); return; }
-      if (!data.suggestions || Object.keys(data.suggestions).length === 0) {
-        showToast("Looks good — no changes suggested");
-      } else {
-        setSuggestions(data.suggestions);
-      }
-    } finally {
-      setNormalizing(false);
-    }
   }
 
   function acceptSuggestion(key: keyof Suggestions) {
-    if (!suggestions?.[key]) return;
+    if (!selected || !suggestions?.[key]) return;
     patch(key as keyof Job, suggestions[key] as Job[keyof Job]);
-    setSuggestions((prev) => {
-      if (!prev) return null;
-      const next = { ...prev };
+    setAllSuggestions((prev) => {
+      const next = { ...prev[selected.id] };
       delete next[key];
-      return Object.keys(next).length === 0 ? null : next;
+      return Object.keys(next).length === 0
+        ? (({ [selected.id]: _, ...rest }) => rest)(prev)
+        : { ...prev, [selected.id]: next };
     });
   }
 
   function acceptAllSuggestions() {
-    if (!suggestions) return;
+    if (!selected || !suggestions) return;
     for (const [key, val] of Object.entries(suggestions)) {
       patch(key as keyof Job, val as Job[keyof Job]);
     }
-    setSuggestions(null);
+    setAllSuggestions((prev) => (({ [selected.id]: _, ...rest }) => rest)(prev));
   }
 
   const currentIdx = selected ? jobs.findIndex((j) => j.id === selected.id) : -1;
@@ -305,6 +311,8 @@ function ReviewQueue({
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
                     {hasDraft && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unsaved edits" />}
+                    {normalizing.has(job.id) && <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />}
+                    {!normalizing.has(job.id) && allSuggestions[job.id] && <Sparkles className="w-3 h-3 text-violet-500" />}
                     <span className="text-[10px] text-gray-400">#{idx + 1}</span>
                   </div>
                 </div>
@@ -355,12 +363,12 @@ function ReviewQueue({
 
               {/* Clean with AI */}
               <button
-                onClick={() => void cleanWithAI()}
-                disabled={normalizing}
+                onClick={() => cleanWithAI(selected!.id, current)}
+                disabled={normalizing.has(selected?.id ?? "")}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-xs font-medium text-violet-600 hover:bg-violet-50 disabled:opacity-50 transition-colors"
                 title="Normalize with Gemini"
               >
-                {normalizing
+                {normalizing.has(selected?.id ?? "")
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   : <Sparkles className="w-3.5 h-3.5" />}
                 Clean with AI
@@ -396,7 +404,7 @@ function ReviewQueue({
                       className="text-xs font-medium text-violet-700 hover:text-violet-900 px-2 py-1 rounded-lg hover:bg-violet-100 transition-colors">
                       Accept all
                     </button>
-                    <button onClick={() => setSuggestions(null)}
+                    <button onClick={() => selected && setAllSuggestions((prev) => (({ [selected.id]: _, ...rest }) => rest)(prev))}
                       className="text-violet-400 hover:text-violet-600">
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -414,8 +422,17 @@ function ReviewQueue({
                           className="p-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 transition-colors" title="Accept">
                           <Check className="w-3 h-3" />
                         </button>
-                        <button onClick={() => setSuggestions((p) => { const n = { ...p }; delete n[key]; return Object.keys(n).length ? n : null; })}
-                          className="p-1 rounded-md border border-violet-200 text-violet-400 hover:bg-violet-100 transition-colors" title="Skip">
+                        <button onClick={() => {
+                          if (!selected) return;
+                          setAllSuggestions((prev) => {
+                            const next = { ...(prev[selected.id] ?? {}) };
+                            delete next[key];
+                            return Object.keys(next).length === 0
+                              ? (({ [selected.id]: _, ...rest }) => rest)(prev)
+                              : { ...prev, [selected.id]: next };
+                          });
+                        }}
+                          className="p-1 rounded-md border border-violet-200 text-violet-400 hover:bg-violet-100 transition-colors">
                           <X className="w-3 h-3" />
                         </button>
                       </div>
