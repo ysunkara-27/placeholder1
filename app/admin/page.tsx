@@ -7,7 +7,7 @@ import {
   Search, ChevronLeft, ChevronRight, Pencil, Trash2,
   CheckSquare, Square, RefreshCw, Check, AlertTriangle, X,
   ThumbsUp, ThumbsDown, Clock, ExternalLink, ChevronDown, ChevronUp,
-  Inbox, List,
+  Inbox, List, Sparkles, ArrowRight, Loader2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +66,13 @@ function relativeTime(iso: string | null) {
 
 // ─── Review Queue ─────────────────────────────────────────────────────────────
 
+const LEVELS = ["internship", "new_grad", "co_op", "associate", "part_time"];
+
+const inp =
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors";
+
+type Suggestions = Partial<Pick<Job, "company" | "title" | "level" | "location">>;
+
 function ReviewQueue({
   showToast,
 }: {
@@ -76,8 +83,26 @@ function ReviewQueue({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Job | null>(null);
+
+  // Per-job draft edits — persist across navigation within session
+  const [drafts, setDrafts] = useState<Record<string, Partial<Job>>>({});
+  // AI suggestions for selected job
+  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
+  const [normalizing, setNormalizing] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const [jdExpanded, setJdExpanded] = useState(false);
+
+  const draft = selected ? (drafts[selected.id] ?? {}) : {};
+  const current = selected ? { ...selected, ...draft } : null;
+  const isDirty = Object.keys(draft).length > 0;
+
+  function patch<K extends keyof Job>(key: K, val: Job[K]) {
+    if (!selected) return;
+    setDrafts((prev) => ({
+      ...prev,
+      [selected.id]: { ...(prev[selected.id] ?? {}), [key]: val },
+    }));
+  }
 
   const fetchPending = useCallback(async () => {
     setLoading(true);
@@ -87,7 +112,6 @@ function ReviewQueue({
       const list: Job[] = data.jobs ?? [];
       setJobs(list);
       setTotal(data.total ?? 0);
-      // Auto-select first item
       if (list.length > 0 && !selected) setSelected(list[0]);
     } finally {
       setLoading(false);
@@ -97,49 +121,131 @@ function ReviewQueue({
 
   useEffect(() => { void fetchPending(); }, [fetchPending]);
 
-  async function act(action: "approve" | "reject", jobId: string) {
+  // Reset suggestions when selection changes
+  useEffect(() => {
+    setSuggestions(null);
+  }, [selected?.id]);
+
+  async function approve(jobId: string) {
     setProcessing(jobId);
+    // Save edits first if any
+    if (isDirty) {
+      const patchRes = await fetch(`/api/admin/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      if (!patchRes.ok) {
+        const d = await patchRes.json().catch(() => ({})) as { error?: string };
+        showToast(d.error ?? "Save failed", false);
+        setProcessing(null);
+        return;
+      }
+    }
     const res = await fetch("/api/admin/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, jobIds: [jobId] }),
+      body: JSON.stringify({ action: "approve", jobIds: [jobId] }),
     });
-    const data = await res.json();
+    const data = await res.json() as { error?: string };
     if (!res.ok) {
       showToast(data.error ?? "Failed", false);
       setProcessing(null);
       return;
     }
-    showToast(action === "approve" ? "Approved — job is now live" : "Rejected — job closed");
+    showToast("Approved — job is now live");
     setProcessing(null);
-    // Remove from list, advance to next
+    advance(jobId);
+  }
+
+  async function reject(jobId: string) {
+    setProcessing(jobId);
+    const res = await fetch("/api/admin/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject", jobIds: [jobId] }),
+    });
+    const data = await res.json() as { error?: string };
+    if (!res.ok) {
+      showToast(data.error ?? "Failed", false);
+      setProcessing(null);
+      return;
+    }
+    showToast("Rejected");
+    setProcessing(null);
+    advance(jobId);
+  }
+
+  function advance(jobId: string) {
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === jobId);
       const next = prev.filter((j) => j.id !== jobId);
-      const nextSelected = next[idx] ?? next[idx - 1] ?? null;
-      setSelected(nextSelected);
+      setSelected(next[idx] ?? next[idx - 1] ?? null);
       return next;
     });
     setTotal((t) => t - 1);
+  }
+
+  async function cleanWithAI() {
+    if (!current) return;
+    setNormalizing(true);
+    setSuggestions(null);
+    try {
+      const res = await fetch("/api/admin/jobs/normalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: current.company,
+          title: current.title,
+          level: current.level,
+          location: current.location,
+        }),
+      });
+      const data = await res.json() as { suggestions?: Suggestions; error?: string };
+      if (!res.ok) { showToast(data.error ?? "AI failed", false); return; }
+      if (!data.suggestions || Object.keys(data.suggestions).length === 0) {
+        showToast("Looks good — no changes suggested");
+      } else {
+        setSuggestions(data.suggestions);
+      }
+    } finally {
+      setNormalizing(false);
+    }
+  }
+
+  function acceptSuggestion(key: keyof Suggestions) {
+    if (!suggestions?.[key]) return;
+    patch(key as keyof Job, suggestions[key] as Job[keyof Job]);
+    setSuggestions((prev) => {
+      if (!prev) return null;
+      const next = { ...prev };
+      delete next[key];
+      return Object.keys(next).length === 0 ? null : next;
+    });
+  }
+
+  function acceptAllSuggestions() {
+    if (!suggestions) return;
+    for (const [key, val] of Object.entries(suggestions)) {
+      patch(key as keyof Job, val as Job[keyof Job]);
+    }
+    setSuggestions(null);
   }
 
   const currentIdx = selected ? jobs.findIndex((j) => j.id === selected.id) : -1;
 
   function navigate(dir: -1 | 1) {
     const next = jobs[currentIdx + dir];
-    if (next) {
-      setSelected(next);
-      setJdExpanded(false);
-    }
+    if (next) { setSelected(next); setJdExpanded(false); }
   }
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (only when not focused on an input)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!selected) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "a" || e.key === "A") void act("approve", selected.id);
-      if (e.key === "r" || e.key === "R") void act("reject", selected.id);
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "a" || e.key === "A") void approve(selected.id);
+      if (e.key === "r" || e.key === "R") void reject(selected.id);
       if (e.key === "ArrowDown" || e.key === "j") navigate(1);
       if (e.key === "ArrowUp" || e.key === "k") navigate(-1);
       if (e.key === "e" || e.key === "E") router.push(`/admin/jobs/${selected.id}`);
@@ -147,14 +253,10 @@ function ReviewQueue({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, currentIdx, jobs]);
+  }, [selected, currentIdx, jobs, draft, isDirty]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-        Loading pending jobs…
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading pending jobs…</div>;
   }
 
   if (jobs.length === 0) {
@@ -170,168 +272,260 @@ function ReviewQueue({
   }
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-140px)] overflow-hidden rounded-xl border border-gray-100 bg-white">
-      {/* Left: job list */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-100 overflow-y-auto">
+    <div className="flex h-[calc(100vh-200px)] overflow-hidden rounded-xl border border-gray-100 bg-white">
+      {/* ── Left list ── */}
+      <div className="w-72 flex-shrink-0 border-r border-gray-100 overflow-y-auto">
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Inbox · {total} pending
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">↑↓ navigate · A approve · R reject · E edit</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Inbox · {total} pending</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">↑↓ navigate · A approve · R reject</p>
         </div>
         <div className="divide-y divide-gray-50">
-          {jobs.map((job, idx) => (
-            <button
-              key={job.id}
-              onClick={() => { setSelected(job); setJdExpanded(false); }}
-              className={cn(
-                "w-full text-left px-4 py-3 transition-colors",
-                selected?.id === job.id
-                  ? "bg-indigo-50 border-l-2 border-indigo-500"
-                  : "hover:bg-gray-50 border-l-2 border-transparent"
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{job.company}</p>
-                  <p className="text-xs text-gray-500 truncate mt-0.5">{job.title}</p>
-                </div>
-                <span className="text-[10px] text-gray-400 whitespace-nowrap mt-0.5 flex-shrink-0">
-                  #{idx + 1}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-400">{job.level}</span>
-                <span className="text-[10px] text-gray-300">·</span>
-                <span className="text-[10px] text-gray-400 truncate">{job.location}</span>
-                {job.remote && (
-                  <>
-                    <span className="text-[10px] text-gray-300">·</span>
-                    <span className="text-[10px] text-indigo-500">Remote</span>
-                  </>
+          {jobs.map((job, idx) => {
+            const jobDraft = drafts[job.id] ?? {};
+            const hasDraft = Object.keys(jobDraft).length > 0;
+            return (
+              <button
+                key={job.id}
+                onClick={() => { setSelected(job); setJdExpanded(false); }}
+                className={cn(
+                  "w-full text-left px-4 py-3 transition-colors",
+                  selected?.id === job.id
+                    ? "bg-indigo-50 border-l-2 border-indigo-500"
+                    : "hover:bg-gray-50 border-l-2 border-transparent"
                 )}
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                <Clock className="w-2.5 h-2.5" />
-                {relativeTime(job.first_seen_at)}
-              </p>
-            </button>
-          ))}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {jobDraft.company ?? job.company}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {jobDraft.title ?? job.title}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                    {hasDraft && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unsaved edits" />}
+                    <span className="text-[10px] text-gray-400">#{idx + 1}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[10px] text-gray-400">{jobDraft.level ?? job.level}</span>
+                  <span className="text-[10px] text-gray-300">·</span>
+                  <span className="text-[10px] text-gray-400 truncate">{jobDraft.location ?? job.location}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5" />{relativeTime(job.first_seen_at)}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Right: detail pane */}
-      {selected ? (
-        <div className="flex-1 overflow-y-auto">
-          {/* Detail header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">{selected.company}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{selected.title}</p>
+      {/* ── Right detail pane ── */}
+      {current ? (
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3">
+            <div className="flex items-center gap-2">
+              {/* Nav */}
+              <button onClick={() => navigate(-1)} disabled={currentIdx === 0}
+                className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-colors" title="↑">
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => navigate(1)} disabled={currentIdx === jobs.length - 1}
+                className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-colors" title="↓">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="flex-1 min-w-0 mx-1">
+                <p className="text-xs text-gray-400 truncate">
+                  {currentIdx + 1} of {jobs.length}
+                  {isDirty && <span className="ml-2 text-amber-500 font-medium">· unsaved edits</span>}
+                </p>
               </div>
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => navigate(-1)}
-                  disabled={currentIdx === 0}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-colors"
-                  title="Previous (↑)"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => navigate(1)}
-                  disabled={currentIdx === jobs.length - 1}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-colors"
-                  title="Next (↓)"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => router.push(`/admin/jobs/${selected.id}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-                  title="Edit (E)"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
-                <button
-                  onClick={() => void act("reject", selected.id)}
-                  disabled={processing === selected.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  title="Reject (R)"
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" /> Reject
-                </button>
-                <button
-                  onClick={() => void act("approve", selected.id)}
-                  disabled={processing === selected.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-xs font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                  title="Approve (A)"
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" /> Approve
-                </button>
-              </div>
+
+              {/* View listing */}
+              {current.url && (
+                <a href={current.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-600 transition-colors px-2 py-1.5">
+                  <ExternalLink className="w-3 h-3" /> View
+                </a>
+              )}
+
+              {/* Clean with AI */}
+              <button
+                onClick={() => void cleanWithAI()}
+                disabled={normalizing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-xs font-medium text-violet-600 hover:bg-violet-50 disabled:opacity-50 transition-colors"
+                title="Normalize with Gemini"
+              >
+                {normalizing
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Sparkles className="w-3.5 h-3.5" />}
+                Clean with AI
+              </button>
+
+              <button onClick={() => void reject(selected!.id)} disabled={processing === selected?.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors" title="R">
+                <ThumbsDown className="w-3.5 h-3.5" /> Reject
+              </button>
+
+              <button onClick={() => void approve(selected!.id)} disabled={processing === selected?.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="A">
+                {processing === selected?.id
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <ThumbsUp className="w-3.5 h-3.5" />}
+                {isDirty ? "Fix & Approve" : "Approve"}
+              </button>
             </div>
           </div>
 
-          {/* Detail body */}
-          <div className="px-6 py-5 space-y-5">
-            {/* Meta grid */}
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: "Level", value: selected.level },
-                { label: "Portal", value: selected.portal ?? "—" },
-                { label: "Location", value: selected.location },
-                { label: "Remote", value: selected.remote ? "Yes" : "No" },
-                { label: "Industries", value: selected.industries?.join(", ") || "—" },
-                { label: "Posted", value: selected.posted_at ? new Date(selected.posted_at).toLocaleDateString() : "—" },
-                { label: "First seen", value: relativeTime(selected.first_seen_at) },
-                { label: "Last seen", value: relativeTime(selected.last_seen_at) },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-gray-50 rounded-lg px-3 py-2.5">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-                  <p className="text-sm text-gray-700 mt-0.5 truncate" title={value ?? ""}>{value}</p>
+          {/* Body */}
+          <div className="px-5 py-4 space-y-4 flex-1">
+
+            {/* AI suggestion diff */}
+            {suggestions && Object.keys(suggestions).length > 0 && (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-200">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+                    <Sparkles className="w-3.5 h-3.5" /> AI suggestions
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={acceptAllSuggestions}
+                      className="text-xs font-medium text-violet-700 hover:text-violet-900 px-2 py-1 rounded-lg hover:bg-violet-100 transition-colors">
+                      Accept all
+                    </button>
+                    <button onClick={() => setSuggestions(null)}
+                      className="text-violet-400 hover:text-violet-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              ))}
+                <div className="divide-y divide-violet-100">
+                  {(Object.entries(suggestions) as [keyof Suggestions, string][]).map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="text-[10px] font-semibold text-violet-500 uppercase tracking-wider w-16 flex-shrink-0">{key}</span>
+                      <span className="text-xs text-gray-400 line-through truncate flex-1">{current[key] as string}</span>
+                      <ArrowRight className="w-3 h-3 text-violet-400 flex-shrink-0" />
+                      <span className="text-xs font-medium text-gray-800 truncate flex-1">{val}</span>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => acceptSuggestion(key)}
+                          className="p-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 transition-colors" title="Accept">
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => setSuggestions((p) => { const n = { ...p }; delete n[key]; return Object.keys(n).length ? n : null; })}
+                          className="p-1 rounded-md border border-violet-200 text-violet-400 hover:bg-violet-100 transition-colors" title="Skip">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Core editable fields */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Company</label>
+                  <input className={inp} value={current.company} onChange={(e) => patch("company", e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Title</label>
+                  <input className={inp} value={current.title} onChange={(e) => patch("title", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Level</label>
+                  <select className={inp} value={current.level} onChange={(e) => patch("level", e.target.value)}>
+                    {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                    {!LEVELS.includes(current.level) && <option value={current.level}>{current.level}</option>}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Portal</label>
+                  <select className={inp} value={current.portal ?? ""} onChange={(e) => patch("portal", e.target.value || null)}>
+                    <option value="">— none —</option>
+                    {PORTALS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Location</label>
+                  <input className={inp} value={current.location} onChange={(e) => patch("location", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Industries</label>
+                  <input
+                    className={inp}
+                    value={current.industries?.join(", ") ?? ""}
+                    onChange={(e) => patch("industries", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+                    placeholder="comma-separated"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Remote</label>
+                  <div className="flex items-center h-[38px]">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => patch("remote", !current.remote)}
+                        className={cn(
+                          "relative h-5 w-9 rounded-full transition-colors duration-200",
+                          current.remote ? "bg-indigo-600" : "bg-gray-200"
+                        )}
+                      >
+                        <span className={cn(
+                          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-200",
+                          current.remote ? "left-[18px]" : "left-0.5"
+                        )} />
+                      </div>
+                      <span className="text-sm text-gray-600">{current.remote ? "Yes" : "No"}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timestamps + URLs (read-only info) */}
+            <div className="flex items-center gap-4 text-[10px] text-gray-400 px-1">
+              <span>First seen: <span className="text-gray-600">{relativeTime(current.first_seen_at)}</span></span>
+              <span>Last seen: <span className="text-gray-600">{relativeTime(current.last_seen_at)}</span></span>
+              <span>Posted: <span className="text-gray-600">{current.posted_at ? new Date(current.posted_at).toLocaleDateString() : "—"}</span></span>
             </div>
 
             {/* URLs */}
-            <div className="space-y-2">
-              {[
-                { label: "Job URL", val: selected.url },
-                { label: "Apply URL", val: selected.application_url },
-                { label: "Canonical URL", val: selected.canonical_url },
-              ].map(({ label, val }) => val && (
+            <div className="space-y-1.5">
+              {([
+                { label: "Job URL", val: current.url },
+                { label: "Apply URL", val: current.application_url },
+                { label: "Canonical URL", val: current.canonical_url },
+              ] as { label: string; val: string | null }[]).map(({ label, val }) => val && (
                 <div key={label} className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-400 w-28 flex-shrink-0">{label}</span>
-                  <a
-                    href={val}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-indigo-600 hover:underline truncate flex items-center gap-1"
-                  >
-                    {val.replace(/^https?:\/\//, "").slice(0, 60)}
-                    {val.length > 60 && "…"}
-                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  <span className="text-[10px] font-medium text-gray-400 w-24 flex-shrink-0">{label}</span>
+                  <a href={val} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-indigo-500 hover:underline truncate flex items-center gap-1">
+                    {val.replace(/^https?:\/\//, "").slice(0, 55)}{val.length > 55 && "…"}
+                    <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
                   </a>
                 </div>
               ))}
             </div>
 
             {/* JD summary */}
-            {selected.jd_summary && (
+            {current.jd_summary && (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setJdExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
+                <button onClick={() => setJdExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
                   <span className="text-xs font-semibold text-gray-600">Job Description Summary</span>
                   {jdExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
                 </button>
                 {jdExpanded && (
                   <div className="px-4 py-4 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                    {selected.jd_summary}
+                    {current.jd_summary}
                   </div>
                 )}
               </div>
