@@ -33,12 +33,32 @@ export interface AlertRecord {
   } | null;
 }
 
+interface AppliedApplication {
+  id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  job: {
+    id: string;
+    company: string;
+    title: string;
+    location: string | null;
+    level: string | null;
+    portal: string | null;
+    remote: boolean | null;
+    posted_at: string | null;
+    url: string | null;
+  } | null;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<PersistedProfile | null>(null);
   const [applications, setApplications] = useState<DashboardApplicationRecord[]>([]);
+  const [appliedApplications, setAppliedApplications] = useState<AppliedApplication[]>([]);
   const [applyRuns, setApplyRuns] = useState<ApplyRunRecord[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [liveApplication, setLiveApplication] = useState<LiveApplication | null>(null);
@@ -95,6 +115,7 @@ export default function DashboardPage() {
           newListingsRes,
           runsResponse,
           applicationsResponse,
+          appliedApplicationsResponse,
           alertsResponse,
         ] = await Promise.all([
           // Needs attention: failed + requires_auth
@@ -118,6 +139,7 @@ export default function DashboardPage() {
           // Activity data
           fetch("/api/apply/runs", { cache: "no-store" }),
           fetch("/api/applications/recent", { cache: "no-store" }),
+          fetch("/api/applications/applied?page=1", { cache: "no-store" }),
           fetch("/api/alerts/recent", { cache: "no-store" }),
         ]);
 
@@ -135,6 +157,11 @@ export default function DashboardPage() {
         if ((applicationsResponse as Response).ok) {
           const applicationsPayload = await (applicationsResponse as Response).json();
           setApplications(applicationsPayload.applications ?? []);
+        }
+
+        if ((appliedApplicationsResponse as Response).ok) {
+          const appliedPayload = await (appliedApplicationsResponse as Response).json();
+          setAppliedApplications(appliedPayload.applications ?? []);
         }
 
         if ((alertsResponse as Response).ok) {
@@ -396,7 +423,7 @@ export default function DashboardPage() {
 
             {/* Applied */}
             <Link
-              href="/applied"
+              href="#applied-jobs"
               className="bg-white px-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -467,6 +494,74 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+
+        <div id="applied-jobs" className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Applied jobs</h2>
+              <p className="mt-1 text-xs text-gray-400">
+                Submitted applications now live directly on the dashboard.
+              </p>
+            </div>
+            {appliedCount > appliedApplications.length ? (
+              <Link
+                href="/applied"
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+              >
+                View all →
+              </Link>
+            ) : null}
+          </div>
+
+          {appliedApplications.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+              <p className="text-sm font-medium text-gray-700">No applied jobs yet</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Submitted applications will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {appliedApplications.map((application) => (
+                <div
+                  key={application.id}
+                  className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900">
+                      {application.job?.title ?? "—"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {application.job?.company ?? "—"}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                      {application.job?.location && <span>{application.job.location}</span>}
+                      {application.job?.remote && <span>Remote</span>}
+                      {application.job?.level && <span className="capitalize">{application.job.level}</span>}
+                      {application.job?.portal && (
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium uppercase tracking-wide text-gray-500">
+                          {application.job.portal}
+                        </span>
+                      )}
+                      <span>{formatDate(application.completed_at ?? application.updated_at)}</span>
+                    </div>
+                  </div>
+                  {application.job?.url && (
+                    <a
+                      href={application.job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 transition-colors"
+                    >
+                      View
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Queued jobs popup — bottom right */}
@@ -481,5 +576,13 @@ function formatShortDateTime(value: string) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+  });
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
