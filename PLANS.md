@@ -47,6 +47,30 @@ Exact verification run:
 - `python3 -m py_compile $(find apply_engine -name '*.py')`
 - `npm run build`
 
+## Session Handoff — 2026-04-05 (Visual System Pass)
+
+Finished:
+
+- unified the shared visual language around a warmer cream and deep red-orange palette
+- updated shared button, input, textarea, navbar, and sign-out styling so more screens inherit the same tone automatically
+- simplified the landing page message and reduced visual clutter while keeping the same core structure and feature story
+- restyled the dashboard, live application panel, and queued jobs popup to match the same design system
+
+Still blocked:
+
+- several secondary product surfaces still use older gray/indigo styling and should be brought onto the same visual system in follow-up passes
+- this pass intentionally did not reposition features or rewrite product flows, so some density remains where the underlying page structure is already crowded
+
+Exact next step:
+
+- propagate the same visual system through `/jobs`, `/apply-lab`, `/profile`, `/auth`, and onboarding so the whole signed-in flow feels consistent
+
+Exact verification run:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+
 ## Current Bottlenecks
 
 The biggest remaining blockers to MVP are:

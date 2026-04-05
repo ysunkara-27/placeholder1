@@ -19,14 +19,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-sm font-medium text-gray-700"
+            className="text-sm font-medium text-[rgb(82,57,43)]"
           >
             {label}
           </label>
         )}
         <div className="relative">
           {leading && (
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-[rgb(149,118,98)]">
               {leading}
             </div>
           )}
@@ -34,19 +34,19 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              "h-10 w-full rounded-lg border bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400",
+              "h-10 w-full rounded-xl border bg-[rgba(255,250,245,0.92)] px-3 text-sm text-[rgb(41,28,22)] placeholder:text-[rgb(149,118,98)]",
               "transition-colors duration-150",
-              "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent",
+              "focus:outline-none focus:ring-2 focus:ring-[rgb(187,74,43)] focus:border-transparent",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              error ? "border-red-400 focus:ring-red-400" : "border-gray-200",
+              error ? "border-[rgb(144,48,28)] focus:ring-[rgb(144,48,28)]" : "border-[rgb(227,205,188)]",
               leading && "pl-9",
               className
             )}
             {...props}
           />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-400">{hint}</p>}
+        {error && <p className="text-xs text-[rgb(144,48,28)]">{error}</p>}
+        {hint && !error && <p className="text-xs text-[rgb(149,118,98)]">{hint}</p>}
       </div>
     );
   }

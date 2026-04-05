@@ -52,20 +52,19 @@ export function SiteNavbar() {
   const visibleLinks = isSignedIn ? AUTHED_LINKS : [];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-rim bg-canvas/95 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-3.5">
+    <header className="sticky top-0 z-40 border-b border-[rgba(227,205,188,0.88)] bg-[rgba(255,248,242,0.9)] backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4">
 
         {/* Wordmark */}
         <Link
           href={isSignedIn ? "/dashboard" : "/"}
-          className="font-display text-xl font-semibold tracking-tight text-ink"
-          style={{ fontVariationSettings: '"opsz" 36, "SOFT" 0, "WONK" 0' }}
+          className="font-brand text-[1.65rem] leading-none text-[rgb(144,48,28)] transition-colors hover:text-[rgb(187,74,43)]"
         >
           Twin
         </Link>
 
         {/* Nav links */}
-        <nav className="flex items-center gap-0.5">
+        <nav className="flex items-center gap-1">
           {visibleLinks.map((link) => {
             const active = isActivePath(pathname, link.href);
             return (
@@ -74,10 +73,10 @@ export function SiteNavbar() {
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={[
-                  "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
+                  "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
                   active
-                    ? "bg-accent text-white"
-                    : "text-dim hover:bg-surface hover:text-ink",
+                    ? "bg-[rgb(187,74,43)] text-white shadow-warm"
+                    : "text-[rgb(125,99,82)] hover:bg-[rgba(250,233,221,0.8)] hover:text-[rgb(41,28,22)]",
                 ].join(" ")}
               >
                 {link.label}
@@ -94,10 +93,10 @@ export function SiteNavbar() {
               href="/auth"
               aria-current={pathname === "/auth" ? "page" : undefined}
               className={[
-                "ml-1 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
+                "ml-1 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
                 pathname === "/auth"
-                  ? "bg-accent text-white"
-                  : "text-dim hover:bg-surface hover:text-ink",
+                  ? "bg-[rgb(187,74,43)] text-white shadow-warm"
+                  : "text-[rgb(125,99,82)] hover:bg-[rgba(250,233,221,0.8)] hover:text-[rgb(41,28,22)]",
               ].join(" ")}
             >
               Sign in
