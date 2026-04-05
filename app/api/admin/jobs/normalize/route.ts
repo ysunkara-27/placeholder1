@@ -25,14 +25,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
   }
 
-  const { company, title, level, location, industries, target_term, degree_req } = await request.json() as {
+  const { company, title, level, location, industries, target_term, jd_summary } = await request.json() as {
     company: string;
     title: string;
     level: string;
     location: string;
     industries: string[];
     target_term: string | null;
-    degree_req: string | null;
+    jd_summary: string | null;
   };
 
   const VALID_INDUSTRIES = ["SWE","Data","PM","Design","Hardware","MechEng","CivilEng","ChemEng","AeroEng","LifeSci","Research","Healthcare","Finance","Consulting","Marketing","Operations","Sales","Policy","Education"];
@@ -46,18 +46,18 @@ level: "${level}"
 location: "${location}"
 industries: ${JSON.stringify(industries)}
 target_term: ${target_term ?? "null"}
-degree_req: ${degree_req ?? "null"}
+jd_summary: ${jd_summary ?? "null"}
 
 Rules:
 - title: strip location info (e.g. "- New York, NY"), remove year/term refs (Summer 2026, Fall 2025, 2026 Intern), remove duplicate company name if prepended. Keep the core role name, preserve "Intern" / "Internship" / "Co-op" if present.
 - level: valid values are internship, new_grad, co_op, associate, part_time. Only suggest a change if the title clearly implies a different level than what is given.
 - location: standardize US cities to "City, ST" (e.g. "New York, NY"). For remote-only roles use "Remote". For international keep "City, Country". Strip zip codes and extra detail.
 - industries: ALWAYS return this field. Pick 1-3 values from this exact list that best describe the role's function: ${VALID_INDUSTRIES.join(", ")}. Return as a JSON array.
-- target_term: ALWAYS return this field. The internship/job term. Valid values: summer, fall, spring, winter, any. Infer from the title — e.g. "Summer 2026 Intern" → "summer". If unclear, return "any".
-- degree_req: ALWAYS return this field. The degree level required. Valid values: undergrad, masters, phd, any. Infer from title/context — e.g. "PhD Intern" → "phd", "MBA Intern" → "masters", most internships → "undergrad". If mixed or unclear, return "any".
+- target_term: ALWAYS return this field. The full program timeframe as a short string. Examples: "2026 Summer", "2026 Fall", "2026 Spring", "Full Time". Extract year and season from the title. If only a season is clear with no year, just use the season e.g. "Summer". If it is a full-time/permanent role, use "Full Time".
+- jd_summary: If the current value is null or empty, generate a 2-3 sentence description of what this role likely involves based on the title and company. Be specific and practical. If a real description already exists (non-null), omit this field entirely.
 
-Return a JSON object with ONLY changed fields, EXCEPT industries, target_term, and degree_req which must always be included.
-Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries": ["SWE"], "target_term": "summer", "degree_req": "undergrad"}`;
+Return a JSON object with ONLY changed fields, EXCEPT industries and target_term which must always be included.
+Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries": ["SWE"], "target_term": "2026 Summer"}`;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
@@ -97,7 +97,7 @@ Example: {"company": "Stripe", "title": "Software Engineer Intern", "industries"
       if (sorted === currentSorted) delete suggestions.industries;
     }
     if (suggestions.target_term === target_term) delete suggestions.target_term;
-    if (suggestions.degree_req === degree_req) delete suggestions.degree_req;
+    if (jd_summary) delete suggestions.jd_summary;
     return NextResponse.json({ suggestions });
   } catch {
     return NextResponse.json({ error: "Could not parse AI response" }, { status: 500 });

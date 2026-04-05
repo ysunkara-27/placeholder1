@@ -1,17 +1,14 @@
 import type {
-  DegreeReq,
   ExperienceBand,
   JobLevel,
   JobRoleFamily,
-  TargetTerm,
 } from "@/lib/types";
 
 export interface NormalizedQualificationTags {
   role_family: JobRoleFamily;
-  target_term: TargetTerm | null;
+  target_term: string | null;
   target_year: number | null;
   experience_band: ExperienceBand;
-  degree_req: DegreeReq;
   is_early_career: boolean;
 }
 
@@ -25,11 +22,19 @@ function parseYear(text: string): number | null {
   return Number.isFinite(year) ? year : null;
 }
 
-function parseTerm(text: string): TargetTerm | null {
-  if (/\bspring\b/.test(text)) return "spring";
-  if (/\bsummer\b/.test(text)) return "summer";
-  if (/\bfall\b/.test(text) || /\bautumn\b/.test(text)) return "fall";
-  if (/\bwinter\b/.test(text)) return "winter";
+function parseTerm(text: string): string | null {
+  const season =
+    /\bspring\b/.test(text) ? "Spring" :
+    /\bsummer\b/.test(text) ? "Summer" :
+    /\bfall\b|\bautumn\b/.test(text) ? "Fall" :
+    /\bwinter\b/.test(text) ? "Winter" : null;
+
+  const yearMatch = text.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? yearMatch[1] : null;
+
+  if (season && year) return `${year} ${season}`;
+  if (season) return season;
+  if (/\bfull[\s-]?time\b/.test(text)) return "Full Time";
   return null;
 }
 
@@ -54,12 +59,6 @@ function inferRoleFamily(text: string, fallbackLevel?: string): JobRoleFamily {
   return "internship";
 }
 
-function inferDegreeReq(text: string): DegreeReq {
-  if (/\bph\.?d\b|\bdoctor(al|ate)\b/i.test(text)) return "phd";
-  if (/\bmba\b|\bmaster'?s?\b|\bm\.?s\.?\b|\bm\.?eng\b|\bgraduate student\b/i.test(text)) return "masters";
-  if (/\bnew[\s-]?grad\b|\brecent graduate\b|\bbs\/ms\b/i.test(text)) return "any";
-  return "undergrad";
-}
 
 function inferExperienceBand(roleFamily: JobRoleFamily): ExperienceBand {
   if (roleFamily === "new_grad") return "new_grad";
@@ -116,7 +115,6 @@ export function inferQualificationTags(input: {
     target_term: targetTerm,
     target_year: targetYear,
     experience_band: inferExperienceBand(roleFamily),
-    degree_req: inferDegreeReq(normalized),
     is_early_career: true,
   };
 }

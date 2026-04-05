@@ -43,11 +43,10 @@ export type JobRoleFamily =
   | "associate"
   | "part_time";
 
-export type TargetTerm = "spring" | "summer" | "fall" | "winter" | "any";
+export type TargetTerm = string; // e.g. "2026 Summer", "2026 Fall", "Full Time"
 
 export type ExperienceBand = "student" | "new_grad" | "early_career";
 
-export type DegreeReq = "undergrad" | "masters" | "phd" | "any";
 
 export type NotificationPref = "sms" | "email";
 

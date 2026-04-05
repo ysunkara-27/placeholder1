@@ -164,7 +164,6 @@ export function mapJobIngestPayloadToInsert(
     target_term: qualification.target_term,
     target_year: qualification.target_year,
     experience_band: qualification.experience_band,
-    degree_req: qualification.degree_req,
     is_early_career: qualification.is_early_career,
     jd_summary: sanitizeJdSummary(payload.jd_summary),
     posted_at: normalizeTimestamp(payload.posted_at) ?? new Date().toISOString(),
@@ -218,7 +217,6 @@ export async function upsertJobFromIngestPayload(
       target_term: existing.target_term || insert.target_term,
       target_year: existing.target_year || insert.target_year,
       experience_band: existing.experience_band || insert.experience_band,
-      degree_req: existing.degree_req || insert.degree_req,
       is_early_career: existing.is_early_career ?? insert.is_early_career,
       jd_summary: sanitizeJdSummary(existing.jd_summary) ?? sanitizeJdSummary(insert.jd_summary) ?? null,
       posted_at:
