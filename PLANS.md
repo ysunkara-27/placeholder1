@@ -1368,3 +1368,36 @@ Exact next step:
 3. run `npm run backfill:taxonomy:jobs -- --dry-run --limit 50`
 4. confirm multi-location rows now show expanded `locations_text` and `job_taxonomy_summary.location_options_text`
 5. then run the job/profile backfills live
+## Session Log — 2026-04-07
+
+Completed in this session:
+
+- validated the Browse Jobs -> queued application -> Apply Lab/direct worker path against a real Xometry Greenhouse application
+- confirmed per-application `applications.log_events` now receives Python-side execution logs from the apply engine
+- narrowed the active Greenhouse blocker from queue/worker plumbing to React-select field commitment during form fill
+- added step-level Greenhouse logs, per-question selector logging, and per-field timeout guards so blocked runs no longer look like silent hangs
+- fixed a bad phone-country control classification so the phone search/combobox control is no longer treated as the real phone field
+- added explicit Greenhouse country/location targeting for `#country` and `#candidate-location`
+
+Verified:
+
+- `npm run test:apply-engine`
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
+- `python3 -m py_compile apply_engine/agents/common.py apply_engine/agents/greenhouse.py`
+
+Current truth after this session:
+
+- queue claiming and local direct-worker processing work against real Supabase data
+- Apply Lab/application log visibility works for Python execution events
+- the tested Xometry Greenhouse run reaches terminal `failed` status instead of hanging
+- phone is now filled through the real `#phone` tel input, not the phone-country combobox
+- Xometry still blocks on Greenhouse-required React-select fields: `Country*`, `Location (City)*`, and `Are you legally authorized to work in the United States?*`
+- the next fix should target React-select commit/state behavior for selectors `#country`, `#candidate-location`, and `#question_10998491007`
+
+Exact next step:
+
+1. instrument `fill_combobox_input` to report selected option/commit status for Greenhouse React-select fields
+2. make Greenhouse country/location/auth selects commit through the same state path Greenhouse validation reads, not only through visible input text or hidden required input mutation
+3. rerun application `cd8c646b-6847-4cf4-bbad-208b0fa38dfa` until the terminal error no longer includes Country, Location, or authorization
+4. then rerun the full required verification batch after the React-select commit fix

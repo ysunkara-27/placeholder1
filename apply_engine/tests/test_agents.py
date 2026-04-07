@@ -448,7 +448,7 @@ class AgentPlanningTests(unittest.TestCase):
         agent = GreenhouseAgent()
         request = make_request("https://job-boards.greenhouse.io/scaleai/jobs/4606014005")
         actions = agent.build_actions(request)
-        page = FakePage(missing_selectors={agent.next_selector})
+        page = FakePage(missing_selectors={agent.next_selector, "#country", "#candidate-location"})
 
         confirmation, screenshots, inferred_answers, unresolved_questions = asyncio.run(
             agent.execute(page, request.profile, actions)

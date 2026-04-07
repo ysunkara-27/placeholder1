@@ -984,6 +984,10 @@ async def complete_submission_flow(
         )
         current_url = extract_page_url(page)
         step_label = describe_application_step(body_text, step_index=step_index)
+        await emit_log(
+            f"Step {step_index + 1}: {step_label}",
+            level="info",
+        )
         step_signature = (
             step_label
             + "|"
@@ -1013,6 +1017,10 @@ async def complete_submission_flow(
             and next_steps_taken < max_next_steps
             and next_exists
         ):
+            await emit_log(
+                f"Step {step_index + 1}: clicking next from {step_label}",
+                level="info",
+            )
             await run_step_operation(
                 click_preferred_selector(page, next_selector),
                 step_index=step_index,
@@ -1029,6 +1037,10 @@ async def complete_submission_flow(
             continue
 
         if await selector_exists(page, submit_selector):
+            await emit_log(
+                f"Step {step_index + 1}: submit available on {step_label}",
+                level="info",
+            )
             required_issues = await run_step_operation(
                 inspect_missing_required_fields(page),
                 step_index=step_index,

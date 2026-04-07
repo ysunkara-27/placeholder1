@@ -1383,3 +1383,31 @@ When `twinmegaresearch.md` is populated, the first things to update here should 
   - the apply engine now has ranked location data available, but there is not yet an admin/operator surface for reviewing the chosen location against a specific application question
   - browse filtering still needs a follow-up pass to expose parent/child geo filters more directly
 - Next recommended step: apply the new geo migrations, verify counts/labels in Supabase, run taxonomy backfill dry-runs, then backfill live rows so multi-location jobs and full state/province nodes are present in production data.
+### Session Update: 2026-04-07
+
+- Workstream: Apply execution reliability and queue visibility
+- Feature batch: Real queued Greenhouse run diagnostics
+- Status before: queued applications could be claimed, but the live Greenhouse run stalled without enough per-application evidence to tell whether the blocker was queue plumbing, Python handoff, or portal field fill.
+- Status after: the direct worker can claim and process the Xometry Greenhouse application, Python execution logs are persisted to `applications.log_events`, and the tested run reaches terminal failure with selector-level diagnostics.
+- Files changed:
+  - `apply_engine/agents/common.py`
+  - `apply_engine/agents/greenhouse.py`
+  - `apply_engine/browser.py`
+  - `apply_engine/tests/test_agents.py`
+  - `apply_engine/tests/test_common.py`
+  - `scripts/check_application_logs.js`
+  - `PLANS.md`
+  - `docs/master-planning.md`
+- Tests run:
+  - `npm run test:apply-engine`
+  - `python3 -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+  - `python3 -m py_compile apply_engine/agents/common.py apply_engine/agents/greenhouse.py`
+- Tests passed:
+  - apply-engine unit tests passed
+  - full Python syntax compilation passed
+  - Next production build passed
+- Known gaps:
+  - the tested Xometry Greenhouse application still fails on required React-select fields after automated fill: `Country*`, `Location (City)*`, and `Are you legally authorized to work in the United States?*`
+  - the next implementation step is to make Greenhouse combobox fills commit through the state path used by Greenhouse validation for `#country`, `#candidate-location`, and `#question_10998491007`
+- Next recommended step: instrument `fill_combobox_input` with selected-option/commit-state logging, patch the React-select commitment path, and rerun application `cd8c646b-6847-4cf4-bbad-208b0fa38dfa` until the terminal error no longer includes Country, Location, or authorization.

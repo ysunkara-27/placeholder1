@@ -28,6 +28,7 @@ from apply_engine.browser import (
     run_with_chromium,
     selector_exists,
     SubmissionBlockedError,
+    emit_log,
 )
 from apply_engine.models import ApplyRequest, ApplyResult, CapturedScreenshot, PlannedAction
 from apply_engine.portal_specs import (
@@ -112,6 +113,27 @@ class GreenhouseAgent(PortalAgent):
             if current_value.strip():
                 continue
             await page.fill(selector, str(desired_value))
+
+    async def _reinforce_profile_location_fields(self, page: object, profile: object) -> None:
+        city = str(getattr(profile, "city", "") or "").strip()
+        state = str(getattr(profile, "state_region", "") or "").strip()
+        location = ", ".join(part for part in (city, state) if part)
+
+        location_fields = [
+            ("#country", str(getattr(profile, "country", "") or "").strip()),
+            ("#candidate-location", location),
+        ]
+
+        for selector, desired_value in location_fields:
+            if not desired_value:
+                continue
+            if not await selector_exists(page, selector):
+                continue
+            current_value = await self._read_input_value(page, selector)
+            if current_value.strip():
+                continue
+            await emit_log(f"Greenhouse: reinforcing profile location field {selector}")
+            await fill_combobox_input(page, selector, desired_value)
 
     async def _sync_required_combobox_inputs(
         self,
@@ -533,9 +555,12 @@ class GreenhouseAgent(PortalAgent):
 
         try:
             await execute_actions(page, actions)
+            await emit_log("Greenhouse: reinforcing identity and education fields")
             await self._reinforce_identity_fields(page, profile)
+            await self._reinforce_profile_location_fields(page, profile)
             await self._reinforce_education_fields(page, profile)
             await self._sync_required_combobox_inputs(page)
+            await emit_log("Greenhouse: filling detected questions by hint")
             initial_answers = await fill_detected_questions_by_hint(
                 page,
                 profile,
@@ -557,6 +582,7 @@ class GreenhouseAgent(PortalAgent):
             async def on_step(step_page: object, step_index: int) -> None:
                 await self._reinforce_education_fields(step_page, profile)
                 await self._reinforce_identity_fields(step_page, profile)
+                await self._reinforce_profile_location_fields(step_page, profile)
                 await self._sync_required_combobox_inputs(step_page)
                 step_answers = await fill_detected_questions_by_hint(
                     step_page,
@@ -565,6 +591,7 @@ class GreenhouseAgent(PortalAgent):
                 )
                 await self._reinforce_education_fields(step_page, profile)
                 await self._reinforce_identity_fields(step_page, profile)
+                await self._reinforce_profile_location_fields(step_page, profile)
                 await self._sync_required_combobox_inputs(step_page)
                 for answer in step_answers:
                     if answer not in inferred_answers:
@@ -586,10 +613,12 @@ class GreenhouseAgent(PortalAgent):
                     screenshots.append(step_capture)
                     seen_step_labels.add(screenshot_label)
 
+            await emit_log("Greenhouse: capturing pre-submit screenshot")
             filled = await capture_page_screenshot(page, "form_filled")
             if filled:
                 screenshots.append(filled)
 
+            await emit_log("Greenhouse: entering submission flow")
             try:
                 confirmation = await complete_submission_flow(
                     page,
@@ -598,6 +627,10 @@ class GreenhouseAgent(PortalAgent):
                     on_step=on_step,
                 )
             except SubmissionBlockedError as exc:
+                await emit_log(
+                    f"Greenhouse blocked during submission flow: {normalize_confirmation_text(str(exc), limit=180)}",
+                    level="warn",
+                )
                 blocked_page_answers = await fill_detected_questions_by_hint(
                     page,
                     profile,
@@ -609,12 +642,17 @@ class GreenhouseAgent(PortalAgent):
                     str(exc),
                 )
                 await self._reinforce_identity_fields(page, profile)
+                await self._reinforce_profile_location_fields(page, profile)
                 await self._reinforce_education_fields(page, profile)
                 await self._sync_required_combobox_inputs(page)
                 for answer in targeted_blocked_answers:
                     if answer not in blocked_page_answers:
                         blocked_page_answers.append(answer)
                 if blocked_page_answers:
+                    await emit_log(
+                        "Retrying Greenhouse flow after targeted question refill",
+                        level="info",
+                    )
                     for answer in blocked_page_answers:
                         if answer not in inferred_answers:
                             inferred_answers.append(answer)
@@ -646,7 +684,12 @@ class GreenhouseAgent(PortalAgent):
                         raise
 
                     recovery_family_used = recovered_family
+                    await emit_log(
+                        f"Retrying Greenhouse flow after {recovered_family} recovery",
+                        level="info",
+                    )
                     await self._reinforce_identity_fields(page, profile)
+                    await self._reinforce_profile_location_fields(page, profile)
                     recovery = await capture_page_screenshot(page, f"recovery_{recovered_family}")
                     if recovery:
                         screenshots.append(recovery)

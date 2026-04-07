@@ -63,6 +63,9 @@ async function main() {
         application: applicationRes.data,
         runs: runsRes.data,
         events: eventsRes.data,
+        log_tail: Array.isArray(applicationRes.data?.log_events)
+          ? applicationRes.data.log_events.slice(-20)
+          : [],
       },
       null,
       2

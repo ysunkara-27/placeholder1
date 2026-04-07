@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
 from apply_engine.browser import (
+    emit_log,
     execute_actions,
     fill_combobox_input,
     get_preferred_selector,
@@ -355,6 +357,14 @@ def infer_answer_for_field_key(profile: ApplicantProfile, field_key: str) -> str
         return first_non_empty(profile.salary_expectation)
     if normalized_key == "heard_about_us":
         return first_non_empty(match_custom_answer("heard_about_us"), "Company Website")
+    if normalized_key == "phone":
+        return first_non_empty(profile.phone)
+    if normalized_key == "country":
+        return first_non_empty(profile.country)
+    if normalized_key == "city":
+        return first_non_empty(profile.city)
+    if normalized_key == "state_region":
+        return first_non_empty(profile.state_region)
     if normalized_key == "onsite_preference":
         return first_non_empty(profile.onsite_preference, match_custom_answer("onsite_preference"))
     if normalized_key == "weekly_availability_hours":
@@ -864,6 +874,11 @@ SCAN_FORM_QUESTIONS_SCRIPT = """
     return el.getAttribute("placeholder") || el.getAttribute("name") || el.getAttribute("id") || "";
   };
 
+  const isSelectInput = (el) =>
+    el instanceof HTMLInputElement &&
+    el.type !== "search" &&
+    (el.classList.contains("select__input") || el.getAttribute("role") === "combobox");
+
   const elements = Array.from(document.querySelectorAll("input, select, textarea"))
     .filter((el) => isVisible(el) && !el.disabled);
 
@@ -872,9 +887,12 @@ SCAN_FORM_QUESTIONS_SCRIPT = """
       const descriptors = [];
 
       for (const el of elements) {
-        const tag = el.tagName.toLowerCase();
-        const selector = selectorFor(el);
-        if (!selector) continue;
+      const tag = el.tagName.toLowerCase();
+      const selector = selectorFor(el);
+      if (!selector) continue;
+      const hint = normalize(getLabel(el));
+      const normalizedHint = hint.toLowerCase().replace(/[*]$/, "").trim();
+      if (normalizedHint === "phone" && isSelectInput(el)) continue;
 
     if (el instanceof HTMLInputElement && el.type === "radio" && el.name) {
       const hint = normalize(getGroupLabel(el) || getLabel(el));
@@ -942,13 +960,15 @@ SCAN_FORM_QUESTIONS_SCRIPT = """
             ? "textarea"
           : el instanceof HTMLSelectElement
             ? "select"
+            : isSelectInput(el)
+              ? "combobox_select"
             : el instanceof HTMLInputElement && el.type === "checkbox"
               ? "checkbox"
               : tag === "input"
                 ? (el.getAttribute("type") || "text")
                 : tag,
       selector,
-      hint: normalize(getLabel(el)),
+      hint,
       required: Boolean(el.required || el.getAttribute("aria-required") === "true"),
       options:
         el instanceof HTMLSelectElement
@@ -1186,15 +1206,23 @@ async def scan_form_questions(page: Any) -> list[dict[str, object]]:
 
     descriptors: list[dict[str, object]] = []
 
+    async def evaluate_with_timeout(script: str, arg: object | None = None) -> object:
+        try:
+            if arg is None:
+                return await asyncio.wait_for(evaluate(script), timeout=8)
+            return await asyncio.wait_for(evaluate(script, arg), timeout=8)
+        except Exception:
+            return []
+
     try:
-        scanned = await evaluate(SCAN_FORM_QUESTIONS_SCRIPT)
+        scanned = await evaluate_with_timeout(SCAN_FORM_QUESTIONS_SCRIPT)
         if isinstance(scanned, list):
             descriptors.extend(item for item in scanned if isinstance(item, dict))
     except Exception:
         pass
 
     try:
-        greenhouse_scanned = await evaluate(GREENHOUSE_METADATA_QUESTIONS_SCRIPT)
+        greenhouse_scanned = await evaluate_with_timeout(GREENHOUSE_METADATA_QUESTIONS_SCRIPT)
         if isinstance(greenhouse_scanned, list):
             existing_index = {
                 (str(item.get("selector", "")), str(item.get("hint", "")).lower()): index
@@ -1228,7 +1256,7 @@ async def scan_form_questions(page: Any) -> list[dict[str, object]]:
         pass
 
     try:
-        lever_scanned = await evaluate(LEVER_METADATA_QUESTIONS_SCRIPT)
+        lever_scanned = await evaluate_with_timeout(LEVER_METADATA_QUESTIONS_SCRIPT)
         if isinstance(lever_scanned, list):
             existing_by_key = {
                 (str(item.get("selector", "")), str(item.get("hint", "")).lower()): index
@@ -1290,6 +1318,18 @@ def infer_answer_for_hint(
             f"{option.get('label', '')} {option.get('value', '')}".lower()
             for option in (options or [])
         )
+
+    if normalized in {"country", "country*"}:
+        return infer_answer_for_field_key(profile, "country")
+    if (
+        "location (city" in normalized
+        or normalized in {"location", "location*", "city", "city*"}
+    ):
+        city = infer_answer_for_field_key(profile, "city") or ""
+        state = infer_answer_for_field_key(profile, "state_region") or ""
+        return ", ".join(part for part in (city, state) if part) or None
+    if normalized in {"phone", "phone*"}:
+        return infer_answer_for_field_key(profile, "phone")
 
     if any(keyword in normalized for keyword in ("linkedin", "github", "website", "portfolio", "first name", "last name", "full name", "email", "phone", "location")):
         return None
@@ -1705,6 +1745,58 @@ async def fill_detected_questions_by_hint(
 
     filled_hints: list[str] = []
 
+    async def run_with_timeout(awaitable: Any, *, hint: str, action: str) -> Any:
+        try:
+            return await asyncio.wait_for(awaitable, timeout=8)
+        except asyncio.TimeoutError:
+            await emit_log(
+                f"Question fill timed out: {action} for {hint}",
+                level="warn",
+            )
+            raise
+
+    async def set_checked_via_dom(
+        selector: str,
+        *,
+        hint: str,
+        action: str,
+    ) -> bool:
+        evaluate = getattr(page, "evaluate", None)
+        if not callable(evaluate):
+            return False
+
+        try:
+            result = await asyncio.wait_for(
+                evaluate(
+                    """
+                    ({ selector }) => {
+                      const element = document.querySelector(selector);
+                      if (!(element instanceof HTMLInputElement)) {
+                        return false;
+                      }
+                      element.checked = true;
+                      element.dispatchEvent(new Event("input", { bubbles: true }));
+                      element.dispatchEvent(new Event("change", { bubbles: true }));
+                      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+                      return true;
+                    }
+                    """,
+                    {"selector": selector},
+                ),
+                timeout=4,
+            )
+        except Exception:
+            return False
+
+        if result:
+            await emit_log(
+                f"Question fill DOM fallback: {action} for {hint}",
+                level="warn",
+            )
+            return True
+
+        return False
+
     for descriptor in descriptors:
         if not isinstance(descriptor, dict):
             continue
@@ -1722,30 +1814,84 @@ async def fill_detected_questions_by_hint(
             continue
 
         try:
-            if not await selector_exists(page, selector):
+            if not await run_with_timeout(
+                selector_exists(page, selector),
+                hint=hint,
+                action="selector_exists",
+            ):
                 continue
 
-            target_selector = await get_preferred_selector(page, selector)
+            await emit_log(
+                f"Question fill: {hint} ({field_type}) selector={selector}",
+                level="info",
+            )
+
+            target_selector = await run_with_timeout(
+                get_preferred_selector(page, selector),
+                hint=hint,
+                action="get_preferred_selector",
+            )
             if field_type in {"text", "textarea", "email", "tel", "number", "date"}:
-                await page.fill(target_selector, answer)
+                await run_with_timeout(
+                    page.fill(target_selector, answer),
+                    hint=hint,
+                    action="fill",
+                )
                 filled_hints.append(hint)
             elif field_type == "select":
-                await page.select_option(target_selector, resolve_option_value(answer, options))
+                await run_with_timeout(
+                    page.select_option(target_selector, resolve_option_value(answer, options)),
+                    hint=hint,
+                    action="select_option",
+                )
                 filled_hints.append(hint)
             elif field_type == "combobox_select":
                 combobox_text = resolve_combobox_text(answer, options)
-                await fill_combobox_input(
-                    page,
-                    target_selector,
-                    combobox_text,
-                    commit_value=resolve_option_value(answer, options),
+                await run_with_timeout(
+                    fill_combobox_input(
+                        page,
+                        target_selector,
+                        combobox_text,
+                        commit_value=resolve_option_value(answer, options),
+                    ),
+                    hint=hint,
+                    action="fill_combobox_input",
                 )
                 filled_hints.append(hint)
             elif field_type == "radio_group":
                 option_selector = resolve_option_selector(answer, options)
                 if option_selector:
-                    option_target = await get_preferred_selector(page, option_selector)
-                    await page.click(option_target)
+                    if not await run_with_timeout(
+                        selector_exists(page, option_selector),
+                        hint=hint,
+                        action="radio_selector_exists",
+                    ):
+                        continue
+                    if hasattr(page, "check"):
+                        try:
+                            await run_with_timeout(
+                                page.check(option_selector),
+                                hint=hint,
+                                action="check_radio",
+                            )
+                        except Exception:
+                            if not await set_checked_via_dom(
+                                option_selector,
+                                hint=hint,
+                                action="check_radio",
+                            ):
+                                raise
+                    else:
+                        option_target = await run_with_timeout(
+                            get_preferred_selector(page, option_selector),
+                            hint=hint,
+                            action="get_radio_target",
+                        )
+                        await run_with_timeout(
+                            page.click(option_target),
+                            hint=hint,
+                            action="click_radio",
+                        )
                     filled_hints.append(hint)
             elif field_type == "checkbox_group":
                 selections = [
@@ -1758,13 +1904,29 @@ async def fill_detected_questions_by_hint(
                     option_selector = resolve_option_selector(selection, options)
                     if not option_selector:
                         continue
-                    if not await selector_exists(page, option_selector):
+                    if not await run_with_timeout(
+                        selector_exists(page, option_selector),
+                        hint=hint,
+                        action="checkbox_selector_exists",
+                    ):
                         continue
-                    option_target = await get_preferred_selector(page, option_selector)
+                    option_target = await run_with_timeout(
+                        get_preferred_selector(page, option_selector),
+                        hint=hint,
+                        action="get_checkbox_target",
+                    )
                     if hasattr(page, "check"):
-                        await page.check(option_target)
+                        await run_with_timeout(
+                            page.check(option_target),
+                            hint=hint,
+                            action="check_checkbox",
+                        )
                     else:
-                        await page.click(option_target)
+                        await run_with_timeout(
+                            page.click(option_target),
+                            hint=hint,
+                            action="click_checkbox",
+                        )
                     matched_any = True
                 if matched_any:
                     filled_hints.append(hint)
@@ -1772,9 +1934,17 @@ async def fill_detected_questions_by_hint(
                 normalized_answer = answer.strip().lower()
                 if normalized_answer in {"yes", "true"}:
                     if hasattr(page, "check"):
-                        await page.check(target_selector)
+                        await run_with_timeout(
+                            page.check(target_selector),
+                            hint=hint,
+                            action="check",
+                        )
                     else:
-                        await page.click(target_selector)
+                        await run_with_timeout(
+                            page.click(target_selector),
+                            hint=hint,
+                            action="click",
+                        )
                     filled_hints.append(hint)
         except Exception:
             continue
