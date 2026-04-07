@@ -17,6 +17,7 @@ export interface JobWithMatch extends JobRow {
     rejections: string[];
   };
   application_status: string | null;
+  display_location: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -103,8 +104,15 @@ export async function GET(request: NextRequest) {
     }
 
     const shouldFilterIndustriesInMemory = requestedIndustries.length > 0;
+    const shouldRankInMemory = Boolean(profileRow);
+    const candidateWindow = Math.min(Math.max(limit * 5, 120), 300);
+    const queryWindowEnd = shouldRankInMemory
+      ? Math.max(offset + candidateWindow - 1, limit - 1)
+      : offset + limit - 1;
     const [jobsResponse, countResponse] = await Promise.all([
-      shouldFilterIndustriesInMemory ? query : query.range(offset, offset + limit - 1),
+      shouldFilterIndustriesInMemory || shouldRankInMemory
+        ? query.range(0, queryWindowEnd)
+        : query.range(offset, offset + limit - 1),
       shouldFilterIndustriesInMemory ? Promise.resolve({ count: null }) : countQuery,
     ]);
 
@@ -123,13 +131,13 @@ export async function GET(request: NextRequest) {
           )
         : normalizedJobs;
 
-    const jobs = shouldFilterIndustriesInMemory
-      ? filteredJobs.slice(offset, offset + limit)
+    const prePagedJobs = shouldFilterIndustriesInMemory || shouldRankInMemory
+      ? filteredJobs
       : filteredJobs;
     const total = shouldFilterIndustriesInMemory
       ? filteredJobs.length
       : countResponse.count ?? 0;
-    const jobIds = jobs.map((job) => job.id);
+    const jobIds = prePagedJobs.map((job) => job.id);
 
     let applicationStatusByJobId = new Map<string, string>();
     if (user?.id && jobIds.length > 0) {
@@ -152,10 +160,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Score and sort
-    const jobsWithMatch: JobWithMatch[] = jobs.map((job) => ({
+    const jobsWithMatch: JobWithMatch[] = prePagedJobs.map((job) => ({
       ...job,
       match: profileRow ? matchJobToProfile(job, profileRow) : { matched: false, score: 0, reasons: [], rejections: [] },
       application_status: applicationStatusByJobId.get(job.id) ?? null,
+      display_location:
+        Array.isArray(job.locations_text) && job.locations_text.length > 1
+          ? job.locations_text.join(" • ")
+          : job.locations_text?.[0] || job.location,
     }));
 
     jobsWithMatch.sort((a, b) => {
@@ -164,7 +176,11 @@ export async function GET(request: NextRequest) {
       return b.match.score - a.match.score;
     });
 
-    return NextResponse.json({ jobs: jobsWithMatch, total });
+    const pagedJobs = shouldFilterIndustriesInMemory || shouldRankInMemory
+      ? jobsWithMatch.slice(offset, offset + limit)
+      : jobsWithMatch;
+
+    return NextResponse.json({ jobs: pagedJobs, total });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch jobs";
     return NextResponse.json({ error: message }, { status: 500 });

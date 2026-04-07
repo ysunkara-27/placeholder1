@@ -29,6 +29,32 @@ def _normalize_slug(raw: str) -> str:
     return "_".join(part for part in "".join(ch.lower() if ch.isalnum() else " " for ch in raw).split() if part)
 
 
+def _normalize_geo_path(slug: str) -> str:
+    if slug.startswith("geo.usa"):
+        return re.sub(r"^geo\.usa", "geo.north_america.usa", slug)
+    if slug.startswith("geo.canada"):
+        return re.sub(r"^geo\.canada", "geo.north_america.canada", slug)
+    return slug
+
+
+_CONTINENT_PATTERNS: list[tuple[str, list[re.Pattern[str]]]] = [
+    ("geo.north_america", [re.compile(r"\bnorth america\b", re.I), re.compile(r"\bunited states\b", re.I), re.compile(r"\busa\b", re.I), re.compile(r"\bu\.s\.\b", re.I), re.compile(r"\bcanada\b", re.I)]),
+    ("geo.south_america", [re.compile(r"\bsouth america\b", re.I), re.compile(r"\bbrazil\b", re.I), re.compile(r"\bargentina\b", re.I), re.compile(r"\bchile\b", re.I), re.compile(r"\bcolombia\b", re.I), re.compile(r"\bperu\b", re.I)]),
+    ("geo.europe", [re.compile(r"\beurope\b", re.I), re.compile(r"\bfrance\b", re.I), re.compile(r"\bgermany\b", re.I), re.compile(r"\bspain\b", re.I), re.compile(r"\bitaly\b", re.I), re.compile(r"\bnetherlands\b", re.I), re.compile(r"\bsweden\b", re.I), re.compile(r"\buk\b", re.I), re.compile(r"\bunited kingdom\b", re.I)]),
+    ("geo.asia", [re.compile(r"\basia\b", re.I), re.compile(r"\bindia\b", re.I), re.compile(r"\bchina\b", re.I), re.compile(r"\bjapan\b", re.I), re.compile(r"\bsingapore\b", re.I), re.compile(r"\bkorea\b", re.I), re.compile(r"\bhong kong\b", re.I), re.compile(r"\btaiwan\b", re.I)]),
+    ("geo.africa", [re.compile(r"\bafrica\b", re.I), re.compile(r"\bnigeria\b", re.I), re.compile(r"\bkenya\b", re.I), re.compile(r"\begypt\b", re.I), re.compile(r"\bsouth africa\b", re.I), re.compile(r"\bghana\b", re.I)]),
+    ("geo.australia", [re.compile(r"\baustralia\b", re.I), re.compile(r"\boceania\b", re.I), re.compile(r"\bnew zealand\b", re.I), re.compile(r"\bsydney\b", re.I), re.compile(r"\bmelbourne\b", re.I), re.compile(r"\bbrisbane\b", re.I)]),
+]
+
+
+def _detect_continent_slug(values: list[str]) -> str | None:
+    text = " ".join(values).lower()
+    for slug, patterns in _CONTINENT_PATTERNS:
+        if any(pattern.search(text) for pattern in patterns):
+            return slug
+    return None
+
+
 def _infer_work_modality(location: str, remote: bool, summary: str) -> tuple[str, str]:
     if remote:
         return "remote", "high"
@@ -109,11 +135,19 @@ def _geo_node_slugs(location: str) -> list[str]:
         text = option.lower()
         for match, slug in city_map.items():
             if match in text:
-                slugs.append(slug)
+                slugs.append(_normalize_geo_path(slug))
         for match, slug in state_map.items():
             if re.search(rf"(^|[\s,\-]){re.escape(match)}($|[\s,])", text, re.IGNORECASE):
-                slugs.append(slug)
-        slugs.append("geo.canada" if "canada" in text else "geo.usa")
+                slugs.append(_normalize_geo_path(slug))
+        if "canada" in text:
+            slugs.append("geo.north_america.canada")
+        elif re.search(r"\bunited states\b|\busa\b|\bu\.s\.\b", text, re.IGNORECASE):
+            slugs.append("geo.north_america.usa")
+    continent_slug = _detect_continent_slug(_split_location_options(location) or [location])
+    if continent_slug:
+        slugs.append(continent_slug)
+    if any(slug.startswith("geo.north_america.") for slug in slugs):
+        slugs.append("geo.north_america")
     return list(dict.fromkeys(slugs))
 
 

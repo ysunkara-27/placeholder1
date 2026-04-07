@@ -251,6 +251,7 @@ export async function mapProfileToResolvedUpsertInput(args: {
       ...((applicationFacts.current_location?.node_slugs ?? []) as string[]),
     ],
     industry: ((matchPreferences.industries?.node_slugs ?? []) as string[]),
+    job_function: ((matchPreferences.job_functions?.node_slugs ?? []) as string[]),
     career_role: ((matchPreferences.career_roles?.node_slugs ?? []) as string[]),
     education_degree: (
       (applicationFacts.education_records ?? []) as Array<Record<string, any>>
@@ -266,7 +267,7 @@ export async function mapProfileToResolvedUpsertInput(args: {
     ...base,
     profile_geo_allow_node_ids: resolved.geo?.ids ?? [],
     profile_industry_allow_node_ids: resolved.industry?.ids ?? [],
-    profile_job_function_allow_node_ids: [],
+    profile_job_function_allow_node_ids: resolved.job_function?.ids ?? [],
     profile_career_allow_node_ids: resolved.career_role?.ids ?? [],
     profile_degree_node_ids: resolved.education_degree?.ids ?? [],
     profile_education_field_node_ids: resolved.education_field?.ids ?? [],

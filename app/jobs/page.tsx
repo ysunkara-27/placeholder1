@@ -475,7 +475,7 @@ export default function JobsPage() {
                       <div className="mt-1.5 flex flex-col gap-1.5">
                         <p className="font-semibold text-ink text-sm leading-snug">{job.title}</p>
                         <div className="flex flex-wrap gap-1.5 items-center">
-                          <span className="text-xs text-dim">{job.location}</span>
+                          <span className="text-xs text-dim">{job.display_location}</span>
                           {job.remote && (
                             <span className="rounded-full bg-accent-wash text-accent border border-accent/20 px-2 py-0.5 text-[10px] font-medium">Remote</span>
                           )}

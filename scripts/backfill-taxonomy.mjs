@@ -33,6 +33,23 @@ function uniq(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function normalizeNodeSlug(slug) {
+  const normalized = String(slug || "").trim();
+  if (!normalized) return "";
+  const parts = normalized.split(".");
+  return parts[parts.length - 1] || normalized;
+}
+
+function normalizeGeoPath(slug) {
+  if (String(slug).startsWith("geo.usa")) {
+    return String(slug).replace(/^geo\.usa/, "geo.north_america.usa");
+  }
+  if (String(slug).startsWith("geo.canada")) {
+    return String(slug).replace(/^geo\.canada/, "geo.north_america.canada");
+  }
+  return String(slug);
+}
+
 function normalizeSlug(raw) {
   return raw
     .toLowerCase()
@@ -41,32 +58,109 @@ function normalizeSlug(raw) {
     .replace(/^_+|_+$/g, "");
 }
 
+const CONTINENT_PATTERNS = [
+  { slug: "geo.north_america", patterns: [/\bnorth america\b/i, /\bunited states\b/i, /\busa\b/i, /\bu\.s\.\b/i, /\bcanada\b/i] },
+  { slug: "geo.south_america", patterns: [/\bsouth america\b/i, /\bbrazil\b/i, /\bargentina\b/i, /\bchile\b/i, /\bcolombia\b/i, /\bperu\b/i] },
+  { slug: "geo.europe", patterns: [/\beurope\b/i, /\bfrance\b/i, /\bgermany\b/i, /\bspain\b/i, /\bitaly\b/i, /\bnetherlands\b/i, /\bsweden\b/i, /\buk\b/i, /\bunited kingdom\b/i] },
+  { slug: "geo.asia", patterns: [/\basia\b/i, /\bindia\b/i, /\bchina\b/i, /\bjapan\b/i, /\bsingapore\b/i, /\bkorea\b/i, /\bhong kong\b/i, /\btaiwan\b/i] },
+  { slug: "geo.africa", patterns: [/\bafrica\b/i, /\bnigeria\b/i, /\bkenya\b/i, /\begypt\b/i, /\bsouth africa\b/i, /\bghana\b/i] },
+  { slug: "geo.australia", patterns: [/\baustralia\b/i, /\boceania\b/i, /\bnew zealand\b/i, /\bsydney\b/i, /\bmelbourne\b/i, /\bbrisbane\b/i] },
+];
+
+function detectContinentSlug(values) {
+  const text = values.join(" ").toLowerCase();
+  for (const entry of CONTINENT_PATTERNS) {
+    if (entry.patterns.some((pattern) => pattern.test(text))) return entry.slug;
+  }
+  return null;
+}
+
+function splitLocationOptions(raw) {
+  return uniq(
+    String(raw || "")
+      .split(/\s*(?:\||;|\n|\/)\s*/g)
+      .flatMap((part) => part.split(/\s+\bor\b\s+/i))
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+}
+
 function modalitySelection(remoteOk, workModalityAllow) {
   if (Array.isArray(workModalityAllow) && workModalityAllow.length > 0) return uniq(workModalityAllow);
   return remoteOk ? ["remote", "hybrid", "onsite"] : ["hybrid", "onsite"];
 }
 
-const INDUSTRY_SLUGS = {
-  SWE: ["industry.technology.enterprise_software"],
-  Data: ["industry.technology.data_infrastructure", "industry.technology.ai_ml"],
-  PM: ["job_function.product.product_management"],
-  Design: ["job_function.design.ux_design"],
-  Hardware: ["industry.industrial.semiconductor", "job_function.engineering.hardware_engineering"],
-  MechEng: ["education_field.engineering.mechanical_engineering"],
-  CivilEng: ["education_field.engineering"],
-  ChemEng: ["education_field.natural_sciences.chemistry"],
-  AeroEng: ["industry.industrial.defense_technology", "education_field.engineering"],
-  LifeSci: ["industry.healthcare_biotech.biotech", "education_field.natural_sciences.biology"],
-  Research: ["industry.research.applied_research", "job_function.research.research_science"],
-  Healthcare: ["industry.healthcare_biotech.healthcare_services"],
-  Finance: ["industry.finance.fintech"],
-  Consulting: ["industry.consulting.management_consulting"],
-  Marketing: ["education_field.business.marketing"],
-  Legal: ["industry.public_sector"],
-  Operations: ["job_function.operations.operations_general"],
-  Sales: ["job_function.business.sales"],
-  Policy: ["industry.public_sector"],
-  Education: ["industry.public_sector"],
+const INTEREST_TAXONOMY = {
+  SWE: {
+    industry: ["industry.technology.enterprise_software"],
+    job_function: ["job_function.engineering.software_engineering"],
+  },
+  Data: {
+    industry: ["industry.technology.data_infrastructure", "industry.technology.ai_ml"],
+    job_function: ["job_function.data.data_science", "job_function.data.data_engineering"],
+  },
+  PM: {
+    job_function: ["job_function.product.product_management"],
+  },
+  Design: {
+    job_function: ["job_function.design.ux_design"],
+  },
+  Hardware: {
+    industry: ["industry.industrial.semiconductor"],
+    job_function: ["job_function.engineering.hardware_engineering"],
+  },
+  MechEng: {
+    education_field: ["education_field.engineering.mechanical_engineering"],
+  },
+  CivilEng: {
+    education_field: ["education_field.engineering"],
+  },
+  ChemEng: {
+    education_field: ["education_field.natural_sciences.chemistry"],
+  },
+  AeroEng: {
+    industry: ["industry.industrial.defense_technology"],
+    education_field: ["education_field.engineering"],
+  },
+  LifeSci: {
+    industry: ["industry.healthcare_biotech.biotech"],
+    education_field: ["education_field.natural_sciences.biology"],
+  },
+  Research: {
+    industry: ["industry.research.applied_research"],
+    job_function: ["job_function.research.research_science"],
+  },
+  Healthcare: {
+    industry: ["industry.healthcare_biotech.healthcare_services"],
+  },
+  Finance: {
+    industry: ["industry.finance.fintech", "industry.finance"],
+    job_function: ["job_function.business.finance_analysis"],
+    education_field: ["education_field.business.finance"],
+  },
+  Consulting: {
+    industry: ["industry.consulting.management_consulting"],
+    job_function: ["job_function.business.strategy", "job_function.business.business_analyst"],
+  },
+  Marketing: {
+    job_function: ["job_function.business.sales"],
+    education_field: ["education_field.business.marketing"],
+  },
+  Legal: {
+    industry: ["industry.public_sector"],
+  },
+  Operations: {
+    job_function: ["job_function.operations.operations_general"],
+  },
+  Sales: {
+    job_function: ["job_function.business.sales"],
+  },
+  Policy: {
+    industry: ["industry.public_sector"],
+  },
+  Education: {
+    industry: ["industry.public_sector"],
+  },
 };
 
 const CAREER_ROLE_SLUGS = {
@@ -272,16 +366,41 @@ const STATE_SLUGS = {
 };
 
 function inferGeoSlugs(values, country, stateRegion) {
-  const normalizedValues = uniq([...values, stateRegion, country].map((v) => String(v || "").trim().toLowerCase()));
-  const cities = normalizedValues.map((v) => CITY_SLUGS[v]).filter(Boolean);
-  const states = normalizedValues.map((v) => STATE_SLUGS[v]).filter(Boolean);
-  const countrySlug = String(country || "").trim().toLowerCase() === "canada" ? "geo.canada" : "geo.usa";
-  return uniq([...cities, ...states, countrySlug]);
+  const slugs = [];
+  const normalizedValues = uniq(
+    [...values, stateRegion, country]
+      .flatMap((value) => splitLocationOptions(String(value || "")))
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  for (const value of normalizedValues) {
+    for (const [match, slug] of Object.entries(CITY_SLUGS)) {
+      if (value.includes(match)) slugs.push(normalizeGeoPath(slug));
+    }
+    for (const [match, slug] of Object.entries(STATE_SLUGS)) {
+      if (new RegExp(`(^|[\\s,\\-])${match}($|[\\s,])`, "i").test(value)) slugs.push(normalizeGeoPath(slug));
+    }
+  }
+
+  const countryText = `${country || ""} ${normalizedValues.join(" ")}`.toLowerCase();
+  if (countryText.includes("canada")) {
+    slugs.push("geo.north_america.canada");
+  } else if (/\bunited states\b|\busa\b|\bu\.s\.\b/.test(countryText)) {
+    slugs.push("geo.north_america.usa");
+  }
+  const continentSlug = detectContinentSlug(normalizedValues);
+  if (continentSlug) slugs.push(continentSlug);
+  if (slugs.some((slug) => slug.startsWith("geo.north_america."))) {
+    slugs.push("geo.north_america");
+  }
+  return uniq(slugs);
 }
 
 function inferProfileTaxonomy(profile) {
   const workModalityAllow = modalitySelection(profile.remote_ok, profile.profile_work_modality_allow);
-  const industryNodeSlugs = uniq((profile.industries || []).flatMap((value) => INDUSTRY_SLUGS[value] || []));
+  const industryNodeSlugs = uniq((profile.industries || []).flatMap((value) => INTEREST_TAXONOMY[value]?.industry || []));
+  const jobFunctionNodeSlugs = uniq((profile.industries || []).flatMap((value) => INTEREST_TAXONOMY[value]?.job_function || []));
   const careerNodeSlugs = uniq([
     ...(profile.levels || []).flatMap((value) => CAREER_ROLE_SLUGS[value] || []),
     ...(profile.target_role_families || []).flatMap((value) => CAREER_ROLE_SLUGS[value] || []),
@@ -298,9 +417,12 @@ function inferProfileTaxonomy(profile) {
   }));
   const geoPreferenceSlugs = inferGeoSlugs(profile.locations || [], profile.country || "United States", profile.state_region || "");
   const degreeNode = DEGREE_MAP.find((entry) => entry.match.test(String(profile.degree || "")));
-  const educationFieldNodeSlugs = uniq([profile.major, profile.major2].filter(Boolean).flatMap((value) =>
-    EDU_FIELD_MAP.filter((entry) => entry.match.test(String(value))).map((entry) => entry.slug)
-  ));
+  const educationFieldNodeSlugs = uniq([
+    ...[profile.major, profile.major2].filter(Boolean).flatMap((value) =>
+      EDU_FIELD_MAP.filter((entry) => entry.match.test(String(value))).map((entry) => entry.slug)
+    ),
+    ...(profile.industries || []).flatMap((value) => INTEREST_TAXONOMY[value]?.education_field || []),
+  ]);
   const workAuthNodeSlugs = uniq([
     ...(VISA_TO_AUTH[profile.visa_type] || []),
     profile.authorized_to_work
@@ -314,6 +436,7 @@ function inferProfileTaxonomy(profile) {
       open_to_relocate: Boolean(profile.profile_match_preferences?.open_to_relocate || false),
       geo_preferences: { raw_locations: profile.locations || [], node_slugs: geoPreferenceSlugs },
       industries: { legacy_values: profile.industries || [], node_slugs: industryNodeSlugs },
+      job_functions: { legacy_values: profile.industries || [], node_slugs: jobFunctionNodeSlugs },
       career_roles: {
         legacy_levels: profile.levels || [],
         target_role_families: profile.target_role_families || [],
@@ -481,12 +604,12 @@ function inferJobTaxonomy(job) {
       industry_node_slugs: uniq(industryNodeSlugs),
       job_function_node_slugs: uniq(jobFunctionNodeSlugs),
       career_node_slugs: uniq(careerNodeSlugs),
-      geo_node_slugs: inferGeoSlugs([job.location || ""], "United States", ""),
+      geo_node_slugs: inferGeoSlugs([job.location || ""], "", ""),
       employment_type_node_slugs: uniq(employmentTypeNodeSlugs),
       work_modality: workModality,
       work_modality_confidence: workModalityConfidence,
     },
-    locations_text: uniq(String(job.location || "").split(/[;/|]/g).map((part) => part.trim())),
+      locations_text: splitLocationOptions(job.location || ""),
     work_modality: workModality,
     work_modality_confidence: workModalityConfidence,
     taxonomy_needs_review: uniq(industryNodeSlugs).includes("industry.technology") || uniq(industryNodeSlugs).includes("industry.other"),
@@ -507,7 +630,12 @@ async function loadNodeMap(supabase) {
 }
 
 function resolveIds(nodeMap, dimension, slugs) {
-  return uniq(slugs.map((slug) => nodeMap.get(`${dimension}:${slug}`)).filter(Boolean));
+  return uniq(
+    slugs
+      .map((slug) => normalizeNodeSlug(slug))
+      .map((slug) => nodeMap.get(`${dimension}:${slug}`))
+      .filter(Boolean)
+  );
 }
 
 async function main() {
@@ -545,7 +673,7 @@ async function main() {
           ...(taxonomy.applicationFacts.current_location?.node_slugs || []),
         ]),
         profile_industry_allow_node_ids: resolveIds(nodeMap, "industry", taxonomy.matchPreferences.industries?.node_slugs || []),
-        profile_job_function_allow_node_ids: [],
+        profile_job_function_allow_node_ids: resolveIds(nodeMap, "job_function", taxonomy.matchPreferences.job_functions?.node_slugs || []),
         profile_career_allow_node_ids: resolveIds(nodeMap, "career_role", taxonomy.matchPreferences.career_roles?.node_slugs || []),
         profile_degree_node_ids: resolveIds(nodeMap, "education_degree", (taxonomy.applicationFacts.education_records || []).flatMap((record) => record.degree_node_slugs || [])),
         profile_education_field_node_ids: resolveIds(nodeMap, "education_field", (taxonomy.applicationFacts.education_records || []).flatMap((record) => record.major_node_slugs || [])),

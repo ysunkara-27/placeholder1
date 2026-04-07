@@ -9,12 +9,19 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function normalizeNodeSlug(slug: string) {
+  const normalized = slug.trim();
+  if (!normalized) return "";
+  const parts = normalized.split(".");
+  return parts[parts.length - 1] ?? normalized;
+}
+
 async function resolveDimensionNodeIds(
   supabase: SupabaseClient<Database>,
   dimension: string,
   slugs: string[]
 ) {
-  const uniqueSlugs = uniq(slugs);
+  const uniqueSlugs = uniq(slugs.map(normalizeNodeSlug));
   const resolvedIds: string[] = [];
   const missing: string[] = [];
 

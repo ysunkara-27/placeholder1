@@ -56,27 +56,131 @@ function normalizeSlug(raw: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-const INDUSTRY_SLUGS: Record<Industry, string[]> = {
-  SWE: ["industry.technology.enterprise_software"],
-  Data: ["industry.technology.data_infrastructure", "industry.technology.ai_ml"],
-  PM: ["job_function.product.product_management"],
-  Design: ["job_function.design.ux_design"],
-  Hardware: ["industry.industrial.semiconductor", "job_function.engineering.hardware_engineering"],
-  MechEng: ["education_field.engineering.mechanical_engineering"],
-  CivilEng: ["education_field.engineering"],
-  ChemEng: ["education_field.natural_sciences.chemistry"],
-  AeroEng: ["industry.industrial.defense_technology", "education_field.engineering"],
-  LifeSci: ["industry.healthcare_biotech.biotech", "education_field.natural_sciences.biology"],
-  Research: ["industry.research.applied_research", "job_function.research.research_science"],
-  Healthcare: ["industry.healthcare_biotech.healthcare_services"],
-  Finance: ["industry.finance.fintech"],
-  Consulting: ["industry.consulting.management_consulting"],
-  Marketing: ["education_field.business.marketing"],
-  Legal: ["industry.public_sector"],
-  Operations: ["job_function.operations.operations_general"],
-  Sales: ["job_function.business.sales"],
-  Policy: ["industry.public_sector"],
-  Education: ["industry.public_sector"],
+function normalizeGeoPath(slug: string): string {
+  if (slug.startsWith("geo.usa")) {
+    return slug.replace(/^geo\.usa/, "geo.north_america.usa");
+  }
+  if (slug.startsWith("geo.canada")) {
+    return slug.replace(/^geo\.canada/, "geo.north_america.canada");
+  }
+  return slug;
+}
+
+const CONTINENT_PATTERNS: Array<{ slug: string; patterns: RegExp[] }> = [
+  {
+    slug: "geo.north_america",
+    patterns: [/\bnorth america\b/i, /\bunited states\b/i, /\busa\b/i, /\bu\.s\.\b/i, /\bcanada\b/i],
+  },
+  {
+    slug: "geo.south_america",
+    patterns: [/\bsouth america\b/i, /\bbrazil\b/i, /\bargentina\b/i, /\bchile\b/i, /\bcolombia\b/i, /\bperu\b/i],
+  },
+  {
+    slug: "geo.europe",
+    patterns: [/\beurope\b/i, /\bfrance\b/i, /\bgermany\b/i, /\bspain\b/i, /\bitaly\b/i, /\bnetherlands\b/i, /\bsweden\b/i, /\buk\b/i, /\bunited kingdom\b/i],
+  },
+  {
+    slug: "geo.asia",
+    patterns: [/\basia\b/i, /\bindia\b/i, /\bchina\b/i, /\bjapan\b/i, /\bsingapore\b/i, /\bkorea\b/i, /\bhong kong\b/i, /\btaiwan\b/i],
+  },
+  {
+    slug: "geo.africa",
+    patterns: [/\bafrica\b/i, /\bnigeria\b/i, /\bkenya\b/i, /\begypt\b/i, /\bsouth africa\b/i, /\bghana\b/i],
+  },
+  {
+    slug: "geo.australia",
+    patterns: [/\baustralia\b/i, /\boceania\b/i, /\bnew zealand\b/i, /\bsydney\b/i, /\bmelbourne\b/i, /\bbrisbane\b/i],
+  },
+];
+
+function detectContinentSlug(values: string[]): string | null {
+  const text = values.join(" ").toLowerCase();
+  for (const entry of CONTINENT_PATTERNS) {
+    if (entry.patterns.some((pattern) => pattern.test(text))) {
+      return entry.slug;
+    }
+  }
+  return null;
+}
+
+const INTEREST_TAXONOMY: Record<
+  Industry,
+  {
+    industry?: string[];
+    job_function?: string[];
+    education_field?: string[];
+  }
+> = {
+  SWE: {
+    industry: ["industry.technology.enterprise_software"],
+    job_function: ["job_function.engineering.software_engineering"],
+  },
+  Data: {
+    industry: ["industry.technology.data_infrastructure", "industry.technology.ai_ml"],
+    job_function: ["job_function.data.data_science", "job_function.data.data_engineering"],
+  },
+  PM: {
+    job_function: ["job_function.product.product_management"],
+  },
+  Design: {
+    job_function: ["job_function.design.ux_design"],
+  },
+  Hardware: {
+    industry: ["industry.industrial.semiconductor"],
+    job_function: ["job_function.engineering.hardware_engineering"],
+  },
+  MechEng: {
+    education_field: ["education_field.engineering.mechanical_engineering"],
+  },
+  CivilEng: {
+    education_field: ["education_field.engineering"],
+  },
+  ChemEng: {
+    education_field: ["education_field.natural_sciences.chemistry"],
+  },
+  AeroEng: {
+    industry: ["industry.industrial.defense_technology"],
+    education_field: ["education_field.engineering"],
+  },
+  LifeSci: {
+    industry: ["industry.healthcare_biotech.biotech"],
+    education_field: ["education_field.natural_sciences.biology"],
+  },
+  Research: {
+    industry: ["industry.research.applied_research"],
+    job_function: ["job_function.research.research_science"],
+  },
+  Healthcare: {
+    industry: ["industry.healthcare_biotech.healthcare_services"],
+  },
+  Finance: {
+    industry: ["industry.finance.fintech", "industry.finance"],
+    job_function: ["job_function.business.finance_analysis"],
+    education_field: ["education_field.business.finance"],
+  },
+  Consulting: {
+    industry: ["industry.consulting.management_consulting"],
+    job_function: ["job_function.business.strategy", "job_function.business.business_analyst"],
+  },
+  Marketing: {
+    job_function: ["job_function.business.sales"],
+    education_field: ["education_field.business.marketing"],
+  },
+  Legal: {
+    industry: ["industry.public_sector"],
+  },
+  Operations: {
+    job_function: ["job_function.operations.operations_general"],
+  },
+  Sales: {
+    job_function: ["job_function.business.sales"],
+  },
+  Policy: {
+    industry: ["industry.public_sector"],
+  },
+  Education: {
+    industry: ["industry.public_sector"],
+  },
 };
 
 const CAREER_ROLE_SLUGS: Record<JobLevel | JobRoleFamily, string[]> = {
@@ -230,8 +334,33 @@ const STATE_SLUGS: Record<string, string> = {
   "south dakota": "geo.usa.midwest.south_dakota",
   wi: "geo.usa.midwest.wisconsin",
   wisconsin: "geo.usa.midwest.wisconsin",
+  ab: "geo.canada.alberta",
+  alberta: "geo.canada.alberta",
+  bc: "geo.canada.british_columbia",
+  "british columbia": "geo.canada.british_columbia",
+  mb: "geo.canada.manitoba",
+  manitoba: "geo.canada.manitoba",
+  nb: "geo.canada.new_brunswick",
+  "new brunswick": "geo.canada.new_brunswick",
+  nl: "geo.canada.newfoundland_and_labrador",
+  "newfoundland and labrador": "geo.canada.newfoundland_and_labrador",
+  ns: "geo.canada.nova_scotia",
+  "nova scotia": "geo.canada.nova_scotia",
+  nt: "geo.canada.northwest_territories",
+  "northwest territories": "geo.canada.northwest_territories",
+  nu: "geo.canada.nunavut",
+  nunavut: "geo.canada.nunavut",
   on: "geo.canada.ontario",
   ontario: "geo.canada.ontario",
+  pe: "geo.canada.prince_edward_island",
+  pei: "geo.canada.prince_edward_island",
+  "prince edward island": "geo.canada.prince_edward_island",
+  qc: "geo.canada.quebec",
+  quebec: "geo.canada.quebec",
+  sk: "geo.canada.saskatchewan",
+  saskatchewan: "geo.canada.saskatchewan",
+  yk: "geo.canada.yukon",
+  yukon: "geo.canada.yukon",
 };
 
 const CITY_SLUGS: Record<string, string> = {
@@ -285,23 +414,38 @@ function inferGeoSlugs(values: string[], country: string, stateRegion: string): 
     [
       ...values,
       stateRegion,
-      country === "United States" ? "United States" : country,
+      country,
     ].map((value) => value.trim().toLowerCase())
   );
 
   const cityMatches = normalizedValues
     .map((value) => CITY_SLUGS[value])
-    .filter(Boolean) as string[];
+    .filter(Boolean)
+    .map((slug) => normalizeGeoPath(slug)) as string[];
   const stateMatches = normalizedValues
     .map((value) => STATE_SLUGS[value])
-    .filter(Boolean) as string[];
+    .filter(Boolean)
+    .map((slug) => normalizeGeoPath(slug)) as string[];
 
-  const countrySlug =
-    country.trim().toLowerCase() === "canada"
-      ? "geo.canada"
-      : "geo.usa";
+  const slugs = [...cityMatches, ...stateMatches];
+  if (country.trim().toLowerCase() === "canada") {
+    slugs.push("geo.north_america.canada");
+  } else if (
+    ["united states", "usa", "us", "u.s."].includes(country.trim().toLowerCase())
+  ) {
+    slugs.push("geo.north_america.usa");
+  }
 
-  return uniq([...cityMatches, ...stateMatches, countrySlug]);
+  const continentSlug = detectContinentSlug(normalizedValues);
+  if (continentSlug) {
+    slugs.push(continentSlug);
+  }
+
+  if (slugs.some((slug) => slug.startsWith("geo.north_america."))) {
+    slugs.push("geo.north_america");
+  }
+
+  return uniq(slugs);
 }
 
 function labelsFromSlugs(slugs: string[]): string[] {
@@ -316,7 +460,12 @@ function labelsFromSlugs(slugs: string[]): string[] {
 
 export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
   const workModalityAllow = modalitySelection(input.work_modality_allow, input.remote_ok);
-  const industryNodeSlugs = uniq(input.industries.flatMap((industry) => INDUSTRY_SLUGS[industry] ?? []));
+  const industryNodeSlugs = uniq(
+    input.industries.flatMap((interest) => INTEREST_TAXONOMY[interest]?.industry ?? [])
+  );
+  const jobFunctionNodeSlugs = uniq(
+    input.industries.flatMap((interest) => INTEREST_TAXONOMY[interest]?.job_function ?? [])
+  );
   const careerNodeSlugs = uniq(
     [
       ...input.levels.flatMap((level) => CAREER_ROLE_SLUGS[level] ?? []),
@@ -340,7 +489,10 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
   const geoPreferenceSlugs = inferGeoSlugs(input.locations, input.country, input.state_region);
 
   const degreeNode = inferDegreeNode(input.degree);
-  const educationFieldNodes = inferEducationFieldNodes([input.major, input.major2].filter(Boolean));
+  const educationFieldNodeSlugs = uniq([
+    ...inferEducationFieldNodes([input.major, input.major2].filter(Boolean)).map((entry) => entry.slug),
+    ...input.industries.flatMap((interest) => INTEREST_TAXONOMY[interest]?.education_field ?? []),
+  ]);
   const workAuthNodeSlugs = uniq(
     [
       ...(VISA_TO_AUTH_SLUGS[input.visa_type] ?? []),
@@ -359,12 +511,13 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
     version: "taxonomy-mvp-v1",
     work_modality_allow: workModalityAllow,
     industry_node_slugs: industryNodeSlugs,
+    job_function_node_slugs: jobFunctionNodeSlugs,
     career_node_slugs: careerNodeSlugs,
     employment_type_node_slugs: employmentTypeNodeSlugs,
     geo_preference_node_slugs: geoPreferenceSlugs,
     current_address_geo_node_slugs: currentAddressGeoSlugs,
     degree_node_slugs: degreeNode ? [degreeNode.slug] : [],
-    education_field_node_slugs: educationFieldNodes.map((entry) => entry.slug),
+    education_field_node_slugs: educationFieldNodeSlugs,
     work_auth_node_slugs: workAuthNodeSlugs,
   };
 
@@ -382,6 +535,11 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
         legacy_values: input.industries,
         node_slugs: industryNodeSlugs,
         labels: labelsFromSlugs(industryNodeSlugs),
+      },
+      job_functions: {
+        legacy_values: input.industries,
+        node_slugs: jobFunctionNodeSlugs,
+        labels: labelsFromSlugs(jobFunctionNodeSlugs),
       },
       career_roles: {
         legacy_levels: input.levels,
@@ -416,7 +574,7 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
           degree_node_slugs: degreeNode ? [degreeNode.slug] : [],
           major: input.major,
           secondary_major_or_minor: input.major2,
-          major_node_slugs: educationFieldNodes.map((entry) => entry.slug),
+          major_node_slugs: educationFieldNodeSlugs,
           gpa: input.gpa,
           graduation: input.graduation,
         },

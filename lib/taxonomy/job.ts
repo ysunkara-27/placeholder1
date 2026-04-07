@@ -134,6 +134,53 @@ function normalizeSlug(raw: string) {
     .replace(/^_+|_+$/g, "");
 }
 
+function normalizeGeoPath(slug: string) {
+  if (slug.startsWith("geo.usa")) {
+    return slug.replace(/^geo\.usa/, "geo.north_america.usa");
+  }
+  if (slug.startsWith("geo.canada")) {
+    return slug.replace(/^geo\.canada/, "geo.north_america.canada");
+  }
+  return slug;
+}
+
+const CONTINENT_PATTERNS: Array<{ slug: string; patterns: RegExp[] }> = [
+  {
+    slug: "geo.north_america",
+    patterns: [/\bnorth america\b/i, /\bunited states\b/i, /\busa\b/i, /\bu\.s\.\b/i, /\bcanada\b/i],
+  },
+  {
+    slug: "geo.south_america",
+    patterns: [/\bsouth america\b/i, /\bbrazil\b/i, /\bargentina\b/i, /\bchile\b/i, /\bcolombia\b/i, /\bperu\b/i],
+  },
+  {
+    slug: "geo.europe",
+    patterns: [/\beurope\b/i, /\bfrance\b/i, /\bgermany\b/i, /\bspain\b/i, /\bitaly\b/i, /\bnetherlands\b/i, /\bsweden\b/i, /\buk\b/i, /\bunited kingdom\b/i],
+  },
+  {
+    slug: "geo.asia",
+    patterns: [/\basia\b/i, /\bindia\b/i, /\bchina\b/i, /\bjapan\b/i, /\bsingapore\b/i, /\bkorea\b/i, /\bhong kong\b/i, /\btaiwan\b/i],
+  },
+  {
+    slug: "geo.africa",
+    patterns: [/\bafrica\b/i, /\bnigeria\b/i, /\bkenya\b/i, /\begypt\b/i, /\bsouth africa\b/i, /\bghana\b/i],
+  },
+  {
+    slug: "geo.australia",
+    patterns: [/\baustralia\b/i, /\boceania\b/i, /\bnew zealand\b/i, /\bsydney\b/i, /\bmelbourne\b/i, /\bbrisbane\b/i],
+  },
+];
+
+function detectContinentSlug(values: string[]): string | null {
+  const text = values.join(" ").toLowerCase();
+  for (const entry of CONTINENT_PATTERNS) {
+    if (entry.patterns.some((pattern) => pattern.test(text))) {
+      return entry.slug;
+    }
+  }
+  return null;
+}
+
 function companySlug(company: string) {
   return normalizeSlug(company);
 }
@@ -306,12 +353,23 @@ function geoNodeSlugs(location: string): string[] {
   for (const option of options.length > 0 ? options : [location]) {
     const text = option.toLowerCase();
     for (const [match, slug] of Object.entries(cityMap)) {
-      if (text.includes(match)) slugs.push(slug);
+      if (text.includes(match)) slugs.push(normalizeGeoPath(slug));
     }
     for (const [match, slug] of Object.entries(stateMap)) {
-      if (new RegExp(`(^|[\\s,\\-])${match}($|[\\s,])`, "i").test(text)) slugs.push(slug);
+      if (new RegExp(`(^|[\\s,\\-])${match}($|[\\s,])`, "i").test(text)) slugs.push(normalizeGeoPath(slug));
     }
-    slugs.push(text.includes("canada") ? "geo.canada" : "geo.usa");
+    if (text.includes("canada")) {
+      slugs.push("geo.north_america.canada");
+    } else if (/\bunited states\b|\busa\b|\bu\.s\.\b/.test(text)) {
+      slugs.push("geo.north_america.usa");
+    }
+  }
+  const continentSlug = detectContinentSlug(options.length > 0 ? options : [location]);
+  if (continentSlug) {
+    slugs.push(continentSlug);
+  }
+  if (slugs.some((slug) => slug.startsWith("geo.north_america."))) {
+    slugs.push("geo.north_america");
   }
   return uniq(slugs);
 }

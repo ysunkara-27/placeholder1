@@ -155,37 +155,39 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   const jobTargetYear = job.target_year ?? null;
 
   const profileIndustryNodes = ((profileTaxonomy.industries?.node_slugs ?? []) as string[]).filter(Boolean);
+  const profileJobFunctionNodes = ((profileTaxonomy.job_functions?.node_slugs ?? []) as string[]).filter(Boolean);
   const profileCareerNodes = ((profileTaxonomy.career_roles?.node_slugs ?? []) as string[]).filter(Boolean);
   const profileGeoNodes = ((profileTaxonomy.geo_preferences?.node_slugs ?? []) as string[]).filter(Boolean);
   const profileWorkModalities = ((profile.profile_work_modality_allow ?? []) as string[]).filter(Boolean);
 
   const jobIndustryNodes = ((jobTaxonomy.industry_node_slugs ?? []) as string[]).filter(Boolean);
+  const jobFunctionNodes = ((jobTaxonomy.job_function_node_slugs ?? []) as string[]).filter(Boolean);
   const jobCareerNodes = ((jobTaxonomy.career_node_slugs ?? []) as string[]).filter(Boolean);
   const jobGeoNodes = ((jobTaxonomy.geo_node_slugs ?? []) as string[]).filter(Boolean);
   const jobWorkModality = (job.work_modality ?? jobTaxonomy.work_modality ?? null) as string | null;
 
-  // 1. Industry match (40)
+  // 1. Industry match (25)
   if (profileIndustryNodes.length > 0 && jobIndustryNodes.length > 0) {
     const overlap = taxonomyOverlapScore(jobIndustryNodes, profileIndustryNodes);
     if (overlap.exact > 0) {
-      score += 40;
+      score += 25;
       reasons.push("Industry taxonomy exact match");
     } else if (overlap.branch > 0) {
-      score += 26;
+      score += 16;
       reasons.push("Industry taxonomy branch match");
     } else {
       rejections.push("Industry taxonomy mismatch");
     }
-  } else if (profileIndustries.length === 0) {
-    score += 40;
-    reasons.push("Open to all industries");
+  } else if (profileIndustryNodes.length === 0) {
+    score += 25;
+    reasons.push("No explicit industry-sector preference");
   } else if (jobIndustries.length === 0) {
-    score += 20;
+    score += 12;
     reasons.push("Job industry unspecified");
   } else {
     const overlap = profileIndustries.filter((industry) => jobIndustries.includes(industry));
     if (overlap.length > 0) {
-      score += 40;
+      score += 25;
       reasons.push(`Industry match: ${overlap.join(", ")}`);
     } else {
       rejections.push(
@@ -194,7 +196,24 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
     }
   }
 
-  // 2. Role family / level match (20)
+  // 2. Job function match (15)
+  if (profileJobFunctionNodes.length > 0 && jobFunctionNodes.length > 0) {
+    const overlap = taxonomyOverlapScore(jobFunctionNodes, profileJobFunctionNodes);
+    if (overlap.exact > 0) {
+      score += 15;
+      reasons.push("Job-function taxonomy exact match");
+    } else if (overlap.branch > 0) {
+      score += 9;
+      reasons.push("Job-function taxonomy branch match");
+    } else {
+      rejections.push("Job-function taxonomy mismatch");
+    }
+  } else {
+    score += 15;
+    reasons.push("No explicit role-function preference");
+  }
+
+  // 3. Role family / level match (20)
   if (profileCareerNodes.length > 0 && jobCareerNodes.length > 0) {
     const overlap = taxonomyOverlapScore(jobCareerNodes, profileCareerNodes);
     if (overlap.exact > 0) {
@@ -214,7 +233,7 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
     rejections.push(`Level mismatch (want: ${desired.join(", ")}, got: ${jobRoleFamily})`);
   }
 
-  // 3. Recruiting window match (10)
+  // 4. Recruiting window match (10)
   if (recruitingWindowMatches(targetTerms, targetYears, graduationYear, jobTargetTerm, jobTargetYear)) {
     score += 10;
     reasons.push(
@@ -226,7 +245,7 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
     );
   }
 
-  // 4. Location match (20)
+  // 5. Location match (20)
   if (jobWorkModality && profileWorkModalities.length > 0 && !profileWorkModalities.includes(jobWorkModality)) {
     rejections.push(`Work setup mismatch (want: ${profileWorkModalities.join(", ")}, got: ${jobWorkModality})`);
   } else if (job.remote && remoteOk) {
@@ -268,7 +287,7 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
     }
   }
 
-  // 5. Gray-area filters (10)
+  // 6. Gray-area filters (10)
   if (grayAreas) {
     let grayPass = true;
 
