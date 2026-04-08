@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import type { DashboardApplicationRecord } from "@/components/dashboard/applications-list";
+import { formatJobPortalLabel } from "@/lib/portal";
 
 interface QueuedJobsPopupProps {
   applications: DashboardApplicationRecord[];
@@ -72,7 +73,7 @@ export function QueuedJobsPopup({ applications }: QueuedJobsPopupProps) {
               </p>
               <p className="mt-0.5 truncate text-[11px] text-dim">
                 {app.job?.company ?? "—"}
-                {app.job?.portal ? ` · ${app.job.portal}` : ""}
+                {app.job?.portal ? ` · ${formatJobPortalLabel(app.job.portal)}` : ""}
               </p>
             </div>
             <StatusPill status={app.status} />

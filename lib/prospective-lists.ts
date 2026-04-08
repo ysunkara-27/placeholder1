@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseEnv } from "@/lib/env";
 import { sendSms } from "@/lib/messaging/send";
+import { formatJobLevelLabel } from "@/lib/job-levels";
 import { matchJobToProfile } from "@/lib/matching";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -236,7 +237,7 @@ export function formatProspectiveListSms(opts: {
   lines.push("");
 
   for (const it of opts.items.slice(0, 10)) {
-    const level = it.job.level.replace("_", "-");
+    const level = formatJobLevelLabel(it.job.level);
     const location = it.job.remote ? `${it.job.location} / Remote` : it.job.location;
     lines.push(`${it.rank}) ${it.job.company} — ${it.job.title}`);
     lines.push(`   ${location} | ${level}`);

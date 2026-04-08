@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatJobLevelLabel } from "@/lib/job-levels";
 import { cn } from "@/lib/utils";
 import {
   Search, ChevronLeft, ChevronRight, Pencil, Trash2,
@@ -834,7 +835,7 @@ function AllJobsTable({
                   </span>
                 </td>
                 <td className="px-3 py-3 text-gray-500 text-xs">{job.portal ?? "—"}</td>
-                <td className="px-3 py-3 text-gray-500 text-xs">{job.level}</td>
+                <td className="px-3 py-3 text-gray-500 text-xs">{formatJobLevelLabel(job.level)}</td>
                 <td className="px-3 py-3 text-gray-500 text-xs max-w-[120px] truncate">{job.location}</td>
                 <td className="px-3 py-3">
                   {job.canonical_url

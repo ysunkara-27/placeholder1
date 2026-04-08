@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeJobLevel } from "@/lib/job-levels";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/env";
 import type { Database } from "@/lib/supabase/database.types";
@@ -60,6 +61,16 @@ export async function PATCH(
   const update: Record<string, unknown> = {};
   for (const key of EDITABLE) {
     if (key in body) update[key] = body[key];
+  }
+
+  if ("level" in update) {
+    const normalizedLevel = normalizeJobLevel(
+      typeof update.level === "string" ? update.level : null
+    );
+    if (!normalizedLevel) {
+      return NextResponse.json({ error: "Invalid level" }, { status: 400 });
+    }
+    update.level = normalizedLevel;
   }
 
   if (Object.keys(update).length === 0) {

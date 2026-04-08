@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink } from "lucide-react";
+import { formatJobLevelLabel } from "@/lib/job-levels";
+import { formatJobPortalLabel } from "@/lib/portal";
 import {
   APPLY_LAB_BROWSER_JOBS_KEY,
   HIDDEN_BROWSE_JOB_IDS_KEY,
@@ -479,9 +481,9 @@ export default function JobsPage() {
                           {job.remote && (
                             <span className="rounded-full bg-accent-wash text-accent border border-accent/20 px-2 py-0.5 text-[10px] font-medium">Remote</span>
                           )}
-                          <span className="rounded-full bg-surface text-dim border border-rim px-2 py-0.5 text-[10px] font-medium">{job.level}</span>
+                          <span className="rounded-full bg-surface text-dim border border-rim px-2 py-0.5 text-[10px] font-medium">{formatJobLevelLabel(job.level)}</span>
                           {job.portal && (
-                            <span className="rounded-full bg-surface text-dim border border-rim px-2 py-0.5 text-[10px] font-medium">{job.portal}</span>
+                            <span className="rounded-full bg-surface text-dim border border-rim px-2 py-0.5 text-[10px] font-medium">{formatJobPortalLabel(job.portal)}</span>
                           )}
                         </div>
                         {job.jd_summary && (

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatJobLevelLabel } from "@/lib/job-levels";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendSms } from "@/lib/messaging/send";
 
@@ -18,7 +19,7 @@ function expiresAtIso() {
 }
 
 export function formatAlertMessage(job: JobRow): string {
-  const level = job.level.replace("_", "-");
+  const level = formatJobLevelLabel(job.level);
   const location = job.remote ? `${job.location} / Remote` : job.location;
 
   return [

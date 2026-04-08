@@ -11,6 +11,8 @@ import {
   type LiveApplication,
 } from "@/components/dashboard/live-application-panel";
 import { QueuedJobsPopup } from "@/components/dashboard/queued-jobs-popup";
+import { formatJobLevelLabel } from "@/lib/job-levels";
+import { formatJobPortalLabel } from "@/lib/portal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   mapProfileRowToPersistedProfile,
@@ -541,10 +543,10 @@ export default function DashboardPage() {
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-dim">
                       {application.job?.location && <span>{application.job.location}</span>}
                       {application.job?.remote && <span>Remote</span>}
-                      {application.job?.level && <span className="capitalize">{application.job.level}</span>}
+                      {application.job?.level && <span>{formatJobLevelLabel(application.job.level)}</span>}
                       {application.job?.portal && (
-                        <span className="rounded bg-surface px-1.5 py-0.5 font-medium uppercase tracking-wide text-dim">
-                          {application.job.portal}
+                        <span className="rounded bg-surface px-1.5 py-0.5 font-medium tracking-wide text-dim">
+                          {formatJobPortalLabel(application.job.portal)}
                         </span>
                       )}
                       <span>{formatDate(application.completed_at ?? application.updated_at)}</span>

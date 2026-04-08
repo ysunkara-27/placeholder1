@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeJobIndustries } from "@/lib/job-industries";
+import { normalizeJobLevel, normalizeJobLevelOrDefault } from "@/lib/job-levels";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { matchJobToProfile } from "@/lib/matching";
 import type { Database } from "@/lib/supabase/database.types";
@@ -18,6 +19,15 @@ export interface JobWithMatch extends JobRow {
   };
   application_status: string | null;
   display_location: string;
+}
+
+function parseRequestedLevels(levelsParam: string) {
+  return [...new Set(
+    levelsParam
+      .split(",")
+      .map((value) => normalizeJobLevel(value))
+      .filter((value): value is NonNullable<ReturnType<typeof normalizeJobLevel>> => Boolean(value))
+  )];
 }
 
 export async function GET(request: NextRequest) {
@@ -48,6 +58,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "30", 10), 100);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
+    const requestedLevels = parseRequestedLevels(levelsParam);
+
     // Build query
     let query = supabase
       .from("jobs")
@@ -64,13 +76,6 @@ export async function GET(request: NextRequest) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-
-    if (levelsParam) {
-      const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
-      if (levels.length > 0) {
-        query = query.in("level", levels);
-      }
-    }
 
     if (remoteParam === "true") {
       query = query.eq("remote", true);
@@ -90,12 +95,6 @@ export async function GET(request: NextRequest) {
     if (search) {
       countQuery = countQuery.or(`company.ilike.%${search}%,title.ilike.%${search}%`);
     }
-    if (levelsParam) {
-      const levels = levelsParam.split(",").map((s) => s.trim()).filter(Boolean);
-      if (levels.length > 0) {
-        countQuery = countQuery.in("level", levels);
-      }
-    }
     if (remoteParam === "true") {
       countQuery = countQuery.eq("remote", true);
     }
@@ -104,16 +103,21 @@ export async function GET(request: NextRequest) {
     }
 
     const shouldFilterIndustriesInMemory = requestedIndustries.length > 0;
+    const shouldFilterLevelsInMemory = requestedLevels.length > 0;
     const shouldRankInMemory = Boolean(profileRow);
+    const shouldPageInMemory =
+      shouldFilterIndustriesInMemory || shouldFilterLevelsInMemory || shouldRankInMemory;
     const candidateWindow = Math.min(Math.max(limit * 5, 120), 300);
-    const queryWindowEnd = shouldRankInMemory
+    const queryWindowEnd = shouldPageInMemory
       ? Math.max(offset + candidateWindow - 1, limit - 1)
       : offset + limit - 1;
     const [jobsResponse, countResponse] = await Promise.all([
-      shouldFilterIndustriesInMemory || shouldRankInMemory
+      shouldPageInMemory
         ? query.range(0, queryWindowEnd)
         : query.range(offset, offset + limit - 1),
-      shouldFilterIndustriesInMemory ? Promise.resolve({ count: null }) : countQuery,
+      shouldFilterIndustriesInMemory || shouldFilterLevelsInMemory
+        ? Promise.resolve({ count: null })
+        : countQuery,
     ]);
 
     if (jobsResponse.error) throw jobsResponse.error;
@@ -121,20 +125,27 @@ export async function GET(request: NextRequest) {
     const rawJobs = (jobsResponse.data ?? []) as JobRow[];
     const normalizedJobs = rawJobs.map((job) => ({
       ...job,
+      level: normalizeJobLevelOrDefault(job.level),
       industries: normalizeJobIndustries(job.industries, job.title, job.jd_summary ?? ""),
     }));
 
-    const filteredJobs =
-      requestedIndustries.length > 0
-        ? normalizedJobs.filter((job) =>
-            job.industries.some((industry) => requestedIndustries.includes(industry))
-          )
+    const levelFilteredJobs =
+      requestedLevels.length > 0
+        ? normalizedJobs.filter((job) => requestedLevels.includes(job.level))
         : normalizedJobs;
 
-    const prePagedJobs = shouldFilterIndustriesInMemory || shouldRankInMemory
+    const filteredJobs =
+      requestedIndustries.length > 0
+        ? levelFilteredJobs.filter((job) =>
+            job.industries.some((industry) => requestedIndustries.includes(industry))
+          )
+        : levelFilteredJobs;
+
+    const prePagedJobs = shouldPageInMemory
       ? filteredJobs
       : filteredJobs;
     const total = shouldFilterIndustriesInMemory
+      || shouldFilterLevelsInMemory
       ? filteredJobs.length
       : countResponse.count ?? 0;
     const jobIds = prePagedJobs.map((job) => job.id);
@@ -176,7 +187,7 @@ export async function GET(request: NextRequest) {
       return b.match.score - a.match.score;
     });
 
-    const pagedJobs = shouldFilterIndustriesInMemory || shouldRankInMemory
+    const pagedJobs = shouldPageInMemory
       ? jobsWithMatch.slice(offset, offset + limit)
       : jobsWithMatch;
 

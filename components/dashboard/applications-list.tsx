@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Save, ShieldCheck } from "lucide-react";
+import { formatJobLevelLabel } from "@/lib/job-levels";
+import { formatJobPortalLabel } from "@/lib/portal";
 import { formatPostedAt, cn } from "@/lib/utils";
 import { buildUrlApplyReadinessSummary } from "@/lib/platform/apply-readiness";
 
@@ -587,8 +589,8 @@ export function ApplicationsList({ applications }: Props) {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <InfoCard label="Portal" value={selectedApplication.job.portal ?? "Unknown"} />
-              <InfoCard label="Level" value={selectedApplication.job.level} />
+              <InfoCard label="Portal" value={selectedApplication.job.portal ? formatJobPortalLabel(selectedApplication.job.portal) : "Unknown"} />
+              <InfoCard label="Level" value={formatJobLevelLabel(selectedApplication.job.level)} />
               <InfoCard label="Queued" value={new Date(selectedApplication.queued_at).toLocaleString()} />
               <InfoCard label="Last update" value={new Date(selectedApplication.updated_at).toLocaleString()} />
             </div>

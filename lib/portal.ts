@@ -93,3 +93,18 @@ export function detectJobPortalFromUrl(url: string): JobPortalKind {
 
   return "other";
 }
+
+export function formatJobPortalLabel(value: string | null | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "greenhouse") return "Greenhouse";
+  if (normalized === "lever") return "Lever";
+  if (normalized === "workday") return "Workday";
+  if (normalized === "handshake") return "Handshake";
+  if (normalized === "linkedin") return "LinkedIn";
+  if (normalized === "indeed") return "Indeed";
+  if (normalized === "icims") return "iCIMS";
+  if (normalized === "smartrecruiters") return "SmartRecruiters";
+  if (normalized === "company_website") return "Company Website";
+  return "Other";
+}

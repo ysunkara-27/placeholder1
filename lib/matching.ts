@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/supabase/database.types";
+import { normalizeJobLevelOrDefault } from "@/lib/job-levels";
 import type {
   GrayAreaSuggestion,
   Industry,
@@ -66,7 +67,8 @@ function normalizeRoleFamily(job: JobRow): JobRoleFamily {
     return raw;
   }
 
-  return (job.level as JobRoleFamily) ?? "internship";
+  const normalizedLevel = normalizeJobLevelOrDefault(job.level);
+  return normalizedLevel as JobRoleFamily;
 }
 
 function normalizeTargetTerm(job: JobRow): TargetTerm | null {
@@ -149,7 +151,7 @@ export function matchJobToProfile(job: JobRow, profile: ProfileRow): MatchResult
   const graduationYear = profile.graduation_year ?? null;
 
   const jobIndustries = (job.industries ?? []) as string[];
-  const jobLevel = job.level as JobLevel;
+  const jobLevel = normalizeJobLevelOrDefault(job.level);
   const jobRoleFamily = normalizeRoleFamily(job);
   const jobTargetTerm = normalizeTargetTerm(job);
   const jobTargetYear = job.target_year ?? null;

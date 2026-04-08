@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { Suspense } from "react";
+import { formatJobLevelLabel } from "@/lib/job-levels";
+import { formatJobPortalLabel } from "@/lib/portal";
 
 interface AppliedApplication {
   id: string;
@@ -109,10 +111,10 @@ function AppliedPageContent() {
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-dim">
                     {app.job?.location && <span>{app.job.location}</span>}
                     {app.job?.remote && <span>Remote</span>}
-                    {app.job?.level && <span className="capitalize">{app.job.level}</span>}
+                    {app.job?.level && <span>{formatJobLevelLabel(app.job.level)}</span>}
                     {app.job?.portal && (
-                      <span className="rounded bg-surface px-1.5 py-0.5 text-dim uppercase tracking-wide font-medium">
-                        {app.job.portal}
+                      <span className="rounded bg-surface px-1.5 py-0.5 text-dim tracking-wide font-medium">
+                        {formatJobPortalLabel(app.job.portal)}
                       </span>
                     )}
                     <span>{formatDate(app.completed_at ?? app.updated_at)}</span>
