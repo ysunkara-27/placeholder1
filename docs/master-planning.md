@@ -1,6 +1,6 @@
 # Twin Master Planning Document
 
-Last updated: 2026-03-30
+Last updated: 2026-04-08
 
 This document is the source of truth for building `Twin` into a fully functional product.
 
@@ -33,6 +33,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 
 - Next.js frontend with landing, onboarding, resume flow, dashboard, and internal apply lab
 - Supabase-backed onboarding/profile persistence
+- Onboarding/profile location preferences now use a hierarchical geo-node selector and persist canonical geo node slugs through the taxonomy profile payload
 - Supabase-backed apply run audit trail
 - Apply engine service scaffold in Python with FastAPI endpoints
 - Portal detector for Greenhouse, Lever, Workday, Handshake, and fallback vision classification
@@ -68,6 +69,7 @@ As of this update, the repo already has meaningful platform scaffolding.
 - Profile targeting is still too coarse to express `Spring 2027 Internship` vs `Summer 2027 Internship` vs `New Grad 2027` vs `Associate`
 - A concrete taxonomy-based normalization spec now exists in `docs/job-matching-standardization-plan.md`, but the schema, resolvers, and profile/job persistence model are not implemented yet
 - Onboarding/profile flows now write taxonomy-oriented profile JSON payloads for match preferences and application facts, but job-side taxonomy resolution and DB rollout are still pending
+- The profile geo selector is now tree-based in the app, but it is still backed by a curated code-side node set rather than a live taxonomy-driven query from `taxonomy_nodes`
 - Job ingest and matching code now have a first deterministic taxonomy layer in code, but the Supabase project still needs the new taxonomy migrations applied before those writes are production-real
 
 ### Immediate Production Priorities

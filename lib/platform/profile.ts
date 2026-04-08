@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { clampText, MAX_COVER_LETTER_CHARS } from "@/lib/upload-limits";
+import { normalizeStoredLocationSelection } from "@/lib/profile-geo";
 import {
   buildProfileTaxonomy,
   hydrateProfileTaxonomy,
@@ -58,6 +59,25 @@ export interface PersistedProfile {
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type { ProfileRow };
+
+function hydrateStoredLocationSelections(row: ProfileRow): string[] {
+  const matchPreferences = ((row as any).profile_match_preferences ?? {}) as Record<string, any>;
+  const nodeSlugs = ((matchPreferences.geo_preferences?.node_slugs ?? []) as string[])
+    .map((value) => normalizeStoredLocationSelection(value) ?? "")
+    .filter(Boolean);
+
+  if (nodeSlugs.length > 0) {
+    return Array.from(new Set(nodeSlugs));
+  }
+
+  return Array.from(
+    new Set(
+      (row.locations ?? [])
+        .map((value) => normalizeStoredLocationSelection(value) ?? value)
+        .filter(Boolean)
+    )
+  );
+}
 
 function inferGraduationYear(graduation: string, fallback: number | null): number | null {
   if (typeof fallback === "number") {
@@ -113,7 +133,7 @@ export function mapProfileRowToPersistedProfile(row: ProfileRow): PersistedProfi
     earliest_start_date: row.earliest_start_date ?? "",
     industries: row.industries as Industry[],
     levels: row.levels as JobLevel[],
-    locations: row.locations,
+    locations: hydrateStoredLocationSelections(row),
     remote_ok: row.remote_ok,
     gray_areas: (row.gray_areas as GrayAreaSuggestion | null) ?? null,
     eeo: (row.eeo as EEOData | null) ?? null,

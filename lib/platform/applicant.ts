@@ -1,4 +1,5 @@
 import type { PersistedProfile } from "@/lib/platform/profile";
+import { getGeoSearchTerms } from "@/lib/profile-geo";
 import type { Database } from "@/lib/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -97,7 +98,9 @@ function rankJobLocations(profile: PersistedProfile, job: JobRow | null | undefi
     ...((job?.locations_text ?? []) as string[]),
     ...splitLocationOptions(job?.location),
   ]);
-  const profileLocationPreferences = uniq(profile.locations ?? []);
+  const profileLocationPreferences = uniq(
+    (profile.locations ?? []).flatMap((location) => getGeoSearchTerms(location))
+  );
   const rankedMatches = jobLocationOptions
     .map((jobLocation) => ({
       jobLocation,

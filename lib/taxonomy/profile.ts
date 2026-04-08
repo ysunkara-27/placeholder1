@@ -6,6 +6,10 @@ import type {
   TargetTerm,
   WorkModality,
 } from "@/lib/types";
+import {
+  getGeoPathLabel,
+  normalizeStoredLocationSelection,
+} from "@/lib/profile-geo";
 
 export interface ProfileTaxonomyInput {
   city: string;
@@ -410,6 +414,12 @@ function inferEducationFieldNodes(values: string[]): Array<{ slug: string; label
 }
 
 function inferGeoSlugs(values: string[], country: string, stateRegion: string): string[] {
+  const directSlugs = uniq(
+    values
+      .map((value) => normalizeStoredLocationSelection(value) ?? "")
+      .filter(Boolean)
+      .map((slug) => normalizeGeoPath(slug))
+  );
   const normalizedValues = uniq(
     [
       ...values,
@@ -427,7 +437,7 @@ function inferGeoSlugs(values: string[], country: string, stateRegion: string): 
     .filter(Boolean)
     .map((slug) => normalizeGeoPath(slug)) as string[];
 
-  const slugs = [...cityMatches, ...stateMatches];
+  const slugs = [...directSlugs, ...cityMatches, ...stateMatches];
   if (country.trim().toLowerCase() === "canada") {
     slugs.push("geo.north_america.canada");
   } else if (
@@ -450,15 +460,22 @@ function inferGeoSlugs(values: string[], country: string, stateRegion: string): 
 
 function labelsFromSlugs(slugs: string[]): string[] {
   return slugs.map((slug) =>
-    slug
-      .split(".")
-      .slice(1)
-      .map((part) => part.replace(/_/g, " "))
-      .join(" > ")
+    slug.startsWith("geo.")
+      ? getGeoPathLabel(slug)
+      : slug
+          .split(".")
+          .slice(1)
+          .map((part) => part.replace(/_/g, " "))
+          .join(" > ")
   );
 }
 
 export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
+  const normalizedLocationSelections = uniq(
+    input.locations
+      .map((value) => normalizeStoredLocationSelection(value) ?? value.trim())
+      .filter(Boolean)
+  );
   const workModalityAllow = modalitySelection(input.work_modality_allow, input.remote_ok);
   const industryNodeSlugs = uniq(
     input.industries.flatMap((interest) => INTEREST_TAXONOMY[interest]?.industry ?? [])
@@ -486,7 +503,11 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
       return "employment_type.permanent.full_time";
     })
   );
-  const geoPreferenceSlugs = inferGeoSlugs(input.locations, input.country, input.state_region);
+  const geoPreferenceSlugs = inferGeoSlugs(
+    normalizedLocationSelections,
+    input.country,
+    input.state_region
+  );
 
   const degreeNode = inferDegreeNode(input.degree);
   const educationFieldNodeSlugs = uniq([
@@ -527,7 +548,7 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
       work_modality_allow: workModalityAllow,
       open_to_relocate: Boolean(input.open_to_relocate),
       geo_preferences: {
-        raw_locations: input.locations,
+        raw_locations: normalizedLocationSelections,
         node_slugs: geoPreferenceSlugs,
         labels: labelsFromSlugs(geoPreferenceSlugs),
       },
@@ -565,7 +586,7 @@ export function buildProfileTaxonomy(input: ProfileTaxonomyInput) {
       },
       relocation_preferences: {
         open_to_relocate: Boolean(input.open_to_relocate),
-        desired_locations: input.locations,
+        desired_locations: normalizedLocationSelections,
       },
       education_records: [
         {

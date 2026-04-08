@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   INDUSTRY_OPTIONS,
@@ -8,58 +8,18 @@ import {
   TARGET_TERM_OPTIONS,
   cn,
 } from "@/lib/utils";
+import {
+  getGeoLeafLabel,
+  getGeoNode,
+  getGeoNodeChildren,
+  getGeoNodePath,
+  getGeoPathLabel,
+  getGeoRootNodes,
+  isGeoAncestorSelection,
+  normalizeStoredLocationSelection,
+} from "@/lib/profile-geo";
 import type { Industry, JobLevel, TargetTerm, WorkModality } from "@/lib/types";
-import { CheckCircle2, MapPin, Wifi, X } from "lucide-react";
-
-const LOCATION_REGIONS = [
-  {
-    label: "United States",
-    cities: [
-      "New York City",
-      "San Francisco",
-      "Chicago",
-      "Los Angeles",
-      "Boston",
-      "Seattle",
-      "Washington DC",
-      "Austin",
-      "Miami",
-      "Denver",
-      "Atlanta",
-      "Philadelphia",
-    ],
-  },
-  {
-    label: "Europe",
-    cities: [
-      "London",
-      "Berlin",
-      "Amsterdam",
-      "Paris",
-      "Dublin",
-      "Zurich",
-      "Stockholm",
-      "Barcelona",
-      "Munich",
-    ],
-  },
-  {
-    label: "Asia Pacific",
-    cities: [
-      "Singapore",
-      "Tokyo",
-      "Seoul",
-      "Hong Kong",
-      "Sydney",
-      "Bangalore",
-      "Shanghai",
-    ],
-  },
-  {
-    label: "Canada",
-    cities: ["Toronto", "Vancouver", "Montreal", "Calgary"],
-  },
-] as const;
+import { CheckCircle2, ChevronRight, MapPin, Wifi, X } from "lucide-react";
 
 interface Props {
   industries: Industry[];
@@ -84,6 +44,10 @@ interface Props {
   ) => void;
 }
 
+function uniq(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
 export function StepPreferences({
   industries,
   levels,
@@ -95,23 +59,45 @@ export function StepPreferences({
   openToRelocate,
   onChange,
 }: Props) {
-  const [cityInput, setCityInput] = useState("");
   const [yearInput, setYearInput] = useState("");
+  const [activeGeoSlug, setActiveGeoSlug] = useState<string | null>(null);
 
-  // ── Location helpers ──────────────────────────────────────────────────────
-  function toggleLocation(city: string) {
-    if (locations.includes(city)) {
-      onChange({ locations: locations.filter((l) => l !== city) });
-    } else {
-      onChange({ locations: [...locations, city] });
+  const normalizedLocations = useMemo(
+    () =>
+      uniq(
+        locations
+          .map((value) => normalizeStoredLocationSelection(value) ?? value.trim())
+          .filter(Boolean)
+      ),
+    [locations]
+  );
+  const activeGeoPath = activeGeoSlug ? getGeoNodePath(activeGeoSlug) : [];
+  const activeGeoChildren = getGeoNodeChildren(activeGeoSlug);
+  const activeGeoNode = activeGeoSlug ? getGeoNode(activeGeoSlug) : null;
+
+  function replaceLocations(nextLocations: string[]) {
+    onChange({ locations: uniq(nextLocations) });
+  }
+
+  function removeLocation(slug: string) {
+    replaceLocations(normalizedLocations.filter((value) => value !== slug));
+  }
+
+  function addLocationSelection(slug: string) {
+    const next = normalizedLocations
+      .filter((existing) => !isGeoAncestorSelection(existing, slug))
+      .filter((existing) => !isGeoAncestorSelection(slug, existing));
+    replaceLocations([...next, slug]);
+    setActiveGeoSlug(null);
+  }
+
+  function chooseGeoNode(slug: string) {
+    setActiveGeoSlug(slug);
+    if ((getGeoNodeChildren(slug) ?? []).length === 0) {
+      addLocationSelection(slug);
     }
   }
-  function addCustomLocation(city: string) {
-    const t = city.trim();
-    if (!t || locations.includes(t)) return;
-    onChange({ locations: [...locations, t] });
-    setCityInput("");
-  }
+
   function toggleWorkModality(value: WorkModality) {
     onChange({
       work_modality_allow: workModalityAllow.includes(value)
@@ -120,7 +106,6 @@ export function StepPreferences({
     });
   }
 
-  // ── Toggle helpers ────────────────────────────────────────────────────────
   function toggleIndustry(v: Industry) {
     onChange({
       industries: industries.includes(v)
@@ -128,6 +113,7 @@ export function StepPreferences({
         : [...industries, v],
     });
   }
+
   function toggleLevel(v: JobLevel) {
     onChange({
       levels: levels.includes(v)
@@ -135,6 +121,7 @@ export function StepPreferences({
         : [...levels, v],
     });
   }
+
   function toggleTargetTerm(v: TargetTerm) {
     onChange({
       target_terms: targetTerms.includes(v)
@@ -142,6 +129,7 @@ export function StepPreferences({
         : [...targetTerms, v],
     });
   }
+
   function addTargetYear(raw: string) {
     const year = Number(raw.trim());
     if (
@@ -156,6 +144,7 @@ export function StepPreferences({
     onChange({ target_years: [...targetYears, year].sort() });
     setYearInput("");
   }
+
   function removeTargetYear(year: number) {
     onChange({ target_years: targetYears.filter((v) => v !== year) });
   }
@@ -171,7 +160,6 @@ export function StepPreferences({
         </p>
       </div>
 
-      {/* Industries */}
       <SubSection label="Industries">
         <div className="flex flex-wrap gap-2">
           {INDUSTRY_OPTIONS.map(({ value, label }) => (
@@ -187,7 +175,6 @@ export function StepPreferences({
         </div>
       </SubSection>
 
-      {/* Role type */}
       <SubSection label="Role type">
         <div className="grid grid-cols-2 gap-2">
           {LEVEL_OPTIONS.map(({ value, label, description }) => {
@@ -306,7 +293,6 @@ export function StepPreferences({
         </div>
       </SubSection>
 
-      {/* Timing */}
       <SubSection label="Timing">
         <div className="space-y-4">
           <div>
@@ -367,22 +353,20 @@ export function StepPreferences({
         </div>
       </SubSection>
 
-      {/* Locations */}
       <SubSection label="Where">
         <div className="space-y-4">
-          {/* Selected chips */}
-          {locations.length > 0 && (
+          {normalizedLocations.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {locations.map((city) => (
+              {normalizedLocations.map((slug) => (
                 <span
-                  key={city}
+                  key={slug}
                   className="inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-sm font-medium text-white shadow-warm"
                 >
                   <MapPin className="w-3 h-3 opacity-70" />
-                  {city}
+                  {getGeoPathLabel(slug)}
                   <button
-                    onClick={() => toggleLocation(city)}
-                    aria-label={`Remove ${city}`}
+                    onClick={() => removeLocation(slug)}
+                    aria-label={`Remove ${getGeoLeafLabel(slug)}`}
                     className="ml-0.5 hover:opacity-70 transition-opacity"
                   >
                     <X className="w-3 h-3" />
@@ -392,47 +376,109 @@ export function StepPreferences({
             </div>
           )}
 
-          {/* Regional presets */}
-          <div className="space-y-3">
-            {LOCATION_REGIONS.map((region) => (
-              <div key={region.label}>
-                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-dim">
-                  {region.label}
+          <div className="rounded-2xl border border-rim bg-white p-4 shadow-soft-card">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-ink">
+                  Build location preferences by area
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {region.cities.map((city) => (
-                    <Badge
-                      key={city}
-                      size="sm"
-                      selected={locations.includes(city)}
-                      onClick={() => toggleLocation(city)}
-                    >
-                      {city}
-                    </Badge>
-                  ))}
+                <p className="text-xs leading-5 text-dim">
+                  Start broad, then drill down. Save a continent, country, state, or city node.
+                </p>
+              </div>
+              {activeGeoSlug && (
+                <button
+                  type="button"
+                  onClick={() => setActiveGeoSlug(null)}
+                  className="text-xs font-medium text-dim transition-colors hover:text-ink"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(activeGeoPath.length > 0 ? activeGeoPath : getGeoRootNodes()).map((node, index) => {
+                const isBreadcrumb = activeGeoPath.length > 0;
+                return (
+                  <button
+                    key={node.slug}
+                    type="button"
+                    onClick={() => setActiveGeoSlug(node.slug)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                      isBreadcrumb && index === activeGeoPath.length - 1
+                        ? "border-accent bg-accent-wash text-accent"
+                        : "border-rim bg-surface text-dim hover:border-accent/30 hover:text-ink"
+                    )}
+                  >
+                    {node.label}
+                    {isBreadcrumb && index < activeGeoPath.length - 1 && (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeGeoNode && (
+              <div className="mt-4 rounded-xl border border-accent/15 bg-accent-wash/60 p-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      {getGeoPathLabel(activeGeoNode.slug)}
+                    </p>
+                    <p className="text-xs text-dim">
+                      Save this node now or keep narrowing below.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addLocationSelection(activeGeoNode.slug)}
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Add this area
+                  </button>
                 </div>
               </div>
-            ))}
+            )}
+
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-dim">
+                {activeGeoNode ? `Narrow within ${activeGeoNode.label}` : "Start with a region"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {activeGeoChildren.length > 0
+                  ? activeGeoChildren.map((node) => (
+                      <Badge
+                        key={node.slug}
+                        size="md"
+                        selected={normalizedLocations.includes(node.slug)}
+                        onClick={() => chooseGeoNode(node.slug)}
+                      >
+                        {node.label}
+                      </Badge>
+                    ))
+                  : !activeGeoNode
+                    ? getGeoRootNodes().map((node) => (
+                        <Badge
+                          key={node.slug}
+                          size="md"
+                          selected={normalizedLocations.includes(node.slug)}
+                          onClick={() => chooseGeoNode(node.slug)}
+                        >
+                          {node.label}
+                        </Badge>
+                      ))
+                    : (
+                      <p className="text-sm text-dim">
+                        No narrower nodes under this selection.
+                      </p>
+                    )}
+              </div>
+            </div>
           </div>
 
-          {/* Custom city input */}
-          <div className="flex gap-2">
-            <input
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  addCustomLocation(cityInput);
-                }
-              }}
-              onBlur={() => addCustomLocation(cityInput)}
-              placeholder="Add another city..."
-              className="flex-1 rounded-xl border border-rim bg-white px-3 py-2 text-sm text-ink placeholder:text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-colors shadow-soft-card"
-            />
-          </div>
-
-          {/* Remote toggle */}
           <button
             onClick={() => onChange({ remote_ok: !remoteOk })}
             className={cn(
@@ -477,8 +523,6 @@ export function StepPreferences({
     </div>
   );
 }
-
-// ── Sub-section wrapper ───────────────────────────────────────────────────────
 
 function SubSection({
   label,

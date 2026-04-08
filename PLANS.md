@@ -1,6 +1,6 @@
 # Twin MVP Plan
 
-Last updated: 2026-04-05
+Last updated: 2026-04-08
 
 This file is the active execution plan for getting `Twin` from its current partial state to a working MVP.
 
@@ -22,6 +22,34 @@ Verified in this repo:
   - `npm run test:apply-engine`
   - `python3 -m py_compile $(find apply_engine -name '*.py')`
   - `npm run build`
+
+## Session Handoff — 2026-04-08 (Profile Geo Tree Selector)
+
+Finished:
+
+- replaced the flat city badge picker in `components/onboarding/step-preferences.tsx` with a cascading geo-tree selector that narrows choices by node depth and resets/collapses after each saved selection
+- added `lib/profile-geo.ts` as the shared source for geo node labels, aliases, parent/child relationships, and canonical slug normalization
+- updated profile hydration and save paths so location preferences now prefer canonical geo node slugs from taxonomy payloads instead of legacy free-text city strings
+- updated applicant-side location ranking so stored geo selections still expand into human-readable search terms for portal autofill and location preference ranking
+- kept backward compatibility for existing profiles by normalizing previously saved free-text locations into the new geo-node model when possible
+- verified:
+  - `python3 -m py_compile $(find apply_engine -name '*.py')`
+  - `npm run build`
+
+Still blocked:
+
+- `npm run test:apply-engine` is still blocked locally because the script expects `./.venv/bin/python`, which does not exist in this workspace
+- the geo tree currently covers the main saved/profile preference markets in code, but it is still a curated selector set rather than a full taxonomy-backed UI sourced directly from `taxonomy_nodes`
+
+Exact next step:
+
+- live-test onboarding and `/profile` editing with an existing profile plus a fresh onboarding flow, then decide whether to expand the geo tree from the seeded taxonomy table instead of the current curated node set
+
+Exact verification run:
+
+- `npm run test:apply-engine` (blocked: `./.venv/bin/python` missing)
+- `python3 -m py_compile $(find apply_engine -name '*.py')`
+- `npm run build`
 
 ## Session Handoff — 2026-04-05
 
